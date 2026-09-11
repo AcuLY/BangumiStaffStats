@@ -132,7 +132,6 @@ describe('rankings native-fetch driver', () => {
 
     const response = await driver.execute({
       query: fixture.request.query as never,
-      refreshCollection: false,
       signal: controller.signal,
       transactionId: 'rankings-local-7',
       view: fixture.request.view,
@@ -153,7 +152,6 @@ describe('rankings native-fetch driver', () => {
     ) as Record<string, unknown>;
     expect(body).toEqual({
       query: fixture.request.query,
-      refreshCollection: false,
       view: fixture.request.view,
     });
   });
@@ -169,6 +167,13 @@ describe('rankings native-fetch driver', () => {
     expect(accepted.message).not.toContain('backend display text');
     expect(Object.isFrozen(accepted.fieldErrors)).toBe(true);
     expect(Object.isFrozen(accepted.fieldErrors['/view/sort'])).toBe(true);
+    expect(
+      decodeRankingsApiError(errorEnvelope('UPSTREAM_TIMEOUT'), 504).message,
+    ).toBe('人物排行查询超时，请重试');
+    expect(
+      decodeRankingsApiError(errorEnvelope('UPSTREAM_UNAVAILABLE'), 503)
+        .message,
+    ).toBe('收藏数据暂时不可用，请稍后重试');
 
     expect(() =>
       decodeRankingsApiError(errorEnvelope('INTERNAL_ERROR'), 400),
@@ -197,7 +202,6 @@ describe('rankings native-fetch driver', () => {
           subjectType: 'anime',
           positionKeys: ['staff:anime:2'],
         },
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'rankings-local-error',
         view: {
@@ -228,7 +232,6 @@ describe('rankings native-fetch driver', () => {
     await expect(
       driver.execute({
         query: fixture.request.query as never,
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'rankings-projection-mismatch',
         view: {

@@ -27,9 +27,8 @@ const (
 var errInvalidCommandArguments = errors.New(invalidCommandArgumentsMessage)
 
 type commandOptions struct {
-	archiveRoot      string
-	listenAddress    string
-	updateStatusPath string
+	archiveRoot   string
+	listenAddress string
 }
 
 type singleStringFlag struct {
@@ -67,11 +66,6 @@ func parseCommandOptions(arguments []string) (commandOptions, error) {
 		&singleStringFlag{name: "listen-address", value: &options.listenAddress},
 		"listen-address",
 		"loopback or unspecified IP literal and nonzero port",
-	)
-	flags.Var(
-		&singleStringFlag{name: "update-status", value: &options.updateStatusPath},
-		"update-status",
-		"optional absolute read-only update-status.json path",
 	)
 	if err := flags.Parse(arguments); err != nil {
 		return commandOptions{}, errInvalidCommandArguments
@@ -116,11 +110,13 @@ func validateListenAddress(address string) error {
 }
 
 func runOptions(
-	updateStatusPath string,
+	archiveRoot string,
 	imageHTTPSProxy string,
 	imageHTTPSProxyPresent bool,
 ) app.RunOptions {
-	options := app.RunOptions{UpdateStatusPath: updateStatusPath}
+	options := app.RunOptions{
+		ArchiveUpdater: app.NewEmbeddedArchiveUpdater(archiveRoot),
+	}
 	if imageHTTPSProxyPresent {
 		options.ImageHTTPSProxy = &imageHTTPSProxy
 	}
@@ -145,7 +141,7 @@ func main() {
 		options.listenAddress,
 		options.archiveRoot,
 		runOptions(
-			options.updateStatusPath,
+			options.archiveRoot,
 			imageHTTPSProxy,
 			imageHTTPSProxyPresent,
 		),

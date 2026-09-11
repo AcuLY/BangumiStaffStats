@@ -2,7 +2,8 @@ import type { CandidatePayload } from '../../api/adapters/candidates';
 import type { CandidatesViewState } from '../query/coordinator';
 
 export interface CandidateInput {
-  readonly positionKey: string;
+  readonly positionScope?: 'query' | 'all';
+  readonly positionKey: string | null;
 }
 
 export type CandidateOrder = CandidatesViewState['order'];
@@ -89,6 +90,6 @@ export function updateCandidateView(
   });
 }
 
-export function candidateInput(positionKey: string): Readonly<CandidateInput> {
+export function candidateInput(positionKey: string | null): Readonly<CandidateInput> {
   return Object.freeze({ positionKey });
 }

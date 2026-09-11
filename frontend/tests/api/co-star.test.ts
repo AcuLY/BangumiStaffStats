@@ -101,7 +101,6 @@ function driverRequest(
   return {
     input: request.input,
     query: request.query,
-    refreshCollection: false as const,
     signal: new AbortController().signal,
     transactionId: 'co-star-transaction',
     view: request.view ?? {
@@ -115,6 +114,38 @@ function driverRequest(
 }
 
 describe('co-star response adapter', () => {
+  it('sends empty query positions only for explicit all-scope participants', async () => {
+    const base = driverRequest();
+    const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(goldenBody('global')));
+    const driver = createCoStarDriver(createApiClient(fetchImplementation));
+    const request: CoStarDriverRequest = {
+      ...base,
+      input: { ...base.input, positionScope: 'all' },
+      query: { ...base.query, positionKeys: [] },
+    };
+    await driver.execute(request);
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    for (const positionScope of ['query', undefined] as const) {
+      await expect(driver.execute({ ...request,
+        input: { ...request.input, positionScope },
+      } as never)).rejects.toBeInstanceOf(ApiDecodeError);
+    }
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it('accepts nonempty quarterly aggregates without person-detail work points', () => {
+    const body = structuredClone(goldenBody('global')) as {
+      data: { ratings: { datasets: Array<{ global: { timeline: unknown[] } }> } };
+    };
+    const quarter = { year: 2025, quarter: 4, average: 700, count: 1 };
+    body.data.ratings.datasets[0]!.global.timeline = [quarter];
+
+    const payload = decodeCoStarPayload(body, 'global');
+    expect(payload.data.ratings.datasets[0]).toMatchObject({
+      global: { timeline: [quarter] },
+    });
+  });
+
   it('preserves pair/group, nullable zero evidence, scope omission, and deep immutability', () => {
     const global = adaptCoStarSuccess(
       decodeCoStarSuccess(goldenBody('global')),
@@ -268,6 +299,14 @@ describe('co-star response adapter', () => {
     expect(() =>
       decodeCoStarApiError(errorEnvelope('RATE_LIMITED'), 503),
     ).toThrow(ApiDecodeError);
+    expect(
+      decodeCoStarApiError(errorEnvelope('UPSTREAM_TIMEOUT', true), 504)
+        .message,
+    ).toBe('共演分析查询超时，请重试');
+    expect(
+      decodeCoStarApiError(errorEnvelope('UPSTREAM_UNAVAILABLE', true), 503)
+        .message,
+    ).toBe('收藏数据暂时不可用，请稍后重试');
   });
 });
 
@@ -289,7 +328,6 @@ describe('co-star API driver', () => {
       query: golden('global').cases[0]!.request.query,
       view: golden('global').cases[0]!.request.view,
     });
-    expect(body).not.toHaveProperty('refreshCollection');
     expect(result).toMatchObject({
       requestId: 'req-co-star-global-pair',
       staleCollection: false,

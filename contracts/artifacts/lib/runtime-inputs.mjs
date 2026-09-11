@@ -95,7 +95,7 @@ function canonicalRepositoryRoot(repositoryRoot) {
   const gitRoot = runGit(canonical, ['rev-parse', '--show-toplevel'])
     .stdout.toString('utf8')
     .trim();
-  if (gitRoot !== canonical || fs.realpathSync.native(gitRoot) !== canonical) {
+  if (path.normalize(gitRoot) !== canonical || fs.realpathSync.native(gitRoot) !== canonical) {
     fail(`repository root is not the Git checkout root: ${canonical}`);
   }
   return canonical;

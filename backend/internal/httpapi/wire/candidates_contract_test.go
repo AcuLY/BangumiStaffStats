@@ -87,7 +87,7 @@ func TestCandidatesGeneratedWireDecodesSuccessGoldens(t *testing.T) {
 					}
 					var request PostCandidatesV1JSONBody
 					decodeCandidatesJSON(t, selected.Request, &request)
-					if request.Input.PositionKey == "" {
+					if request.Input.PositionKey != nil && *request.Input.PositionKey == "" {
 						t.Fatalf("missing candidate input: %#v", request)
 					}
 					switch fixture.scope {

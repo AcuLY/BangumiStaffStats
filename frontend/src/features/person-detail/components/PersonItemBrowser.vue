@@ -1,20 +1,19 @@
 <script setup lang="ts">
-import {
-  NInput,
-  NRadioButton,
-  NRadioGroup,
-  NSelect,
-} from 'naive-ui';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { NRadioButton, NRadioGroup, NTag, NTooltip } from 'naive-ui';
+import { computed, onBeforeUnmount, ref, watch, useId } from 'vue';
 
+import { useResultReveal } from '../../../shared/composables/useResultReveal';
+import { useTruncatedTooltip } from '../../../shared/composables/useTruncatedTooltip';
 import AdaptivePagination from '../../ranking/components/AdaptivePagination.vue';
-import SortDirectionButton from '../../ranking/components/SortDirectionButton.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import SearchSortToolbar from '../../../shared/components/SearchSortToolbar.vue';
+import WorkCardsSkeleton from '../../../shared/components/WorkCardsSkeleton.vue';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import {
   characterImageCandidates,
   subjectImageCandidates,
 } from '../../../shared/media/bangumiImage';
+import { bilingualNameTitle } from '../../../shared/names/bilingualName';
 import {
   formatHundredths,
   primaryEntityName,
@@ -27,14 +26,18 @@ import {
   type PersonDetailSort,
   type PersonDetailSubjectItem,
   type PersonDetailView,
-  type PersonPositionDisplay,
   type PersonPositionLabelResolver,
 } from '../model';
 import AdaptiveAppearanceList from './AdaptiveAppearanceList.vue';
+import AdaptiveRoleList from './AdaptiveRoleList.vue';
+
+const memberTooltip = useTruncatedTooltip();
+const itemsTitleId = `person-items-${useId()}`;
 
 const props = withDefaults(
   defineProps<{
     devicePixelRatio?: number;
+    executeView: (view: Readonly<PersonDetailView>) => Promise<boolean>;
     payload: PersonDetailPayload;
     pending: boolean;
     positionLabel: PersonPositionLabelResolver;
@@ -44,11 +47,13 @@ const props = withDefaults(
     devicePixelRatio: 1,
   },
 );
-const emit = defineEmits<{
-  view: [view: Readonly<PersonDetailView>];
-}>();
-
 const search = ref(props.view.search);
+const searchInput = ref<{ inputElRef: HTMLInputElement | null } | null>(null);
+const {
+  attention: resultAttention,
+  reveal: revealResults,
+  target: resultTarget,
+} = useResultReveal();
 const density = ref<'compact' | 'detailed'>('detailed');
 const compactLayout = useCompactLayout();
 const controlSize = computed(() =>
@@ -154,8 +159,18 @@ function clearSearchTimer(): void {
   }
 }
 
-function request(patch: Partial<PersonDetailView>): void {
-  emit('view', updatePersonDetailView(props.view, patch));
+function request(patch: Partial<PersonDetailView>): Promise<boolean> {
+  return props.executeView(updatePersonDetailView(props.view, patch));
+}
+
+async function requestPage(patch: Partial<PersonDetailView>): Promise<void> {
+  if (await request(patch)) {
+    await revealResults();
+  }
+}
+
+async function revealSearch(): Promise<void> {
+  await revealResults({ focus: searchInput.value?.inputElRef ?? null });
 }
 
 function scheduleSearch(value: string): void {
@@ -163,17 +178,17 @@ function scheduleSearch(value: string): void {
   clearSearchTimer();
   searchTimer = window.setTimeout(() => {
     searchTimer = undefined;
-    request({ search: value });
+    void request({ search: value });
   }, 240);
 }
 
 function submitSearch(): void {
   clearSearchTimer();
-  request({ search: search.value });
+  void request({ search: search.value });
 }
 
 function changeSection(section: 'characters' | 'works'): void {
-  request({
+  void request({
     section,
     sort: section === 'characters' ? 'role' : 'globalScore',
   });
@@ -197,20 +212,8 @@ function isCharacter(
   return 'character' in item && !('kind' in item);
 }
 
-function contributionDisplay(
-  contribution: PersonDetailContribution,
-): PersonPositionDisplay {
-  if (contribution.kind === 'cast') {
-    return {
-      label: contribution.roleLabel
-        ? `配音 · ${contribution.roleLabel}`
-        : '配音',
-    };
-  }
-  return props.positionLabel(
-    contribution.positionKey,
-    contribution.exactPositionKey,
-  );
+function castContributions(contributions: readonly PersonDetailContribution[]) {
+  return contributions.filter((contribution) => contribution.kind === 'cast');
 }
 
 function collectionDateLabel(value: string | null | undefined): string {
@@ -249,38 +252,25 @@ function differenceLabel(value: number | null): string {
   return `${sign}${(Math.abs(value) / 100).toFixed(2)}`;
 }
 
-function contributionSummary(
-  contributions: readonly PersonDetailContribution[],
-): string {
-  return contributions
-    .map((contribution) => {
-      const display = contributionDisplay(contribution);
-      const count =
-        'workCount' in contribution && contribution.workCount
-          ? ` · ${contribution.workCount} 部`
-          : '';
-      return `${display.label}${count}${
-        display.detail ? `（${display.detail}）` : ''
-      }`;
-    })
-    .join(' / ');
-}
-
 onBeforeUnmount(clearSearchTimer);
+defineExpose({ revealSearch });
 </script>
 
 <template>
   <section
-    class="person-inspector__section person-item-browser"
-    aria-labelledby="person-items-title"
+    ref="resultTarget"
+    class="person-inspector__section person-item-browser result-reveal-target"
+    :class="{ 'is-reveal-attention': resultAttention }"
+    :aria-labelledby="itemsTitleId"
+    tabindex="-1"
   >
     <header class="person-section-heading person-item-browser__heading">
       <div class="person-item-browser__heading-copy">
-        <h2 v-if="!hasCharacters" id="person-items-title">
+        <h2 v-if="!hasCharacters" :id="itemsTitleId">
           {{ browserTitle }}
         </h2>
         <div v-else class="person-credit-tabs">
-          <h2 id="person-items-title" class="sr-only">
+          <h2 :id="itemsTitleId" class="sr-only">
             {{ payload.summary.workUnit === 'series'
               ? '参与系列与配音角色'
               : '参与作品与配音角色' }}
@@ -333,47 +323,31 @@ onBeforeUnmount(clearSearchTimer);
       </n-radio-group>
     </header>
 
-    <form
+    <search-sort-toolbar
+      ref="searchInput"
       class="person-item-toolbar work-list-toolbar"
-      role="search"
-      @submit.prevent="submitSearch"
-    >
-      <n-input
-        class="person-item-toolbar__search"
-        :size="controlSize"
-        :value="search"
-        :clearable="Boolean(search)"
-        :placeholder="
-          view.section === 'characters'
-            ? '搜索角色'
-            : payload.summary.workUnit === 'series'
-              ? '搜索系列或系列内作品'
-              : '搜索作品'
-        "
-        autocomplete="off"
-        :aria-label="searchAriaLabel"
-        :input-props="{
-          'aria-label': searchAriaLabel,
-          name: view.section === 'characters' ? 'characterSearch' : 'workSearch',
-          spellcheck: 'false',
-        }"
-        @update:value="scheduleSearch"
-      />
-      <n-select
-        :size="controlSize"
-        :menu-size="controlSize"
-        :value="view.sort"
-        :options="sortOptions"
-        :consistent-menu-width="false"
-        :aria-label="sortAriaLabel"
-        @update:value="request({ sort: $event as PersonDetailSort })"
-      />
-      <sort-direction-button
-        :order="view.order"
-        :context-label="orderAriaLabel"
-        @change="request({ order: $event })"
-      />
-    </form>
+      :search="search"
+      :sort="view.sort"
+      :order="view.order"
+      :options="sortOptions"
+      :search-label="searchAriaLabel"
+      :sort-label="sortAriaLabel"
+      :order-label="orderAriaLabel"
+      :placeholder="
+        view.section === 'characters'
+          ? '搜索角色'
+          : payload.summary.workUnit === 'series'
+            ? '搜索系列或系列内作品'
+            : '搜索作品'
+      "
+      :search-name="view.section === 'characters' ? 'characterSearch' : 'workSearch'"
+      search-class="person-item-toolbar__search"
+      sort-class=""
+      @search="scheduleSearch"
+      @sort="request({ sort: $event })"
+      @order="request({ order: $event })"
+      @submit="submitSearch"
+    />
 
     <div
       class="person-item-browser__body"
@@ -382,7 +356,13 @@ onBeforeUnmount(clearSearchTimer);
     >
       <div v-if="pending" class="person-item-skeletons" aria-live="polite">
         <span class="sr-only">正在更新{{ sectionLabel }}列表</span>
-        <i v-for="index in 5" :key="index" aria-hidden="true" />
+        <work-cards-skeleton
+          :count="view.pageSize"
+          :compact="density === 'compact'"
+          :personal="payload.scope === 'personal'"
+          :has-character-roles="hasCharacters"
+          :kind="view.section === 'characters' ? 'character' : payload.summary.workUnit === 'series' ? 'series' : 'subject'"
+        />
       </div>
       <ul
         v-else-if="payload.items.length"
@@ -437,12 +417,14 @@ onBeforeUnmount(clearSearchTimer);
                   :href="`https://bgm.tv/subject/${item.subject.id}`"
                   target="_blank"
                   rel="noopener noreferrer"
+                  :title="bilingualNameTitle(item.subject)"
                 >
                   <strong>{{ primaryEntityName(item.subject) }}</strong>
                 </a>
                 <small
                   v-if="secondaryEntityName(item.subject)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.subject)"
                 >
                   {{ secondaryEntityName(item.subject) }}
                 </small>
@@ -483,6 +465,7 @@ onBeforeUnmount(clearSearchTimer);
                     :href="`https://bgm.tv/subject/${item.subject.id}`"
                     target="_blank"
                     rel="noopener noreferrer"
+                    :title="bilingualNameTitle(item.subject)"
                   >
                     <strong>{{ primaryEntityName(item.subject) }}</strong>
                   </a>
@@ -490,6 +473,7 @@ onBeforeUnmount(clearSearchTimer);
                 <small
                   v-if="secondaryEntityName(item.subject)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.subject)"
                 >
                   {{ secondaryEntityName(item.subject) }}
                 </small>
@@ -506,7 +490,9 @@ onBeforeUnmount(clearSearchTimer);
                   </small>
                 </span>
                 <ul class="subject-work-row__meta">
-                  <li v-for="tag in item.metaTags" :key="tag">{{ tag }}</li>
+                  <li v-for="tag in item.metaTags" :key="tag">
+                    <n-tag size="small" round>{{ tag }}</n-tag>
+                  </li>
                 </ul>
               </div>
               <dl
@@ -514,7 +500,7 @@ onBeforeUnmount(clearSearchTimer);
                 :class="{
                   'subject-work-row__facts--global': !item.personal,
                   'subject-work-row__facts--with-role':
-                    item.contributions.length > 0,
+                    castContributions(item.contributions).length > 0,
                 }"
               >
                 <div class="subject-work-row__score--global">
@@ -564,11 +550,13 @@ onBeforeUnmount(clearSearchTimer);
                   </dd>
                 </div>
                 <div
-                  v-if="item.contributions.length"
+                  v-if="castContributions(item.contributions).length"
                   class="subject-work-row__role-fact"
                 >
-                  <dt>参与职位</dt>
-                  <dd>{{ contributionSummary(item.contributions) }}</dd>
+                  <dt>配音角色</dt>
+                  <dd>
+                    <adaptive-role-list :contributions="castContributions(item.contributions)" />
+                  </dd>
                 </div>
               </dl>
             </template>
@@ -585,12 +573,14 @@ onBeforeUnmount(clearSearchTimer);
                   :href="`https://bgm.tv/subject/${item.representative.id}`"
                   target="_blank"
                   rel="noopener noreferrer"
+                  :title="bilingualNameTitle(item.representative)"
                 >
                   <strong>{{ primaryEntityName(item.representative) }}</strong>
                 </a>
                 <small
                   v-if="secondaryEntityName(item.representative)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.representative)"
                 >
                   {{ secondaryEntityName(item.representative) }}
                 </small>
@@ -631,6 +621,7 @@ onBeforeUnmount(clearSearchTimer);
                     :href="`https://bgm.tv/subject/${item.representative.id}`"
                     target="_blank"
                     rel="noopener noreferrer"
+                    :title="bilingualNameTitle(item.representative)"
                   >
                     <strong>{{ primaryEntityName(item.representative) }}</strong>
                   </a>
@@ -638,6 +629,7 @@ onBeforeUnmount(clearSearchTimer);
                 <small
                   v-if="secondaryEntityName(item.representative)"
                   class="subject-work-row__secondary"
+                  :title="bilingualNameTitle(item.representative)"
                 >
                   {{ secondaryEntityName(item.representative) }}
                 </small>
@@ -645,6 +637,11 @@ onBeforeUnmount(clearSearchTimer);
                   参与 {{ item.matchedWorkCount }} 部 · 系列
                   {{ item.memberCount }} 部
                 </strong>
+                <ul v-if="item.metaTags.length" class="subject-work-row__meta">
+                  <li v-for="tag in item.metaTags.slice(0, 5)" :key="tag">
+                    <n-tag size="small" round>{{ tag }}</n-tag>
+                  </li>
+                </ul>
               </div>
               <dl
                 class="person-item__scores person-work-row__facts subject-work-row__facts"
@@ -652,7 +649,7 @@ onBeforeUnmount(clearSearchTimer);
                   'subject-work-row__facts--global':
                     item.personalScore === undefined,
                   'subject-work-row__facts--with-role':
-                    item.contributions.length > 0,
+                    castContributions(item.contributions).length > 0,
                 }"
               >
                 <div class="subject-work-row__score--global">
@@ -705,11 +702,13 @@ onBeforeUnmount(clearSearchTimer);
                   </dd>
                 </div>
                 <div
-                  v-if="item.contributions.length"
+                  v-if="castContributions(item.contributions).length"
                   class="subject-work-row__role-fact"
                 >
-                  <dt>参与职位</dt>
-                  <dd>{{ contributionSummary(item.contributions) }}</dd>
+                  <dt>配音角色</dt>
+                  <dd>
+                    <adaptive-role-list :contributions="castContributions(item.contributions)" />
+                  </dd>
                 </div>
               </dl>
               <section class="subject-work-row__series-members">
@@ -718,12 +717,26 @@ onBeforeUnmount(clearSearchTimer);
                 </strong>
                 <ul class="subject-work-row__series-member-list">
                   <li v-for="member in item.members" :key="member.id">
+                    <n-tooltip
+                      :show="memberTooltip.activeKey.value === `${item.key}/${member.id}`"
+                      trigger="manual"
+                      placement="top"
+                      :animated="false"
+                      style="max-width: min(336px, calc(100dvw - 24px));"
+                      content-class="workbench-tooltip-content"
+                    >
+                    <template #trigger>
                     <a
                       class="subject-work-row__series-member"
                       :class="{ 'is-muted': !member.matched }"
                       :href="`https://bgm.tv/subject/${member.id}`"
                       target="_blank"
                       rel="noopener noreferrer"
+                      @mouseenter="memberTooltip.show(`${item.key}/${member.id}`, $event)"
+                      @focus="memberTooltip.show(`${item.key}/${member.id}`, $event)"
+                      @mouseleave="memberTooltip.leave(`${item.key}/${member.id}`)"
+                      @blur="memberTooltip.hide(`${item.key}/${member.id}`)"
+                      @keydown.esc.stop.prevent="memberTooltip.hide(`${item.key}/${member.id}`)"
                     >
                       <safe-image
                         class="subject-work-row__series-member-cover"
@@ -739,17 +752,21 @@ onBeforeUnmount(clearSearchTimer);
                         :width="28"
                       />
                       <span class="subject-work-row__series-member-copy">
-                        <strong class="subject-work-row__series-member-name">
+                        <strong class="subject-work-row__series-member-name" data-truncated-text>
                           {{ primaryEntityName(member) }}
                         </strong>
                         <small
                           v-if="secondaryEntityName(member)"
                           class="subject-work-row__series-member-original"
+                          data-truncated-text
                         >
                           {{ secondaryEntityName(member) }}
                         </small>
                       </span>
                     </a>
+                    </template>
+                    <span style="white-space: pre-line" @mouseenter="memberTooltip.keepOpen" @mouseleave="memberTooltip.leave(`${item.key}/${member.id}`)">{{ bilingualNameTitle(member) }}</span>
+                    </n-tooltip>
                   </li>
                 </ul>
               </section>
@@ -771,7 +788,10 @@ onBeforeUnmount(clearSearchTimer);
               :width="density === 'compact' ? 36 : 80"
             />
             <div class="character-role-card__content">
-              <div class="character-role-card__names">
+              <div
+                class="character-role-card__names"
+                :title="bilingualNameTitle(item.character)"
+              >
                 <a
                   v-if="item.character.id"
                   class="character-role-card__name-link"
@@ -811,7 +831,6 @@ onBeforeUnmount(clearSearchTimer);
     </div>
 
     <adaptive-pagination
-      v-if="!pending"
       :aria-label="
         view.section === 'characters'
           ? '配音角色分页'
@@ -819,7 +838,6 @@ onBeforeUnmount(clearSearchTimer);
             ? '参与系列分页'
             : '参与作品分页'
       "
-      :item-count="payload.items.length"
       :page="payload.pagination.page"
       :page-size="payload.pagination.pageSize"
       page-size-label="每页条目数"
@@ -832,8 +850,8 @@ onBeforeUnmount(clearSearchTimer);
       "
       :pending="pending"
       :total="payload.pagination.total"
-      @page="request({ page: $event })"
-      @page-size="request({ pageSize: $event })"
+      @page="requestPage({ page: $event })"
+      @page-size="requestPage({ pageSize: $event })"
     />
   </section>
 </template>

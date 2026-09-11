@@ -2,11 +2,9 @@ package query
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -285,13 +283,12 @@ func arrangeQueryArchive(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(root, "current.json"), pointerData, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	copyQueryTestFile(t, filepath.Join(bundle, "archive-manifest.json"), filepath.Join(versionRoot, "manifest.json"))
 	copyQueryTestFile(t, filepath.Join(bundle, "bangumi.sqlite"), filepath.Join(versionRoot, "bangumi.sqlite"))
-	rewriteQueryArchiveWithProducerCatalog(t, root, versionRoot)
+	rewriteQueryArchiveWithProducerCatalog(t, versionRoot)
 	return root
 }
 
-func rewriteQueryArchiveWithProducerCatalog(t *testing.T, root, versionRoot string) {
+func rewriteQueryArchiveWithProducerCatalog(t *testing.T, versionRoot string) {
 	t.Helper()
 	sqlitePath := filepath.Join(versionRoot, "bangumi.sqlite")
 	database, err := sql.Open("sqlite", sqlitePath)
@@ -380,90 +377,9 @@ func rewriteQueryArchiveWithProducerCatalog(t *testing.T, root, versionRoot stri
 		t.Fatal(err)
 	}
 
-	manifestPath := filepath.Join(versionRoot, "manifest.json")
-	manifestData, err := os.ReadFile(manifestPath)
-	if err != nil {
-		_ = database.Close()
-		t.Fatal(err)
-	}
-	var manifest map[string]json.RawMessage
-	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		_ = database.Close()
-		t.Fatal(err)
-	}
-	var tableCounts map[string]int64
-	if err := json.Unmarshal(manifest["tableCounts"], &tableCounts); err != nil {
-		_ = database.Close()
-		t.Fatal(err)
-	}
-	for table := range tableCounts {
-		var count int64
-		if err := database.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, table)).
-			Scan(&count); err != nil {
-			_ = database.Close()
-			t.Fatalf("count %s: %v", table, err)
-		}
-		tableCounts[table] = count
-	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
-
-	sqliteData, err := os.ReadFile(sqlitePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sqliteSize, err := json.Marshal(int64(len(sqliteData)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	sqliteDigest, err := json.Marshal(queryTestDigest(sqliteData))
-	if err != nil {
-		t.Fatal(err)
-	}
-	countData, err := json.Marshal(tableCounts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest["sqliteSize"] = sqliteSize
-	manifest["sqliteDigest"] = sqliteDigest
-	manifest["tableCounts"] = countData
-	manifestData, err = json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestData = append(manifestData, '\n')
-	if err := os.WriteFile(manifestPath, manifestData, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	pointerPath := filepath.Join(root, "current.json")
-	pointerData, err := os.ReadFile(pointerPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var pointer map[string]json.RawMessage
-	if err := json.Unmarshal(pointerData, &pointer); err != nil {
-		t.Fatal(err)
-	}
-	manifestDigest, err := json.Marshal(queryTestDigest(manifestData))
-	if err != nil {
-		t.Fatal(err)
-	}
-	pointer["manifestDigest"] = manifestDigest
-	pointerData, err = json.MarshalIndent(pointer, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pointerData = append(pointerData, '\n')
-	if err := os.WriteFile(pointerPath, pointerData, 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func queryTestDigest(value []byte) string {
-	sum := sha256.Sum256(value)
-	return fmt.Sprintf("sha256:%x", sum)
 }
 
 func assertProducerSelectionPlans(t *testing.T, plans []SelectionPlan) {

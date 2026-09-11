@@ -9,6 +9,10 @@ import type {
   ApiErrorResponseMetadata,
 } from './client';
 import { ApiDecodeError } from './errors';
+import {
+  decodeCoStarInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
 import type {
   CoStarInputV1,
   CoStarRequestV1,
@@ -124,8 +128,10 @@ export function coStarErrorMessage(code: ErrorCodeV1): string {
   if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
     return '共演分析服务正在准备，请稍后重试';
   }
+  if (code === 'UPSTREAM_TIMEOUT') {
+    return '共演分析查询超时，请重试';
+  }
   if (
-    code === 'UPSTREAM_TIMEOUT' ||
     code === 'UPSTREAM_UNAVAILABLE' ||
     code === 'UPSTREAM_PROTOCOL_ERROR'
   ) {
@@ -167,7 +173,6 @@ export function coStarErrorMessage(code: ErrorCodeV1): string {
 export interface CoStarDriverRequest {
   readonly input: DeepReadonly<CoStarInputV1>;
   readonly query: DeepReadonly<SharedQueryV1Schema>;
-  readonly refreshCollection: false;
   readonly signal: AbortSignal;
   readonly transactionId: string;
   readonly view: DeepReadonly<CoStarViewV1>;
@@ -305,6 +310,8 @@ export function createCoStarDriver(
   const wait = runtime.wait ?? waitForRetry;
   return {
     async execute(request): Promise<CoStarDriverResponse> {
+      const input = decodeCoStarInput(request.input);
+      decodeSharedQueryForOperation(request.query, input.positionScope);
       const body: CoStarRequestV1 = {
         input: structuredClone(request.input) as CoStarInputV1,
         query: structuredClone(request.query) as SharedQueryV1Schema,

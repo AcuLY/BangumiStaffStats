@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue';
+import { NTag } from 'naive-ui';
+import { computed, ref, useId } from 'vue';
 
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
@@ -16,11 +17,14 @@ import {
 } from '../model';
 import PersonItemBrowser from './PersonItemBrowser.vue';
 import PersonProfile from './PersonProfile.vue';
+import PersonDetailSkeleton from './PersonDetailSkeleton.vue';
 import RatingEvidence from './RatingEvidence.vue';
 import StatEvidencePopover from './StatEvidencePopover.vue';
 
 interface PersonDetailResource {
   readonly acceptedQuery: Readonly<{
+    scope?: 'personal' | 'global';
+    mergeSeries?: boolean;
     positionKeys: readonly unknown[];
   }> | null;
   readonly error: string | null;
@@ -35,6 +39,7 @@ interface PersonDetailResource {
 const props = withDefaults(
   defineProps<{
     devicePixelRatio?: number;
+    hasCharacterCount?: boolean;
     executeView: (view: Readonly<PersonDetailView>) => Promise<boolean>;
     positionLabel: PersonPositionLabelResolver;
     resource: PersonDetailResource;
@@ -46,6 +51,9 @@ const props = withDefaults(
 );
 
 const payload = computed(() => props.resource.payload);
+const tagsTitleId = `person-tags-${useId()}`;
+const preferenceTitleId = `person-preference-${useId()}`;
+const itemBrowser = ref<InstanceType<typeof PersonItemBrowser> | null>(null);
 const acceptedPositionKeys = computed(() =>
   (props.resource.acceptedQuery?.positionKeys ?? []).map(String),
 );
@@ -57,7 +65,7 @@ const tagGroups = computed(() => {
     return [];
   }
   return [
-    { key: 'meta', label: '条目类型', values: payload.value.tags.meta },
+    { key: 'meta', label: '官方标签', values: payload.value.tags.meta },
     {
       key: 'community',
       label: '社区标签',
@@ -67,7 +75,7 @@ const tagGroups = computed(() => {
       ? [
           {
             key: 'personal',
-            label: '收藏标签',
+            label: '我的标签',
             values: payload.value.tags.personal ?? [],
           },
         ]
@@ -102,7 +110,7 @@ async function focusPreference(
     PersonDetailPayload['preference']
   >['preferred'][number]['unit'],
 ): Promise<void> {
-  await props.executeView(
+  const accepted = await props.executeView(
     updatePersonDetailView(props.resource.view, {
       search: primaryEntityName(unit),
       section: 'works',
@@ -112,39 +120,22 @@ async function focusPreference(
           : props.resource.view.sort,
     }),
   );
-  await nextTick();
-  document
-    .querySelector<HTMLInputElement>(
-      'input[aria-label="搜索参与作品"], input[aria-label="搜索参与系列或系列内作品"]',
-    )
-    ?.focus();
+  if (accepted) {
+    await itemBrowser.value?.revealSearch();
+  }
 }
 </script>
 
 <template>
   <article class="person-inspector">
-    <div
+    <person-detail-skeleton
       v-if="resource.phase === 'pending' && !payload"
-      class="person-inspector__identity-pending"
-      aria-busy="true"
-      aria-live="polite"
-    >
-      <span class="sr-only">正在加载人物详情</span>
-      <div class="person-profile-skeleton" aria-hidden="true">
-        <i />
-        <span>
-          <b />
-          <b />
-          <b />
-        </span>
-      </div>
-      <div class="person-metrics-skeleton" aria-hidden="true">
-        <i v-for="index in 4" :key="index" />
-      </div>
-      <div class="person-section-skeleton" aria-hidden="true">
-        <i v-for="index in 5" :key="index" />
-      </div>
-    </div>
+      :personal="resource.acceptedQuery?.scope !== 'global'"
+      :has-character-count="hasCharacterCount"
+      :work-unit="resource.acceptedQuery?.mergeSeries ? 'series' : 'subject'"
+      :section="resource.view.section"
+      :page-size="resource.view.pageSize"
+    />
 
     <section
       v-else-if="!payload && resource.error"
@@ -172,6 +163,7 @@ async function focusPreference(
         :position-label="positionLabel"
         :position-keys="acceptedPositionKeys"
       >
+        <template v-if="$slots['profile-action']" #action><slot name="profile-action" /></template>
         <template #metrics>
           <div
             class="person-profile-metrics profile-metrics--extended metric-grid"
@@ -351,10 +343,10 @@ async function focusPreference(
 
       <section
         class="person-inspector__section"
-        aria-labelledby="person-tags-title"
+        :aria-labelledby="tagsTitleId"
       >
         <header class="person-section-heading">
-          <h2 id="person-tags-title">
+          <h2 :id="tagsTitleId">
             {{ payload.summary.workUnit === 'series' ? '代表条目标签' : '作品标签' }}
           </h2>
           <strong v-if="tagCount" class="person-section-heading__meta">
@@ -363,21 +355,13 @@ async function focusPreference(
         </header>
         <div v-if="tagCount" class="person-tag-groups">
           <div v-for="group in tagGroups" :key="group.key">
-            <h4>
-              {{
-                group.key === 'meta'
-                  ? '条目属性'
-                  : group.key === 'community'
-                    ? '社区标签'
-                    : '收藏标签'
-              }}
-            </h4>
+            <h4>{{ group.label }}</h4>
             <ul>
               <li v-for="tag in group.values" :key="tag.name">
-                <span>{{ tag.name }} · {{ tag.count }}</span>
+                <n-tag size="small" round>{{ tag.name }} · {{ tag.count }}</n-tag>
               </li>
               <li v-if="!group.values.length">
-                <span>{{ group.key === 'personal' ? '未设置' : '无' }}</span>
+                <n-tag size="small" round>{{ group.key === 'personal' ? '未设置' : '无' }}</n-tag>
               </li>
             </ul>
           </div>
@@ -390,10 +374,10 @@ async function focusPreference(
       <section
         v-if="payload.preference"
         class="person-inspector__section person-preference"
-        aria-labelledby="person-preference-title"
+        :aria-labelledby="preferenceTitleId"
       >
         <header class="person-section-heading">
-          <h2 id="person-preference-title">相对偏好</h2>
+          <h2 :id="preferenceTitleId">相对偏好</h2>
         </header>
         <p
           v-if="payload.preference.score === null"
@@ -488,12 +472,13 @@ async function focusPreference(
       </section>
 
       <person-item-browser
+        ref="itemBrowser"
         :device-pixel-ratio="devicePixelRatio"
+        :execute-view="executeView"
         :payload="payload"
         :pending="resource.viewPending"
         :position-label="positionLabel"
         :view="resource.view"
-        @view="executeView"
       />
     </template>
   </article>

@@ -14,6 +14,7 @@ import type {
 } from './selection';
 
 export interface PartnersInput {
+  readonly positionScope?: 'query' | 'all';
   readonly candidatePositionKey?: string;
   readonly source: Readonly<{
     personId: number;

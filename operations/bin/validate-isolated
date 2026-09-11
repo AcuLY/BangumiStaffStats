@@ -43,7 +43,7 @@ done
   ${#legacy_urls[@]} -ge 2 ]] || usage
 
 [[ $(id -u) -eq 0 ]] || die "isolated validation must run as root"
-for command in curl docker flock jq nginx realpath sha256sum ss systemctl systemd-analyze tar; do
+for command in curl docker flock jq nginx realpath sha256sum ss tar; do
   require_command "$command"
 done
 require_absolute_path "$root" root
@@ -61,9 +61,6 @@ require_existing_directory "$operations" operations
 [[ "$operations" != "$root"/* ]] || die "operations source must be outside validation root"
 [[ -f "$operations/compose.yaml" && ! -L "$operations/compose.yaml" ]] ||
   die "operations base Compose file is missing or invalid"
-[[ ! -e "$operations/compose.updater-proxy.yaml" &&
-  ! -L "$operations/compose.updater-proxy.yaml" ]] ||
-  die "operations source still contains the retired proxy overlay"
 require_image "$prometheus_image" prometheus-image
 [[ "$prometheus_image" == "$BGMSS_PROMETHEUS_IMAGE_PIN" ]] ||
   die "Prometheus image must equal the reviewed operations pin"
@@ -107,21 +104,18 @@ verify_bundle "$bundle"
 verify_build_metadata "$bundle/build.json"
 revision=$(build_field "$bundle/build.json" sourceRevision)
 api_image=$(build_field "$bundle/build.json" apiImage)
-updater_image=$(build_field "$bundle/build.json" updaterImage)
-if docker image inspect "$api_image" >/dev/null 2>&1 ||
-  docker image inspect "$updater_image" >/dev/null 2>&1; then
+if docker image inspect "$api_image" >/dev/null 2>&1; then
   die "bundle image tag already exists; exact run ownership is ambiguous"
 fi
 
 evidence=$(mktemp -d /tmp/bgmss-ops-validation.XXXXXX)
 cleanup_complete=false
 api_image_id=
-updater_image_id=
 prometheus_pull_owned=false
 prometheus_image_id=
 
 capture_baseline() {
-  local destination=$1 unit
+  local destination=$1
   local legacy_ids=()
   mkdir -m 0750 "$destination"
   mapfile -t legacy_ids < <(
@@ -142,16 +136,6 @@ capture_baseline() {
   else
     printf '[]\n' >"$destination/legacy-bgmss-containers"
   fi
-  : >"$destination/relevant-units"
-  for unit in \
-    bangumi-api-proxy-temp.service \
-    jobs-bgmss-sync.service \
-    jobs-bgmss-sync.timer; do
-    printf '[%s]\n' "$unit" >>"$destination/relevant-units"
-    systemctl show "$unit" \
-      --property=LoadState,ActiveState,SubState,Result,UnitFileState \
-      >>"$destination/relevant-units"
-  done
   nginx -T 2>&1 | sha256sum >"$destination/nginx.sha256"
 }
 
@@ -199,7 +183,7 @@ cleanup() {
   elif [[ -e "$root" || -L "$root" ]]; then
     cleanup_failed=true
   fi
-  for image_and_id in "$api_image|$api_image_id" "$updater_image|$updater_image_id"; do
+  for image_and_id in "$api_image|$api_image_id"; do
     image=${image_and_id%%|*}
     expected_id=${image_and_id#*|}
     [[ -n "$image" ]] || continue
@@ -277,7 +261,7 @@ install -d -m 0750 \
   "$root/compose" "$root/config" "$root/config/prometheus" \
   "$root/operations" "$root/operations/bin" "$root/operations/lib" \
   "$root/state" "$root/prometheus"
-install -d -o 0 -g 65532 -m 1770 "$root/data" "$root/data/versions"
+install -d -o 65532 -g 65532 -m 0750 "$root/data" "$root/data/versions"
 install -o 0 -g 0 -m 0600 /dev/null "$root/data/operations.lock"
 install -m 0644 "$operations/compose.yaml" "$root/compose/compose.yaml"
 install -m 0644 "$operations/prometheus/prometheus.yml" \
@@ -285,35 +269,31 @@ install -m 0644 "$operations/prometheus/prometheus.yml" \
 install -m 0644 "$operations/prometheus/rules.yml" \
   "$root/config/prometheus/rules.yml"
 install -m 0444 "$operations/lib/common.sh" "$root/operations/lib/common.sh"
-for command in deploy update rollback-app rollback-data check; do
+for command in deploy rollback-app check; do
   install -m 0555 "$operations/bin/$command" "$root/operations/bin/$command"
 done
 version_root="$root/data/versions/$BGMSS_MINIMAL_DATA_VERSION"
-install -d -o 0 -g 65532 -m 0750 "$version_root"
-install -o 0 -g 65532 -m 0640 \
+install -d -o 65532 -g 65532 -m 0750 "$version_root"
+install -o 65532 -g 65532 -m 0640 \
   "$bundle/minimal-archive/current.json" "$root/data/current.json"
-install -o 0 -g 65532 -m 0440 \
+install -o 65532 -g 65532 -m 0440 \
   "$bundle/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/manifest.json" \
   "$version_root/manifest.json"
-install -o 0 -g 65532 -m 0440 \
+install -o 65532 -g 65532 -m 0440 \
   "$bundle/minimal-archive/versions/$BGMSS_MINIMAL_DATA_VERSION/bangumi.sqlite" \
   "$version_root/bangumi.sqlite"
-freeze_archive_version "$root" "$BGMSS_MINIMAL_DATA_VERSION"
 chown -R 65532:65532 "$root/prometheus"
 
 base_render_env="$root/state/.base-render.env"
 release_env_document \
-  "$root" "$project" "$api_image" "$updater_image" "$prometheus_image" \
+  "$root" "$project" "$api_image" "$prometheus_image" \
   "$api_port" "$prometheus_port" validation >"$base_render_env"
 unset_proxy_environment=()
 while IFS= read -r key; do
   unset_proxy_environment+=(-u "$key")
 done < <(proxy_environment_keys)
 (
-  export BGMSS_UPDATER_TRANSPORT=proxy
-  export BGMSS_UPDATER_HTTPS_PROXY=http://ambient.invalid:1
-  export BGMSS_UPDATER_PROXY_NETWORK=ambient-network
-  export BGMSS_HTTPS_PROXY=http://ambient-updater.invalid:1
+  export BGMSS_HTTPS_PROXY=http://ambient-api.invalid:1
   export BGMSS_IMAGE_HTTPS_PROXY=http://ambient-image.invalid:1
   export HTTP_PROXY=http://ambient.invalid:1
   export HTTPS_PROXY=http://ambient.invalid:1
@@ -331,11 +311,7 @@ done < <(proxy_environment_keys)
     config --format json
 ) |
   jq -e '
-    .services.updater.environment.SQLITE_TMPDIR == "/var/lib/bgmss/archive"
-    and ((.services.updater.networks | keys | sort) == ["backend"])
-    and (((.services.updater.environment // {})
-      | with_entries(select(.key | test("proxy"; "i")))
-      | keys) == [])
+    (.services | keys | sort) == ["api", "prometheus"]
     and ((.services.api.networks | keys | sort) == ["backend"])
     and (((.services.api.environment // {})
       | with_entries(select(.key | test("proxy"; "i")))
@@ -362,7 +338,6 @@ rm -f -- "$base_render_env"
   --prometheus-image "$prometheus_image" \
   --profile validation
 api_image_id=$(docker image inspect --format '{{.Id}}' "$api_image")
-updater_image_id=$(docker image inspect --format '{{.Id}}' "$updater_image")
 
 assert_container_projection() {
   local service=$1 container=$2 nano_cpus=$3 memory=$4 pids=$5
@@ -441,7 +416,7 @@ api_mounts=$(jq -cn --arg data "$root/data" '
     Source: $data,
     Destination: "/var/lib/bgmss/archive",
     Type: "bind",
-    RW: false
+    RW: true
   }]
 ')
 prometheus_mounts=$(jq -cn \
@@ -469,25 +444,6 @@ prometheus_mounts=$(jq -cn \
       }
     ]
   ')
-updater_mounts=$(jq -cn \
-  --arg data "$root/data" \
-  --arg tool "$root/current-tools/archive-smoke" '
-    [
-      {
-        Source: $data,
-        Destination: "/var/lib/bgmss/archive",
-        Type: "bind",
-        RW: true
-      },
-      {
-        Source: $tool,
-        Destination: "/opt/bgmss/bin/archive-smoke",
-        Type: "bind",
-        RW: false
-      }
-    ]
-  ')
-
 api_container=$(compose "$root" ps --quiet api)
 prometheus_container=$(compose "$root" ps --quiet prometheus)
 assert_container_projection \
@@ -499,17 +455,6 @@ assert_container_projection \
 assert_mount_projection api "$api_container" "$api_mounts"
 assert_mount_projection \
   prometheus "$prometheus_container" "$prometheus_mounts"
-
-[[ -z "$(compose "$root" ps --all --quiet updater)" ]] ||
-  die "updater container unexpectedly exists before projection validation"
-compose "$root" create updater >/dev/null
-updater_container=$(compose "$root" ps --all --quiet updater)
-assert_container_projection \
-  updater "$updater_container" 1000000000 536870912 256 "${project}_backend"
-assert_mount_projection updater "$updater_container" "$updater_mounts"
-compose "$root" rm --force --stop updater >/dev/null
-[[ -z "$(compose "$root" ps --all --quiet updater)" ]] ||
-  die "updater projection container was not removed"
 
 runtime_sample() {
   local sample_available
@@ -526,34 +471,11 @@ runtime_sample() {
 "$root/operations/bin/check" --root "$root"
 runtime_sample
 
-# Updater validation is intentionally bounded: no full Archive production run.
-compose "$root" run --rm --no-deps updater doctor |
-  jq -e '.code == "FOUNDATION_READY" and .status == "ok"' >/dev/null
-compose "$root" run --rm --no-deps updater contract-check \
-  --contracts-root /opt/bgmss/producer/contracts |
-  jq -e '.code == "VALID" and .status == "ok"' >/dev/null
-runtime_sample
-
-# Exercise an atomic pointer switch that must fail readiness, then restore it.
-saved_pointer=$(mktemp "$root/data/.validation-pointer.XXXXXX")
-cp --preserve=mode,ownership -- "$root/data/current.json" "$saved_pointer"
-invalid_version="dv1-ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-printf '{"pointerSchemaVersion":1,"dataVersion":"%s","manifestDigest":"sha256:%064d"}\n' \
-  "$invalid_version" 0 | atomic_write "$root/data/current.json" 0640
-chown 0:65532 "$root/data/current.json"
-if BGMSS_READY_ATTEMPTS=3 restart_and_wait "$root" "$invalid_version"; then
-  die "API unexpectedly became ready with an absent validation pointer"
-fi
-atomic_copy "$saved_pointer" "$root/data/current.json"
-restart_and_wait "$root" "$BGMSS_MINIMAL_DATA_VERSION"
-rm -f -- "$saved_pointer"
-
 # Create a same-byte previous release solely to exercise app restart/rollback.
 previous_release="$root/releases/validation-previous"
 cp -a -- "$root/releases/$revision" "$previous_release"
 atomic_copy "$root/state/current.env" "$root/state/previous.env"
 atomic_symlink "releases/validation-previous/frontend" "$root/previous-frontend"
-atomic_symlink "releases/validation-previous/tools" "$root/previous-tools"
 "$root/operations/bin/rollback-app" --root "$root"
 "$root/operations/bin/rollback-app" --root "$root"
 "$root/operations/bin/check" --root "$root"
@@ -569,15 +491,5 @@ sed \
   "$operations/nginx/bgmss.conf" >"$nginx_prefix/nginx.conf"
 nginx -t -p "$nginx_prefix/" -c "$nginx_prefix/nginx.conf"
 
-unit_root="$root/systemd-validation"
-install -d -m 0750 "$unit_root"
-sed "s|/srv/bgmss-v2|$root|g" \
-  "$operations/systemd/bgmss-archive-update.service" \
-  >"$unit_root/bgmss-archive-update.service"
-cp -- "$operations/systemd/bgmss-archive-update.timer" \
-  "$unit_root/bgmss-archive-update.timer"
-systemd-analyze verify \
-  "$unit_root/bgmss-archive-update.service" \
-  "$unit_root/bgmss-archive-update.timer"
 runtime_sample
 log "isolated validation passed; exact cleanup and protected-state comparison follow"

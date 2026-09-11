@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
@@ -127,7 +128,15 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	if err != nil {
 		return Projection{}, withDataVersion(err, dataVersion)
 	}
-	normalized, err := query.Normalize(request.Query, authority.Context)
+	input, err := decodeInput(request.Input)
+	if err != nil {
+		return Projection{}, err
+	}
+	normalizationScope := ""
+	if input.PositionKeys != nil {
+		normalizationScope = input.PositionScope
+	}
+	normalized, err := query.NormalizeOperation(request.Query, authority.Context, normalizationScope)
 	if err != nil {
 		return Projection{}, mapQueryError(err)
 	}
@@ -135,16 +144,34 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		ctx,
 		querytiming.Scope(normalized.Effective.Scope),
 	)
-	for index, key := range normalized.Effective.PositionKeys {
-		if !authority.PersonDetailByPosition[key] {
-			return Projection{}, capabilityError(
-				fmt.Sprintf("/query/positionKeys/%d", index),
-			)
+	appliedDigest := normalized.Digest
+	membership := normalized.Effective
+	membership.PositionKeys = query.OperationPositions(normalized.Effective, authority.Context, authority.PersonDetailByPosition, input.PositionScope, false)
+	if input.PositionScope == "all" && input.PositionKeys != nil {
+		allowed := make(map[string]bool, len(membership.PositionKeys))
+		for _, key := range membership.PositionKeys {
+			allowed[key] = true
 		}
+		for index, key := range input.PositionKeys {
+			if !allowed[key] {
+				return Projection{}, inputFailure(fmt.Sprintf("/input/positionKeys/%d", index), "UNSUPPORTED_VALUE")
+			}
+		}
+		normalized = query.OperationEvaluation(normalized, input.PositionKeys)
+	} else {
+		normalized, err = scopeDetailQuery(normalized, input, authority.Context)
 	}
-	input, err := decodeInput(request.Input)
 	if err != nil {
 		return Projection{}, err
+	}
+	for index, key := range normalized.Effective.PositionKeys {
+		if !authority.PersonDetailByPosition[key] {
+			path := fmt.Sprintf("/query/positionKeys/%d", index)
+			if input.PositionKeys != nil {
+				path = fmt.Sprintf("/input/positionKeys/%d", index)
+			}
+			return Projection{}, capabilityError(path)
+		}
 	}
 	viewInput, err := decodeView(request.View)
 	if err != nil {
@@ -173,11 +200,11 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	var resultKey runtimecache.ResultKey
 	switch normalized.Effective.Scope {
 	case "global":
-		resultKey, err = ResultKey(
+		resultKey, err = resultKeyForInput(
 			"global",
 			dataVersion,
-			normalized.Digest,
-			input.PersonID,
+			appliedDigest,
+			input,
 			"",
 		)
 	case "personal":
@@ -205,7 +232,6 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		loaded, loadErr := service.collection.Get(
 			ctx,
 			collectionKey,
-			false,
 			func(loadContext context.Context) (runtimecache.CollectionSnapshot, error) {
 				return service.collections.Fetch(
 					loadContext,
@@ -223,11 +249,11 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		}
 		access = &loaded
 		entries = collectionEntries(loaded.Snapshot)
-		resultKey, err = ResultKey(
+		resultKey, err = resultKeyForInput(
 			"personal",
 			dataVersion,
-			normalized.Digest,
-			input.PersonID,
+			appliedDigest,
+			input,
 			loaded.Digest,
 		)
 	default:
@@ -276,7 +302,7 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		projected.Collection = &CollectionFreshness{
 			FetchedAt:    access.FetchedAt,
 			Stale:        access.Stale,
-			WarningCodes: append([]string(nil), access.WarningCodes...),
+			WarningCodes: append([]string{}, access.WarningCodes...),
 		}
 	}
 	return projected, nil
@@ -385,7 +411,7 @@ func decodeInput(raw json.RawMessage) (Input, error) {
 		return Input{}, inputFailure("/input", "INVALID_TYPE")
 	}
 	for name := range fields {
-		if name != "personId" {
+		if name != "personId" && name != "positionKeys" && name != "positionScope" {
 			return Input{}, invalidRequest()
 		}
 	}
@@ -401,7 +427,53 @@ func decodeInput(raw json.RawMessage) (Input, error) {
 	default:
 		return Input{}, inputFailure("/input/personId", "OUT_OF_RANGE")
 	}
-	return Input{PersonID: personID}, nil
+	result := Input{PersonID: personID}
+	result.PositionScope, err = query.OperationPositionScope(raw)
+	if err != nil {
+		return Input{}, inputFailure("/input/positionScope", "UNSUPPORTED_VALUE")
+	}
+	if value, exists := fields["positionKeys"]; exists {
+		if err := json.Unmarshal(value, &result.PositionKeys); err != nil || len(result.PositionKeys) == 0 {
+			return Input{}, inputFailure("/input/positionKeys", "INVALID_TYPE")
+		}
+		seen := make(map[string]bool, len(result.PositionKeys))
+		for index, key := range result.PositionKeys {
+			if key == "" || seen[key] {
+				return Input{}, inputFailure(fmt.Sprintf("/input/positionKeys/%d", index), "INVALID_FORMAT")
+			}
+			seen[key] = true
+		}
+	}
+	return result, nil
+}
+
+// scopeDetailQuery derives evidence identities without changing the submitted
+// Applied Query or relaxing its subject/collection/filter boundaries.
+func scopeDetailQuery(normalized query.NormalizedQuery, input Input, catalog query.CatalogContext) (query.NormalizedQuery, error) {
+	if input.PositionKeys == nil {
+		return normalized, nil
+	}
+	allowed := make(map[string]bool, len(normalized.Effective.PositionKeys))
+	for _, key := range normalized.Effective.PositionKeys {
+		allowed[key] = true
+	}
+	for index, key := range input.PositionKeys {
+		if !allowed[key] {
+			return query.NormalizedQuery{}, inputFailure(fmt.Sprintf("/input/positionKeys/%d", index), "UNSUPPORTED_VALUE")
+		}
+	}
+	effective := normalized.Effective
+	effective.PositionKeys = append([]string(nil), input.PositionKeys...)
+	sort.Strings(effective.PositionKeys)
+	raw, err := json.Marshal(effective)
+	if err != nil {
+		return query.NormalizedQuery{}, err
+	}
+	derived, err := query.Normalize(raw, catalog)
+	if err != nil {
+		return query.NormalizedQuery{}, mapQueryError(err)
+	}
+	return derived, nil
 }
 
 func decodeView(raw json.RawMessage) (*ViewInput, error) {

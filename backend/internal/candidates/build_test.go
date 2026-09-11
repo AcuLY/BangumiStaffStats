@@ -2,7 +2,11 @@ package candidates
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -37,6 +41,29 @@ func TestBuildUsesIndependentPositionMembership(t *testing.T) {
 	}
 	if core.Rows[1].GlobalAverage != nil {
 		t.Fatalf("missing global average = %v", *core.Rows[1].GlobalAverage)
+	}
+}
+
+func TestBuildAllPositionsUnionsPeopleWorksAndIdentityOrder(t *testing.T) {
+	request := independentBuildRequest()
+	request.PositionKey = ""
+
+	core, err := Build(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Build all: %v", err)
+	}
+	if core.PositionKey != "" || len(core.Rows) != 3 {
+		t.Fatalf("all core = %+v", core)
+	}
+	if !slices.Equal(core.Rows[1].PositionKeys, []string{
+		"staff:anime:2",
+		"staff:anime:74",
+	}) || core.Rows[1].Person.ID != 2 || core.Rows[1].WorkCount != 1 {
+		t.Fatalf("overlapping person = %+v", core.Rows[1])
+	}
+	if !slices.Equal(core.Rows[0].PositionKeys, []string{"staff:anime:2"}) ||
+		!slices.Equal(core.Rows[2].PositionKeys, []string{"staff:anime:74"}) {
+		t.Fatalf("identity order = %+v", core.Rows)
 	}
 }
 
@@ -241,5 +268,71 @@ func testSubject(id int64, score *float64) query.Subject {
 		SubjectType:   "anime",
 		GlobalScore:   score,
 		RatingBuckets: buckets,
+	}
+}
+
+func TestAllPositionProjectionPreservesMoreThanSixteenPositions(t *testing.T) {
+	fixture, err := os.ReadFile("../../../contracts/goldens/api/candidates/cases/many-positions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var corpus struct {
+		Cases []struct {
+			Request  struct{ Query json.RawMessage }
+			Expected struct{ Body json.RawMessage }
+		}
+	}
+	if err = json.Unmarshal(fixture, &corpus); err != nil {
+		t.Fatal(err)
+	}
+	catalog := query.CatalogContext{}
+	capabilities := map[string]bool{}
+	facts := query.FactSet{Subjects: []query.Subject{{SubjectID: 1, SubjectType: "anime"}}}
+	for id := int64(1); id <= 33; id++ {
+		key := fmt.Sprintf("staff:anime:%d", id)
+		catalog.Positions = append(catalog.Positions, query.CatalogPosition{Key: key, SubjectType: "anime", Selectable: true})
+		capabilities[key] = true
+		facts.Plans = append(facts.Plans, query.SelectionPlan{PositionKey: key, RuleKind: "exactStaff", PositionID: id})
+		facts.StaffCredits = append(facts.StaffCredits, query.StaffCredit{SubjectID: 1, PersonID: 1, PositionID: id})
+	}
+	normalized, err := query.Normalize(corpus.Cases[0].Request.Query, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := query.OperationPositions(normalized.Effective, catalog, capabilities, "all", true)
+	evaluated := query.OperationEvaluation(normalized, keys)
+	result, err := query.Evaluate(context.Background(), evaluated, facts, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	core, err := Build(context.Background(), BuildRequest{DataVersion: testDataVersion, Query: *result, Facts: facts, People: []PersonReference{{ID: 1, Name: "Many Roles"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := NormalizeView("global", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := Project(context.Background(), core, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := NewProjection(page, testDataVersion, "global", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := projection.MarshalEnvelope("req-candidates-many-positions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got, want any
+	if err = json.Unmarshal(actual, &got); err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(corpus.Cases[0].Expected.Body, &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("all-position response differs from schema-validated golden: %s", actual)
 	}
 }

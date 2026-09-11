@@ -1,12 +1,12 @@
 # backend-public-collection-source Specification
 
 ## Purpose
-Define the production public-collection adapter pinned to `bangumi-collection-go` v0.1.0, with exact complete DTO mapping for admitted subject types and collection states and stable sanitized upstream-failure classification.
+Define the production public-collection adapter pinned to `bangumi-collection-go` v0.1.2, with exact complete DTO mapping for admitted subject types and collection states and stable sanitized upstream-failure classification.
 ## Requirements
 ### Requirement: Production SHALL use the fixed public collection client
 
 The backend SHALL consume package `collection` from module
-`github.com/AcuLY/bangumi-collection-go` at immutable tag `v0.1.1` through one
+`github.com/AcuLY/bangumi-collection-go` at immutable tag `v0.1.2` through one
 internal anonymous adapter, with no module replacement.
 
 #### Scenario: Production runtime starts
@@ -19,7 +19,7 @@ internal anonymous adapter, with no module replacement.
 #### Scenario: Module dependency is inspected
 
 - **WHEN** the formal backend module graph is resolved
-- **THEN** it SHALL contain exact public tag `v0.1.1`
+- **THEN** it SHALL contain exact public tag `v0.1.2`
 - **AND** it SHALL contain no `replace`, local path, or pseudo-version for the
   collection client
 
@@ -29,7 +29,9 @@ The adapter SHALL support the five admitted subject types and four requested
 collection states and SHALL retain every collection field required by the
 internal snapshot. The fixed external client SHALL normalize an omitted or
 JSON-null optional upstream comment to the same empty string before mapping;
-every non-null string SHALL remain exact.
+every non-null string SHALL remain exact. A same-ID nested subject may have a
+different supported type; this SHALL NOT invalidate the collection record,
+whose top-level subject_type remains the returned SubjectType.
 
 #### Scenario: Public collection is returned
 
@@ -51,6 +53,11 @@ every non-null string SHALL remain exact.
 - **THEN** the adapter SHALL return a sanitized protocol/decode failure
 - **AND** it SHALL NOT choose a winner, drop a record, or publish partial data
 
+#### Scenario: Nested subject metadata has another supported type
+- **WHEN** the real client receives a collection record with subject_type 2 and a complete same-ID nested subject with type 6
+- **THEN** the adapter SHALL return the complete anime collection item with its original subject ID and collection fields
+- **AND** downstream statistical inclusion SHALL remain governed by the existing Archive/query authority
+
 ### Requirement: Upstream failures SHALL retain stable classifications
 
 Every external failure SHALL map to the internal closed collection-failure
@@ -70,3 +77,15 @@ taxonomy without leaking sensitive values or external DTOs.
 - **THEN** the adapter SHALL preserve the corresponding stable internal
   classification
 - **AND** parent cancellation SHALL remain cancellation
+
+### Requirement: Public collection attempts SHALL have an explicit bounded policy
+
+The production anonymous provider SHALL apply a process-shared rate of five
+requests per second with burst ten and a 10-second timeout for each outbound
+HTTP attempt. Pagination, limiter waiting and retry backoff SHALL stay within
+the independent 90-second complete-collection budget. Existing concurrency,
+retry count, Retry-After behavior and sanitized failure handling SHALL remain.
+
+#### Scenario: An outbound page attempt begins
+- **WHEN** the production provider sends a collection page request
+- **THEN** the request SHALL carry an effective deadline no later than ten seconds after attempt start or its parent worker deadline, whichever is earlier

@@ -43,16 +43,6 @@ func TestArchiveLoadFailureEventIsExactBoundedAndOnce(t *testing.T) {
 
 func TestArchiveLoadFailureCodeSetIsClosed(t *testing.T) {
 	validCodes := []ArchiveErrorCode{
-		ArchiveErrorManifestSchemaInvalid,
-		ArchiveErrorPointerSchemaInvalid,
-		ArchiveErrorManifestAccountingInvalid,
-		ArchiveErrorVersionUnsupported,
-		ArchiveErrorDataVersionMismatch,
-		ArchiveErrorSQLiteDataVersionMismatch,
-		ArchiveErrorSQLiteFormatInvalid,
-		ArchiveErrorSQLiteDigestMismatch,
-		ArchiveErrorSQLiteRequiredObjectMissing,
-		ArchiveErrorSQLiteTableCountMismatch,
 		ArchiveErrorRootInvalid,
 		ArchiveErrorFileInvalid,
 		ArchiveErrorImmutableLayoutInvalid,
@@ -72,6 +62,16 @@ func TestArchiveLoadFailureCodeSetIsClosed(t *testing.T) {
 	}
 	if _, ok := ParseArchiveErrorCode("private error /tmp/archive"); ok {
 		t.Fatal("accepted raw error as Archive code")
+	}
+	for _, removed := range []string{
+		"MANIFEST_SCHEMA_INVALID",
+		"SQLITE_DIGEST_MISMATCH",
+		"SQLITE_REQUIRED_OBJECT_MISSING",
+		"SQLITE_TABLE_COUNT_MISMATCH",
+	} {
+		if _, ok := ParseArchiveErrorCode(removed); ok {
+			t.Fatalf("accepted removed admission code %q", removed)
+		}
 	}
 	if _, err := archiveLoadFailedEvent(ArchiveErrorCode("UNKNOWN")); err == nil {
 		t.Fatal("constructed event with unknown code")
@@ -299,6 +299,55 @@ func TestEventSinkRejectsEmptyAndShortWrites(t *testing.T) {
 	}
 	if err := sink.Emit(event); !errors.Is(err, io.ErrShortWrite) {
 		t.Fatalf("short write error = %v", err)
+	}
+}
+
+func TestArchiveUpdateEventsAreBounded(t *testing.T) {
+	var output bytes.Buffer
+	sink := NewEventSink(&output)
+	runID := "run-0000000000000001"
+	if err := sink.EmitArchiveUpdateStarted(runID); err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.EmitArchiveUpdateTerminal(runID, UpdateTerminalSnapshot{
+		Time:     time.Now().UTC(),
+		Status:   UpdateStatusActivated,
+		Phase:    UpdatePhaseCleanup,
+		Duration: 2500 * time.Millisecond,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	for _, value := range []string{
+		`"event":"archive_update_started"`,
+		`"event":"archive_update_activated"`,
+		`"run_id":"run-0000000000000001"`,
+		`"duration_ms":2500`,
+	} {
+		if !strings.Contains(text, value) {
+			t.Fatalf("events lack %q: %s", value, text)
+		}
+	}
+	for _, value := range []string{"dv1-", "path", "digest", "url"} {
+		if strings.Contains(strings.ToLower(text), value) {
+			t.Fatalf("events contain forbidden %q: %s", value, text)
+		}
+	}
+}
+
+func TestArchiveUpdateEventsRejectUnboundedInputs(t *testing.T) {
+	sink := NewEventSink(io.Discard)
+	for _, runID := range []string{"", "run/secret", strings.Repeat("x", 65)} {
+		if err := sink.EmitArchiveUpdateStarted(runID); err == nil {
+			t.Fatalf("accepted run ID %q", runID)
+		}
+	}
+	if err := sink.EmitArchiveUpdateTerminal("run-1", UpdateTerminalSnapshot{
+		Status:   UpdateStatus("attacker"),
+		Phase:    UpdatePhaseBuild,
+		Duration: time.Second,
+	}); err == nil {
+		t.Fatal("accepted attacker status")
 	}
 }
 

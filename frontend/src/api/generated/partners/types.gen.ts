@@ -13,8 +13,8 @@ export type PartnersSuccessEnvelopeV1 = SuccessEnvelopeV1Schema;
 /**
  * PartnersRequestV1
  */
-export type RequestV1Schema = {
-    query: SharedQueryV1Schema;
+export type RequestV1Schema = unknown & {
+    query: OperationSharedQueryV1;
     input: PartnersInputV1;
     view?: PartnersViewV1;
 };
@@ -89,6 +89,7 @@ export type GlobalDataV1 = {
     source: SourceV1;
     summary: GlobalSummaryV1;
     items: Array<GlobalPartnerItemV1>;
+    metricScale: GlobalRankingsMetricScaleV1;
 };
 
 export type GlobalLeaderV1 = {
@@ -174,6 +175,7 @@ export type PersonalDataV1 = {
     source: SourceV1;
     summary: PersonalSummaryV1;
     items: Array<PersonalPartnerItemV1>;
+    metricScale: RankingsMetricScaleV1;
 };
 
 export type PersonalLeaderV1 = {
@@ -255,6 +257,10 @@ export type PageV1 = number;
 export type PartnersInputV1 = {
     source: PersonIdentityV1;
     candidatePositionKey?: PositionKeyV1;
+    /**
+     * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+     */
+    positionScope?: 'query' | 'all';
 };
 
 export type PartnersViewV1 = {
@@ -288,13 +294,17 @@ export type CommonFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type GlobalSharedQueryV1 = {
+export type GlobalSharedQueryFieldsV1 = {
     scope: 'global';
     subjectType: SubjectTypeV1;
     positionKeys: Array<PositionKeyV1>;
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: CommonFiltersInputV1;
+};
+
+export type GlobalSharedQueryV1 = GlobalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type SharedQueryV1SchemaJsonSafePositiveIntegerV1 = number;
@@ -306,6 +316,11 @@ export type MonthRangeV1 = {
 
 export type MonthV1 = string;
 
+/**
+ * Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.
+ */
+export type OperationSharedQueryV1 = PersonalSharedQueryFieldsV1 | GlobalSharedQueryFieldsV1;
+
 export type PersonalFiltersInputV1 = {
     subjectDate?: MonthRangeV1;
     collectionUpdatedAt?: MonthRangeV1;
@@ -316,7 +331,7 @@ export type PersonalFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type PersonalSharedQueryV1 = {
+export type PersonalSharedQueryFieldsV1 = {
     scope: 'personal';
     uid: string;
     collectionStatuses: Array<CollectionStatusV1>;
@@ -325,6 +340,10 @@ export type PersonalSharedQueryV1 = {
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: PersonalFiltersInputV1;
+};
+
+export type PersonalSharedQueryV1 = PersonalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type PositionKeyV1 = unknown | unknown | unknown;
@@ -360,6 +379,41 @@ export type TagIncludeGroupInputV1 = {
 };
 
 export type TagTokenInputV1 = string;
+
+export type SuccessEnvelopeV1SchemaCanonicalNonNegativeIntegerStringV1 = string;
+
+export type SuccessEnvelopeV1SchemaCanonicalPositiveIntegerStringV1 = string;
+
+export type CountMetricScaleV1 = {
+    metric: 'count';
+    kind: 'linear';
+    max: SuccessEnvelopeV1SchemaJsonSafeNonNegativeIntegerV1 | null;
+};
+
+export type GlobalRankingsMetricScaleV1 = CountMetricScaleV1 | HundredthsMetricScaleV1;
+
+export type HundredthsMetricScaleV1 = {
+    metric: 'average' | 'overall';
+    kind: 'linear';
+    max: SuccessEnvelopeV1SchemaHundredthsV1 | null;
+};
+
+export type SuccessEnvelopeV1SchemaHundredthsV1 = number;
+
+export type SuccessEnvelopeV1SchemaJsonSafeNonNegativeIntegerV1 = number;
+
+export type SuccessEnvelopeV1SchemaNonNegativeRationalV1 = {
+    numerator: SuccessEnvelopeV1SchemaCanonicalNonNegativeIntegerStringV1;
+    denominator: SuccessEnvelopeV1SchemaCanonicalPositiveIntegerStringV1;
+};
+
+export type PreferenceMetricScaleV1 = {
+    metric: 'preference';
+    kind: 'linear';
+    max: SuccessEnvelopeV1SchemaNonNegativeRationalV1 | null;
+};
+
+export type RankingsMetricScaleV1 = CountMetricScaleV1 | HundredthsMetricScaleV1 | PreferenceMetricScaleV1;
 
 export type PostPartnersV1Data = {
     body: RequestV1Schema;

@@ -12,9 +12,9 @@ const domainPrefix = Buffer.from("bgmss.query.v1\0", "ascii");
 const statusOrder = ["completed", "in_progress", "on_hold", "dropped"];
 const exactAuthorities = [
   {
-    id: "archive-schema-v1",
+    id: "archive-schema-v2",
     path: "contracts/schemas/archive/schema.sql",
-    sha256: "3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
+    sha256: "04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255",
   },
   {
     id: "catalog-complete-derivation",

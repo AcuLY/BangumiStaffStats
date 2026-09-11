@@ -13,11 +13,10 @@ export type ResultErrorEnvelopeV1 = ResultErrorEnvelopeV1Schema;
 /**
  * CandidatesRequestV1
  */
-export type RequestV1Schema = {
-    query: SharedQueryV1Schema;
+export type RequestV1Schema = unknown & {
+    query: OperationSharedQueryV1;
     input: CandidatesInputV1;
     view?: CandidatesViewV1;
-    refreshCollection?: boolean;
 };
 
 /**
@@ -28,17 +27,24 @@ export type SuccessEnvelopeV1Schema = PersonalCandidatesSuccessEnvelopeV1 | Glob
 export type CandidateItemV1 = {
     rank: JsonSafePositiveIntegerV1;
     person: PersonReferenceV1;
+    /**
+     * Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope.
+     */
+    positionKeys: Array<PositionKeyV1>;
     workCount: JsonSafeNonNegativeIntegerV1;
 };
 
 export type CandidatesDataV1 = {
     summary: CandidatesSummaryV1;
-    positionKey: PositionKeyV1;
+    positionKey: PositionKeyV1 | null;
     workUnit: 'subject' | 'series';
     items: Array<CandidateItemV1>;
 };
 
 export type CandidatesSummaryV1 = {
+    /**
+     * Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope.
+     */
     positionCounts: Array<PositionCountV1>;
 };
 
@@ -97,7 +103,11 @@ export type PositionCountV1 = {
 };
 
 export type CandidatesInputV1 = {
-    positionKey: PositionKeyV1;
+    positionKey: PositionKeyV1 | null;
+    /**
+     * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+     */
+    positionScope?: 'query' | 'all';
 };
 
 export type CandidatesViewV1 = {
@@ -130,7 +140,7 @@ export type CommonFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type GlobalSharedQueryV1 = {
+export type GlobalSharedQueryFieldsV1 = {
     scope: 'global';
     subjectType: SubjectTypeV1;
     positionKeys: Array<PositionKeyV1>;
@@ -139,12 +149,21 @@ export type GlobalSharedQueryV1 = {
     filters?: CommonFiltersInputV1;
 };
 
+export type GlobalSharedQueryV1 = GlobalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
+};
+
 export type MonthRangeV1 = {
     min?: MonthV1;
     max?: MonthV1;
 };
 
 export type MonthV1 = string;
+
+/**
+ * Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.
+ */
+export type OperationSharedQueryV1 = PersonalSharedQueryFieldsV1 | GlobalSharedQueryFieldsV1;
 
 export type PersonalFiltersInputV1 = {
     subjectDate?: MonthRangeV1;
@@ -156,7 +175,7 @@ export type PersonalFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type PersonalSharedQueryV1 = {
+export type PersonalSharedQueryFieldsV1 = {
     scope: 'personal';
     uid: string;
     collectionStatuses: Array<CollectionStatusV1>;
@@ -165,6 +184,10 @@ export type PersonalSharedQueryV1 = {
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: PersonalFiltersInputV1;
+};
+
+export type PersonalSharedQueryV1 = PersonalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type PositionKeyV1 = unknown | unknown | unknown;

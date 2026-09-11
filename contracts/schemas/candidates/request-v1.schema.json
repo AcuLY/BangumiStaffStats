@@ -10,17 +10,42 @@
   ],
   "properties": {
     "query": {
-      "$ref": "../query/shared-query-v1.schema.json"
+      "$ref": "../query/shared-query-v1.schema.json#/$defs/OperationSharedQueryV1"
     },
     "input": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/CandidatesInputV1"
     },
     "view": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/CandidatesViewV1"
-    },
-    "refreshCollection": {
-      "type": "boolean",
-      "default": false
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "object",
+            "required": [
+              "positionScope"
+            ],
+            "properties": {
+              "positionScope": {
+                "const": "all"
+              }
+            }
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "$ref": "../query/shared-query-v1.schema.json"
+          }
+        }
+      }
+    }
+  ]
 }

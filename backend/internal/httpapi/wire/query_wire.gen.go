@@ -9,60 +9,18 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for CandidatesStateV1ViewOrder.
+// Defines values for CandidatesInputV1PositionScope.
 const (
-	CandidatesStateV1ViewOrderAsc  CandidatesStateV1ViewOrder = "asc"
-	CandidatesStateV1ViewOrderDesc CandidatesStateV1ViewOrder = "desc"
+	CandidatesInputV1PositionScopeAll   CandidatesInputV1PositionScope = "all"
+	CandidatesInputV1PositionScopeQuery CandidatesInputV1PositionScope = "query"
 )
 
-// Valid indicates whether the value is a known member of the CandidatesStateV1ViewOrder enum.
-func (e CandidatesStateV1ViewOrder) Valid() bool {
+// Valid indicates whether the value is a known member of the CandidatesInputV1PositionScope enum.
+func (e CandidatesInputV1PositionScope) Valid() bool {
 	switch e {
-	case CandidatesStateV1ViewOrderAsc:
+	case CandidatesInputV1PositionScopeAll:
 		return true
-	case CandidatesStateV1ViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CandidatesStateV1ViewPageSize.
-const (
-	CandidatesStateV1ViewPageSizeN10 CandidatesStateV1ViewPageSize = 10
-	CandidatesStateV1ViewPageSizeN20 CandidatesStateV1ViewPageSize = 20
-	CandidatesStateV1ViewPageSizeN5  CandidatesStateV1ViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CandidatesStateV1ViewPageSize enum.
-func (e CandidatesStateV1ViewPageSize) Valid() bool {
-	switch e {
-	case CandidatesStateV1ViewPageSizeN10:
-		return true
-	case CandidatesStateV1ViewPageSizeN20:
-		return true
-	case CandidatesStateV1ViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CandidatesStateV1ViewSort.
-const (
-	CandidatesStateV1ViewSortAverage       CandidatesStateV1ViewSort = "average"
-	CandidatesStateV1ViewSortCount         CandidatesStateV1ViewSort = "count"
-	CandidatesStateV1ViewSortGlobalAverage CandidatesStateV1ViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CandidatesStateV1ViewSort enum.
-func (e CandidatesStateV1ViewSort) Valid() bool {
-	switch e {
-	case CandidatesStateV1ViewSortAverage:
-		return true
-	case CandidatesStateV1ViewSortCount:
-		return true
-	case CandidatesStateV1ViewSortGlobalAverage:
+	case CandidatesInputV1PositionScopeQuery:
 		return true
 	default:
 		return false
@@ -156,1059 +114,18 @@ func (e CatalogContextV1PositionsSubjectType) Valid() bool {
 	}
 }
 
-// Defines values for CoStarAnalysisV1ViewOrder.
+// Defines values for CoStarInputV1PositionScope.
 const (
-	CoStarAnalysisV1ViewOrderAsc  CoStarAnalysisV1ViewOrder = "asc"
-	CoStarAnalysisV1ViewOrderDesc CoStarAnalysisV1ViewOrder = "desc"
+	CoStarInputV1PositionScopeAll   CoStarInputV1PositionScope = "all"
+	CoStarInputV1PositionScopeQuery CoStarInputV1PositionScope = "query"
 )
 
-// Valid indicates whether the value is a known member of the CoStarAnalysisV1ViewOrder enum.
-func (e CoStarAnalysisV1ViewOrder) Valid() bool {
+// Valid indicates whether the value is a known member of the CoStarInputV1PositionScope enum.
+func (e CoStarInputV1PositionScope) Valid() bool {
 	switch e {
-	case CoStarAnalysisV1ViewOrderAsc:
+	case CoStarInputV1PositionScopeAll:
 		return true
-	case CoStarAnalysisV1ViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisV1ViewPageSize.
-const (
-	CoStarAnalysisV1ViewPageSizeN10 CoStarAnalysisV1ViewPageSize = 10
-	CoStarAnalysisV1ViewPageSizeN20 CoStarAnalysisV1ViewPageSize = 20
-	CoStarAnalysisV1ViewPageSizeN5  CoStarAnalysisV1ViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisV1ViewPageSize enum.
-func (e CoStarAnalysisV1ViewPageSize) Valid() bool {
-	switch e {
-	case CoStarAnalysisV1ViewPageSizeN10:
-		return true
-	case CoStarAnalysisV1ViewPageSizeN20:
-		return true
-	case CoStarAnalysisV1ViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisV1ViewSort.
-const (
-	CoStarAnalysisV1ViewSortCollectionUpdatedAt CoStarAnalysisV1ViewSort = "collectionUpdatedAt"
-	CoStarAnalysisV1ViewSortGlobalScore         CoStarAnalysisV1ViewSort = "globalScore"
-	CoStarAnalysisV1ViewSortPersonalScore       CoStarAnalysisV1ViewSort = "personalScore"
-	CoStarAnalysisV1ViewSortSeriesSize          CoStarAnalysisV1ViewSort = "seriesSize"
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisV1ViewSort enum.
-func (e CoStarAnalysisV1ViewSort) Valid() bool {
-	switch e {
-	case CoStarAnalysisV1ViewSortCollectionUpdatedAt:
-		return true
-	case CoStarAnalysisV1ViewSortGlobalScore:
-		return true
-	case CoStarAnalysisV1ViewSortPersonalScore:
-		return true
-	case CoStarAnalysisV1ViewSortSeriesSize:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisWorkspaceV1CandidatesViewOrder.
-const (
-	CoStarAnalysisWorkspaceV1CandidatesViewOrderAsc  CoStarAnalysisWorkspaceV1CandidatesViewOrder = "asc"
-	CoStarAnalysisWorkspaceV1CandidatesViewOrderDesc CoStarAnalysisWorkspaceV1CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisWorkspaceV1CandidatesViewOrder enum.
-func (e CoStarAnalysisWorkspaceV1CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarAnalysisWorkspaceV1CandidatesViewOrderAsc:
-		return true
-	case CoStarAnalysisWorkspaceV1CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisWorkspaceV1CandidatesViewPageSize.
-const (
-	CoStarAnalysisWorkspaceV1CandidatesViewPageSizeN10 CoStarAnalysisWorkspaceV1CandidatesViewPageSize = 10
-	CoStarAnalysisWorkspaceV1CandidatesViewPageSizeN20 CoStarAnalysisWorkspaceV1CandidatesViewPageSize = 20
-	CoStarAnalysisWorkspaceV1CandidatesViewPageSizeN5  CoStarAnalysisWorkspaceV1CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisWorkspaceV1CandidatesViewPageSize enum.
-func (e CoStarAnalysisWorkspaceV1CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarAnalysisWorkspaceV1CandidatesViewPageSizeN10:
-		return true
-	case CoStarAnalysisWorkspaceV1CandidatesViewPageSizeN20:
-		return true
-	case CoStarAnalysisWorkspaceV1CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisWorkspaceV1CandidatesViewSort.
-const (
-	CoStarAnalysisWorkspaceV1CandidatesViewSortAverage       CoStarAnalysisWorkspaceV1CandidatesViewSort = "average"
-	CoStarAnalysisWorkspaceV1CandidatesViewSortCount         CoStarAnalysisWorkspaceV1CandidatesViewSort = "count"
-	CoStarAnalysisWorkspaceV1CandidatesViewSortGlobalAverage CoStarAnalysisWorkspaceV1CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisWorkspaceV1CandidatesViewSort enum.
-func (e CoStarAnalysisWorkspaceV1CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarAnalysisWorkspaceV1CandidatesViewSortAverage:
-		return true
-	case CoStarAnalysisWorkspaceV1CandidatesViewSortCount:
-		return true
-	case CoStarAnalysisWorkspaceV1CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisWorkspaceV1CoStarViewOrder.
-const (
-	CoStarAnalysisWorkspaceV1CoStarViewOrderAsc  CoStarAnalysisWorkspaceV1CoStarViewOrder = "asc"
-	CoStarAnalysisWorkspaceV1CoStarViewOrderDesc CoStarAnalysisWorkspaceV1CoStarViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisWorkspaceV1CoStarViewOrder enum.
-func (e CoStarAnalysisWorkspaceV1CoStarViewOrder) Valid() bool {
-	switch e {
-	case CoStarAnalysisWorkspaceV1CoStarViewOrderAsc:
-		return true
-	case CoStarAnalysisWorkspaceV1CoStarViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisWorkspaceV1CoStarViewPageSize.
-const (
-	CoStarAnalysisWorkspaceV1CoStarViewPageSizeN10 CoStarAnalysisWorkspaceV1CoStarViewPageSize = 10
-	CoStarAnalysisWorkspaceV1CoStarViewPageSizeN20 CoStarAnalysisWorkspaceV1CoStarViewPageSize = 20
-	CoStarAnalysisWorkspaceV1CoStarViewPageSizeN5  CoStarAnalysisWorkspaceV1CoStarViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisWorkspaceV1CoStarViewPageSize enum.
-func (e CoStarAnalysisWorkspaceV1CoStarViewPageSize) Valid() bool {
-	switch e {
-	case CoStarAnalysisWorkspaceV1CoStarViewPageSizeN10:
-		return true
-	case CoStarAnalysisWorkspaceV1CoStarViewPageSizeN20:
-		return true
-	case CoStarAnalysisWorkspaceV1CoStarViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarAnalysisWorkspaceV1CoStarViewSort.
-const (
-	CoStarAnalysisWorkspaceV1CoStarViewSortCollectionUpdatedAt CoStarAnalysisWorkspaceV1CoStarViewSort = "collectionUpdatedAt"
-	CoStarAnalysisWorkspaceV1CoStarViewSortGlobalScore         CoStarAnalysisWorkspaceV1CoStarViewSort = "globalScore"
-	CoStarAnalysisWorkspaceV1CoStarViewSortPersonalScore       CoStarAnalysisWorkspaceV1CoStarViewSort = "personalScore"
-	CoStarAnalysisWorkspaceV1CoStarViewSortSeriesSize          CoStarAnalysisWorkspaceV1CoStarViewSort = "seriesSize"
-)
-
-// Valid indicates whether the value is a known member of the CoStarAnalysisWorkspaceV1CoStarViewSort enum.
-func (e CoStarAnalysisWorkspaceV1CoStarViewSort) Valid() bool {
-	switch e {
-	case CoStarAnalysisWorkspaceV1CoStarViewSortCollectionUpdatedAt:
-		return true
-	case CoStarAnalysisWorkspaceV1CoStarViewSortGlobalScore:
-		return true
-	case CoStarAnalysisWorkspaceV1CoStarViewSortPersonalScore:
-		return true
-	case CoStarAnalysisWorkspaceV1CoStarViewSortSeriesSize:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarEmptyWorkspaceV1CandidatesViewOrder.
-const (
-	CoStarEmptyWorkspaceV1CandidatesViewOrderAsc  CoStarEmptyWorkspaceV1CandidatesViewOrder = "asc"
-	CoStarEmptyWorkspaceV1CandidatesViewOrderDesc CoStarEmptyWorkspaceV1CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarEmptyWorkspaceV1CandidatesViewOrder enum.
-func (e CoStarEmptyWorkspaceV1CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarEmptyWorkspaceV1CandidatesViewOrderAsc:
-		return true
-	case CoStarEmptyWorkspaceV1CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarEmptyWorkspaceV1CandidatesViewPageSize.
-const (
-	CoStarEmptyWorkspaceV1CandidatesViewPageSizeN10 CoStarEmptyWorkspaceV1CandidatesViewPageSize = 10
-	CoStarEmptyWorkspaceV1CandidatesViewPageSizeN20 CoStarEmptyWorkspaceV1CandidatesViewPageSize = 20
-	CoStarEmptyWorkspaceV1CandidatesViewPageSizeN5  CoStarEmptyWorkspaceV1CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarEmptyWorkspaceV1CandidatesViewPageSize enum.
-func (e CoStarEmptyWorkspaceV1CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarEmptyWorkspaceV1CandidatesViewPageSizeN10:
-		return true
-	case CoStarEmptyWorkspaceV1CandidatesViewPageSizeN20:
-		return true
-	case CoStarEmptyWorkspaceV1CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarEmptyWorkspaceV1CandidatesViewSort.
-const (
-	CoStarEmptyWorkspaceV1CandidatesViewSortAverage       CoStarEmptyWorkspaceV1CandidatesViewSort = "average"
-	CoStarEmptyWorkspaceV1CandidatesViewSortCount         CoStarEmptyWorkspaceV1CandidatesViewSort = "count"
-	CoStarEmptyWorkspaceV1CandidatesViewSortGlobalAverage CoStarEmptyWorkspaceV1CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarEmptyWorkspaceV1CandidatesViewSort enum.
-func (e CoStarEmptyWorkspaceV1CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarEmptyWorkspaceV1CandidatesViewSortAverage:
-		return true
-	case CoStarEmptyWorkspaceV1CandidatesViewSortCount:
-		return true
-	case CoStarEmptyWorkspaceV1CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarPartnersWorkspaceV1CandidatesViewOrder.
-const (
-	CoStarPartnersWorkspaceV1CandidatesViewOrderAsc  CoStarPartnersWorkspaceV1CandidatesViewOrder = "asc"
-	CoStarPartnersWorkspaceV1CandidatesViewOrderDesc CoStarPartnersWorkspaceV1CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarPartnersWorkspaceV1CandidatesViewOrder enum.
-func (e CoStarPartnersWorkspaceV1CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarPartnersWorkspaceV1CandidatesViewOrderAsc:
-		return true
-	case CoStarPartnersWorkspaceV1CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarPartnersWorkspaceV1CandidatesViewPageSize.
-const (
-	CoStarPartnersWorkspaceV1CandidatesViewPageSizeN10 CoStarPartnersWorkspaceV1CandidatesViewPageSize = 10
-	CoStarPartnersWorkspaceV1CandidatesViewPageSizeN20 CoStarPartnersWorkspaceV1CandidatesViewPageSize = 20
-	CoStarPartnersWorkspaceV1CandidatesViewPageSizeN5  CoStarPartnersWorkspaceV1CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarPartnersWorkspaceV1CandidatesViewPageSize enum.
-func (e CoStarPartnersWorkspaceV1CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarPartnersWorkspaceV1CandidatesViewPageSizeN10:
-		return true
-	case CoStarPartnersWorkspaceV1CandidatesViewPageSizeN20:
-		return true
-	case CoStarPartnersWorkspaceV1CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarPartnersWorkspaceV1CandidatesViewSort.
-const (
-	CoStarPartnersWorkspaceV1CandidatesViewSortAverage       CoStarPartnersWorkspaceV1CandidatesViewSort = "average"
-	CoStarPartnersWorkspaceV1CandidatesViewSortCount         CoStarPartnersWorkspaceV1CandidatesViewSort = "count"
-	CoStarPartnersWorkspaceV1CandidatesViewSortGlobalAverage CoStarPartnersWorkspaceV1CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarPartnersWorkspaceV1CandidatesViewSort enum.
-func (e CoStarPartnersWorkspaceV1CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarPartnersWorkspaceV1CandidatesViewSortAverage:
-		return true
-	case CoStarPartnersWorkspaceV1CandidatesViewSortCount:
-		return true
-	case CoStarPartnersWorkspaceV1CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarPartnersWorkspaceV1PartnersViewOrder.
-const (
-	CoStarPartnersWorkspaceV1PartnersViewOrderAsc  CoStarPartnersWorkspaceV1PartnersViewOrder = "asc"
-	CoStarPartnersWorkspaceV1PartnersViewOrderDesc CoStarPartnersWorkspaceV1PartnersViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarPartnersWorkspaceV1PartnersViewOrder enum.
-func (e CoStarPartnersWorkspaceV1PartnersViewOrder) Valid() bool {
-	switch e {
-	case CoStarPartnersWorkspaceV1PartnersViewOrderAsc:
-		return true
-	case CoStarPartnersWorkspaceV1PartnersViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarPartnersWorkspaceV1PartnersViewPageSize.
-const (
-	CoStarPartnersWorkspaceV1PartnersViewPageSizeN10 CoStarPartnersWorkspaceV1PartnersViewPageSize = 10
-	CoStarPartnersWorkspaceV1PartnersViewPageSizeN20 CoStarPartnersWorkspaceV1PartnersViewPageSize = 20
-	CoStarPartnersWorkspaceV1PartnersViewPageSizeN5  CoStarPartnersWorkspaceV1PartnersViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarPartnersWorkspaceV1PartnersViewPageSize enum.
-func (e CoStarPartnersWorkspaceV1PartnersViewPageSize) Valid() bool {
-	switch e {
-	case CoStarPartnersWorkspaceV1PartnersViewPageSizeN10:
-		return true
-	case CoStarPartnersWorkspaceV1PartnersViewPageSizeN20:
-		return true
-	case CoStarPartnersWorkspaceV1PartnersViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarPartnersWorkspaceV1PartnersViewSort.
-const (
-	CoStarPartnersWorkspaceV1PartnersViewSortAverage    CoStarPartnersWorkspaceV1PartnersViewSort = "average"
-	CoStarPartnersWorkspaceV1PartnersViewSortCount      CoStarPartnersWorkspaceV1PartnersViewSort = "count"
-	CoStarPartnersWorkspaceV1PartnersViewSortOverall    CoStarPartnersWorkspaceV1PartnersViewSort = "overall"
-	CoStarPartnersWorkspaceV1PartnersViewSortPreference CoStarPartnersWorkspaceV1PartnersViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the CoStarPartnersWorkspaceV1PartnersViewSort enum.
-func (e CoStarPartnersWorkspaceV1PartnersViewSort) Valid() bool {
-	switch e {
-	case CoStarPartnersWorkspaceV1PartnersViewSortAverage:
-		return true
-	case CoStarPartnersWorkspaceV1PartnersViewSortCount:
-		return true
-	case CoStarPartnersWorkspaceV1PartnersViewSortOverall:
-		return true
-	case CoStarPartnersWorkspaceV1PartnersViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Query0CollectionStatuses.
-const (
-	CoStarSharePayloadV1Query0CollectionStatusesCompleted  CoStarSharePayloadV1Query0CollectionStatuses = "completed"
-	CoStarSharePayloadV1Query0CollectionStatusesDropped    CoStarSharePayloadV1Query0CollectionStatuses = "dropped"
-	CoStarSharePayloadV1Query0CollectionStatusesInProgress CoStarSharePayloadV1Query0CollectionStatuses = "in_progress"
-	CoStarSharePayloadV1Query0CollectionStatusesOnHold     CoStarSharePayloadV1Query0CollectionStatuses = "on_hold"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Query0CollectionStatuses enum.
-func (e CoStarSharePayloadV1Query0CollectionStatuses) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Query0CollectionStatusesCompleted:
-		return true
-	case CoStarSharePayloadV1Query0CollectionStatusesDropped:
-		return true
-	case CoStarSharePayloadV1Query0CollectionStatusesInProgress:
-		return true
-	case CoStarSharePayloadV1Query0CollectionStatusesOnHold:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Query0SubjectType.
-const (
-	CoStarSharePayloadV1Query0SubjectTypeAnime CoStarSharePayloadV1Query0SubjectType = "anime"
-	CoStarSharePayloadV1Query0SubjectTypeBook  CoStarSharePayloadV1Query0SubjectType = "book"
-	CoStarSharePayloadV1Query0SubjectTypeGame  CoStarSharePayloadV1Query0SubjectType = "game"
-	CoStarSharePayloadV1Query0SubjectTypeMusic CoStarSharePayloadV1Query0SubjectType = "music"
-	CoStarSharePayloadV1Query0SubjectTypeReal  CoStarSharePayloadV1Query0SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Query0SubjectType enum.
-func (e CoStarSharePayloadV1Query0SubjectType) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Query0SubjectTypeAnime:
-		return true
-	case CoStarSharePayloadV1Query0SubjectTypeBook:
-		return true
-	case CoStarSharePayloadV1Query0SubjectTypeGame:
-		return true
-	case CoStarSharePayloadV1Query0SubjectTypeMusic:
-		return true
-	case CoStarSharePayloadV1Query0SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Query1SubjectType.
-const (
-	CoStarSharePayloadV1Query1SubjectTypeAnime CoStarSharePayloadV1Query1SubjectType = "anime"
-	CoStarSharePayloadV1Query1SubjectTypeBook  CoStarSharePayloadV1Query1SubjectType = "book"
-	CoStarSharePayloadV1Query1SubjectTypeGame  CoStarSharePayloadV1Query1SubjectType = "game"
-	CoStarSharePayloadV1Query1SubjectTypeMusic CoStarSharePayloadV1Query1SubjectType = "music"
-	CoStarSharePayloadV1Query1SubjectTypeReal  CoStarSharePayloadV1Query1SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Query1SubjectType enum.
-func (e CoStarSharePayloadV1Query1SubjectType) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Query1SubjectTypeAnime:
-		return true
-	case CoStarSharePayloadV1Query1SubjectTypeBook:
-		return true
-	case CoStarSharePayloadV1Query1SubjectTypeGame:
-		return true
-	case CoStarSharePayloadV1Query1SubjectTypeMusic:
-		return true
-	case CoStarSharePayloadV1Query1SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace0CandidatesViewOrder.
-const (
-	CoStarSharePayloadV1Workspace0CandidatesViewOrderAsc  CoStarSharePayloadV1Workspace0CandidatesViewOrder = "asc"
-	CoStarSharePayloadV1Workspace0CandidatesViewOrderDesc CoStarSharePayloadV1Workspace0CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace0CandidatesViewOrder enum.
-func (e CoStarSharePayloadV1Workspace0CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace0CandidatesViewOrderAsc:
-		return true
-	case CoStarSharePayloadV1Workspace0CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace0CandidatesViewPageSize.
-const (
-	CoStarSharePayloadV1Workspace0CandidatesViewPageSizeN10 CoStarSharePayloadV1Workspace0CandidatesViewPageSize = 10
-	CoStarSharePayloadV1Workspace0CandidatesViewPageSizeN20 CoStarSharePayloadV1Workspace0CandidatesViewPageSize = 20
-	CoStarSharePayloadV1Workspace0CandidatesViewPageSizeN5  CoStarSharePayloadV1Workspace0CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace0CandidatesViewPageSize enum.
-func (e CoStarSharePayloadV1Workspace0CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace0CandidatesViewPageSizeN10:
-		return true
-	case CoStarSharePayloadV1Workspace0CandidatesViewPageSizeN20:
-		return true
-	case CoStarSharePayloadV1Workspace0CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace0CandidatesViewSort.
-const (
-	CoStarSharePayloadV1Workspace0CandidatesViewSortAverage       CoStarSharePayloadV1Workspace0CandidatesViewSort = "average"
-	CoStarSharePayloadV1Workspace0CandidatesViewSortCount         CoStarSharePayloadV1Workspace0CandidatesViewSort = "count"
-	CoStarSharePayloadV1Workspace0CandidatesViewSortGlobalAverage CoStarSharePayloadV1Workspace0CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace0CandidatesViewSort enum.
-func (e CoStarSharePayloadV1Workspace0CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace0CandidatesViewSortAverage:
-		return true
-	case CoStarSharePayloadV1Workspace0CandidatesViewSortCount:
-		return true
-	case CoStarSharePayloadV1Workspace0CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace1CandidatesViewOrder.
-const (
-	CoStarSharePayloadV1Workspace1CandidatesViewOrderAsc  CoStarSharePayloadV1Workspace1CandidatesViewOrder = "asc"
-	CoStarSharePayloadV1Workspace1CandidatesViewOrderDesc CoStarSharePayloadV1Workspace1CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace1CandidatesViewOrder enum.
-func (e CoStarSharePayloadV1Workspace1CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace1CandidatesViewOrderAsc:
-		return true
-	case CoStarSharePayloadV1Workspace1CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace1CandidatesViewPageSize.
-const (
-	CoStarSharePayloadV1Workspace1CandidatesViewPageSizeN10 CoStarSharePayloadV1Workspace1CandidatesViewPageSize = 10
-	CoStarSharePayloadV1Workspace1CandidatesViewPageSizeN20 CoStarSharePayloadV1Workspace1CandidatesViewPageSize = 20
-	CoStarSharePayloadV1Workspace1CandidatesViewPageSizeN5  CoStarSharePayloadV1Workspace1CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace1CandidatesViewPageSize enum.
-func (e CoStarSharePayloadV1Workspace1CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace1CandidatesViewPageSizeN10:
-		return true
-	case CoStarSharePayloadV1Workspace1CandidatesViewPageSizeN20:
-		return true
-	case CoStarSharePayloadV1Workspace1CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace1CandidatesViewSort.
-const (
-	CoStarSharePayloadV1Workspace1CandidatesViewSortAverage       CoStarSharePayloadV1Workspace1CandidatesViewSort = "average"
-	CoStarSharePayloadV1Workspace1CandidatesViewSortCount         CoStarSharePayloadV1Workspace1CandidatesViewSort = "count"
-	CoStarSharePayloadV1Workspace1CandidatesViewSortGlobalAverage CoStarSharePayloadV1Workspace1CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace1CandidatesViewSort enum.
-func (e CoStarSharePayloadV1Workspace1CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace1CandidatesViewSortAverage:
-		return true
-	case CoStarSharePayloadV1Workspace1CandidatesViewSortCount:
-		return true
-	case CoStarSharePayloadV1Workspace1CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace1PartnersViewOrder.
-const (
-	CoStarSharePayloadV1Workspace1PartnersViewOrderAsc  CoStarSharePayloadV1Workspace1PartnersViewOrder = "asc"
-	CoStarSharePayloadV1Workspace1PartnersViewOrderDesc CoStarSharePayloadV1Workspace1PartnersViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace1PartnersViewOrder enum.
-func (e CoStarSharePayloadV1Workspace1PartnersViewOrder) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace1PartnersViewOrderAsc:
-		return true
-	case CoStarSharePayloadV1Workspace1PartnersViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace1PartnersViewPageSize.
-const (
-	CoStarSharePayloadV1Workspace1PartnersViewPageSizeN10 CoStarSharePayloadV1Workspace1PartnersViewPageSize = 10
-	CoStarSharePayloadV1Workspace1PartnersViewPageSizeN20 CoStarSharePayloadV1Workspace1PartnersViewPageSize = 20
-	CoStarSharePayloadV1Workspace1PartnersViewPageSizeN5  CoStarSharePayloadV1Workspace1PartnersViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace1PartnersViewPageSize enum.
-func (e CoStarSharePayloadV1Workspace1PartnersViewPageSize) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace1PartnersViewPageSizeN10:
-		return true
-	case CoStarSharePayloadV1Workspace1PartnersViewPageSizeN20:
-		return true
-	case CoStarSharePayloadV1Workspace1PartnersViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace1PartnersViewSort.
-const (
-	CoStarSharePayloadV1Workspace1PartnersViewSortAverage    CoStarSharePayloadV1Workspace1PartnersViewSort = "average"
-	CoStarSharePayloadV1Workspace1PartnersViewSortCount      CoStarSharePayloadV1Workspace1PartnersViewSort = "count"
-	CoStarSharePayloadV1Workspace1PartnersViewSortOverall    CoStarSharePayloadV1Workspace1PartnersViewSort = "overall"
-	CoStarSharePayloadV1Workspace1PartnersViewSortPreference CoStarSharePayloadV1Workspace1PartnersViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace1PartnersViewSort enum.
-func (e CoStarSharePayloadV1Workspace1PartnersViewSort) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace1PartnersViewSortAverage:
-		return true
-	case CoStarSharePayloadV1Workspace1PartnersViewSortCount:
-		return true
-	case CoStarSharePayloadV1Workspace1PartnersViewSortOverall:
-		return true
-	case CoStarSharePayloadV1Workspace1PartnersViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace2CandidatesViewOrder.
-const (
-	CoStarSharePayloadV1Workspace2CandidatesViewOrderAsc  CoStarSharePayloadV1Workspace2CandidatesViewOrder = "asc"
-	CoStarSharePayloadV1Workspace2CandidatesViewOrderDesc CoStarSharePayloadV1Workspace2CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace2CandidatesViewOrder enum.
-func (e CoStarSharePayloadV1Workspace2CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace2CandidatesViewOrderAsc:
-		return true
-	case CoStarSharePayloadV1Workspace2CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace2CandidatesViewPageSize.
-const (
-	CoStarSharePayloadV1Workspace2CandidatesViewPageSizeN10 CoStarSharePayloadV1Workspace2CandidatesViewPageSize = 10
-	CoStarSharePayloadV1Workspace2CandidatesViewPageSizeN20 CoStarSharePayloadV1Workspace2CandidatesViewPageSize = 20
-	CoStarSharePayloadV1Workspace2CandidatesViewPageSizeN5  CoStarSharePayloadV1Workspace2CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace2CandidatesViewPageSize enum.
-func (e CoStarSharePayloadV1Workspace2CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace2CandidatesViewPageSizeN10:
-		return true
-	case CoStarSharePayloadV1Workspace2CandidatesViewPageSizeN20:
-		return true
-	case CoStarSharePayloadV1Workspace2CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace2CandidatesViewSort.
-const (
-	CoStarSharePayloadV1Workspace2CandidatesViewSortAverage       CoStarSharePayloadV1Workspace2CandidatesViewSort = "average"
-	CoStarSharePayloadV1Workspace2CandidatesViewSortCount         CoStarSharePayloadV1Workspace2CandidatesViewSort = "count"
-	CoStarSharePayloadV1Workspace2CandidatesViewSortGlobalAverage CoStarSharePayloadV1Workspace2CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace2CandidatesViewSort enum.
-func (e CoStarSharePayloadV1Workspace2CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace2CandidatesViewSortAverage:
-		return true
-	case CoStarSharePayloadV1Workspace2CandidatesViewSortCount:
-		return true
-	case CoStarSharePayloadV1Workspace2CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace2CoStarViewOrder.
-const (
-	CoStarSharePayloadV1Workspace2CoStarViewOrderAsc  CoStarSharePayloadV1Workspace2CoStarViewOrder = "asc"
-	CoStarSharePayloadV1Workspace2CoStarViewOrderDesc CoStarSharePayloadV1Workspace2CoStarViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace2CoStarViewOrder enum.
-func (e CoStarSharePayloadV1Workspace2CoStarViewOrder) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace2CoStarViewOrderAsc:
-		return true
-	case CoStarSharePayloadV1Workspace2CoStarViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace2CoStarViewPageSize.
-const (
-	CoStarSharePayloadV1Workspace2CoStarViewPageSizeN10 CoStarSharePayloadV1Workspace2CoStarViewPageSize = 10
-	CoStarSharePayloadV1Workspace2CoStarViewPageSizeN20 CoStarSharePayloadV1Workspace2CoStarViewPageSize = 20
-	CoStarSharePayloadV1Workspace2CoStarViewPageSizeN5  CoStarSharePayloadV1Workspace2CoStarViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace2CoStarViewPageSize enum.
-func (e CoStarSharePayloadV1Workspace2CoStarViewPageSize) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace2CoStarViewPageSizeN10:
-		return true
-	case CoStarSharePayloadV1Workspace2CoStarViewPageSizeN20:
-		return true
-	case CoStarSharePayloadV1Workspace2CoStarViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarSharePayloadV1Workspace2CoStarViewSort.
-const (
-	CoStarSharePayloadV1Workspace2CoStarViewSortCollectionUpdatedAt CoStarSharePayloadV1Workspace2CoStarViewSort = "collectionUpdatedAt"
-	CoStarSharePayloadV1Workspace2CoStarViewSortGlobalScore         CoStarSharePayloadV1Workspace2CoStarViewSort = "globalScore"
-	CoStarSharePayloadV1Workspace2CoStarViewSortPersonalScore       CoStarSharePayloadV1Workspace2CoStarViewSort = "personalScore"
-	CoStarSharePayloadV1Workspace2CoStarViewSortSeriesSize          CoStarSharePayloadV1Workspace2CoStarViewSort = "seriesSize"
-)
-
-// Valid indicates whether the value is a known member of the CoStarSharePayloadV1Workspace2CoStarViewSort enum.
-func (e CoStarSharePayloadV1Workspace2CoStarViewSort) Valid() bool {
-	switch e {
-	case CoStarSharePayloadV1Workspace2CoStarViewSortCollectionUpdatedAt:
-		return true
-	case CoStarSharePayloadV1Workspace2CoStarViewSortGlobalScore:
-		return true
-	case CoStarSharePayloadV1Workspace2CoStarViewSortPersonalScore:
-		return true
-	case CoStarSharePayloadV1Workspace2CoStarViewSortSeriesSize:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV10CandidatesViewOrder.
-const (
-	CoStarShareWorkspaceV10CandidatesViewOrderAsc  CoStarShareWorkspaceV10CandidatesViewOrder = "asc"
-	CoStarShareWorkspaceV10CandidatesViewOrderDesc CoStarShareWorkspaceV10CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV10CandidatesViewOrder enum.
-func (e CoStarShareWorkspaceV10CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV10CandidatesViewOrderAsc:
-		return true
-	case CoStarShareWorkspaceV10CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV10CandidatesViewPageSize.
-const (
-	CoStarShareWorkspaceV10CandidatesViewPageSizeN10 CoStarShareWorkspaceV10CandidatesViewPageSize = 10
-	CoStarShareWorkspaceV10CandidatesViewPageSizeN20 CoStarShareWorkspaceV10CandidatesViewPageSize = 20
-	CoStarShareWorkspaceV10CandidatesViewPageSizeN5  CoStarShareWorkspaceV10CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV10CandidatesViewPageSize enum.
-func (e CoStarShareWorkspaceV10CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV10CandidatesViewPageSizeN10:
-		return true
-	case CoStarShareWorkspaceV10CandidatesViewPageSizeN20:
-		return true
-	case CoStarShareWorkspaceV10CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV10CandidatesViewSort.
-const (
-	CoStarShareWorkspaceV10CandidatesViewSortAverage       CoStarShareWorkspaceV10CandidatesViewSort = "average"
-	CoStarShareWorkspaceV10CandidatesViewSortCount         CoStarShareWorkspaceV10CandidatesViewSort = "count"
-	CoStarShareWorkspaceV10CandidatesViewSortGlobalAverage CoStarShareWorkspaceV10CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV10CandidatesViewSort enum.
-func (e CoStarShareWorkspaceV10CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV10CandidatesViewSortAverage:
-		return true
-	case CoStarShareWorkspaceV10CandidatesViewSortCount:
-		return true
-	case CoStarShareWorkspaceV10CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV11CandidatesViewOrder.
-const (
-	CoStarShareWorkspaceV11CandidatesViewOrderAsc  CoStarShareWorkspaceV11CandidatesViewOrder = "asc"
-	CoStarShareWorkspaceV11CandidatesViewOrderDesc CoStarShareWorkspaceV11CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV11CandidatesViewOrder enum.
-func (e CoStarShareWorkspaceV11CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV11CandidatesViewOrderAsc:
-		return true
-	case CoStarShareWorkspaceV11CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV11CandidatesViewPageSize.
-const (
-	CoStarShareWorkspaceV11CandidatesViewPageSizeN10 CoStarShareWorkspaceV11CandidatesViewPageSize = 10
-	CoStarShareWorkspaceV11CandidatesViewPageSizeN20 CoStarShareWorkspaceV11CandidatesViewPageSize = 20
-	CoStarShareWorkspaceV11CandidatesViewPageSizeN5  CoStarShareWorkspaceV11CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV11CandidatesViewPageSize enum.
-func (e CoStarShareWorkspaceV11CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV11CandidatesViewPageSizeN10:
-		return true
-	case CoStarShareWorkspaceV11CandidatesViewPageSizeN20:
-		return true
-	case CoStarShareWorkspaceV11CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV11CandidatesViewSort.
-const (
-	CoStarShareWorkspaceV11CandidatesViewSortAverage       CoStarShareWorkspaceV11CandidatesViewSort = "average"
-	CoStarShareWorkspaceV11CandidatesViewSortCount         CoStarShareWorkspaceV11CandidatesViewSort = "count"
-	CoStarShareWorkspaceV11CandidatesViewSortGlobalAverage CoStarShareWorkspaceV11CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV11CandidatesViewSort enum.
-func (e CoStarShareWorkspaceV11CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV11CandidatesViewSortAverage:
-		return true
-	case CoStarShareWorkspaceV11CandidatesViewSortCount:
-		return true
-	case CoStarShareWorkspaceV11CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV11PartnersViewOrder.
-const (
-	CoStarShareWorkspaceV11PartnersViewOrderAsc  CoStarShareWorkspaceV11PartnersViewOrder = "asc"
-	CoStarShareWorkspaceV11PartnersViewOrderDesc CoStarShareWorkspaceV11PartnersViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV11PartnersViewOrder enum.
-func (e CoStarShareWorkspaceV11PartnersViewOrder) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV11PartnersViewOrderAsc:
-		return true
-	case CoStarShareWorkspaceV11PartnersViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV11PartnersViewPageSize.
-const (
-	CoStarShareWorkspaceV11PartnersViewPageSizeN10 CoStarShareWorkspaceV11PartnersViewPageSize = 10
-	CoStarShareWorkspaceV11PartnersViewPageSizeN20 CoStarShareWorkspaceV11PartnersViewPageSize = 20
-	CoStarShareWorkspaceV11PartnersViewPageSizeN5  CoStarShareWorkspaceV11PartnersViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV11PartnersViewPageSize enum.
-func (e CoStarShareWorkspaceV11PartnersViewPageSize) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV11PartnersViewPageSizeN10:
-		return true
-	case CoStarShareWorkspaceV11PartnersViewPageSizeN20:
-		return true
-	case CoStarShareWorkspaceV11PartnersViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV11PartnersViewSort.
-const (
-	CoStarShareWorkspaceV11PartnersViewSortAverage    CoStarShareWorkspaceV11PartnersViewSort = "average"
-	CoStarShareWorkspaceV11PartnersViewSortCount      CoStarShareWorkspaceV11PartnersViewSort = "count"
-	CoStarShareWorkspaceV11PartnersViewSortOverall    CoStarShareWorkspaceV11PartnersViewSort = "overall"
-	CoStarShareWorkspaceV11PartnersViewSortPreference CoStarShareWorkspaceV11PartnersViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV11PartnersViewSort enum.
-func (e CoStarShareWorkspaceV11PartnersViewSort) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV11PartnersViewSortAverage:
-		return true
-	case CoStarShareWorkspaceV11PartnersViewSortCount:
-		return true
-	case CoStarShareWorkspaceV11PartnersViewSortOverall:
-		return true
-	case CoStarShareWorkspaceV11PartnersViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV12CandidatesViewOrder.
-const (
-	CoStarShareWorkspaceV12CandidatesViewOrderAsc  CoStarShareWorkspaceV12CandidatesViewOrder = "asc"
-	CoStarShareWorkspaceV12CandidatesViewOrderDesc CoStarShareWorkspaceV12CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV12CandidatesViewOrder enum.
-func (e CoStarShareWorkspaceV12CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV12CandidatesViewOrderAsc:
-		return true
-	case CoStarShareWorkspaceV12CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV12CandidatesViewPageSize.
-const (
-	CoStarShareWorkspaceV12CandidatesViewPageSizeN10 CoStarShareWorkspaceV12CandidatesViewPageSize = 10
-	CoStarShareWorkspaceV12CandidatesViewPageSizeN20 CoStarShareWorkspaceV12CandidatesViewPageSize = 20
-	CoStarShareWorkspaceV12CandidatesViewPageSizeN5  CoStarShareWorkspaceV12CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV12CandidatesViewPageSize enum.
-func (e CoStarShareWorkspaceV12CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV12CandidatesViewPageSizeN10:
-		return true
-	case CoStarShareWorkspaceV12CandidatesViewPageSizeN20:
-		return true
-	case CoStarShareWorkspaceV12CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV12CandidatesViewSort.
-const (
-	CoStarShareWorkspaceV12CandidatesViewSortAverage       CoStarShareWorkspaceV12CandidatesViewSort = "average"
-	CoStarShareWorkspaceV12CandidatesViewSortCount         CoStarShareWorkspaceV12CandidatesViewSort = "count"
-	CoStarShareWorkspaceV12CandidatesViewSortGlobalAverage CoStarShareWorkspaceV12CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV12CandidatesViewSort enum.
-func (e CoStarShareWorkspaceV12CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV12CandidatesViewSortAverage:
-		return true
-	case CoStarShareWorkspaceV12CandidatesViewSortCount:
-		return true
-	case CoStarShareWorkspaceV12CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV12CoStarViewOrder.
-const (
-	CoStarShareWorkspaceV12CoStarViewOrderAsc  CoStarShareWorkspaceV12CoStarViewOrder = "asc"
-	CoStarShareWorkspaceV12CoStarViewOrderDesc CoStarShareWorkspaceV12CoStarViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV12CoStarViewOrder enum.
-func (e CoStarShareWorkspaceV12CoStarViewOrder) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV12CoStarViewOrderAsc:
-		return true
-	case CoStarShareWorkspaceV12CoStarViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV12CoStarViewPageSize.
-const (
-	CoStarShareWorkspaceV12CoStarViewPageSizeN10 CoStarShareWorkspaceV12CoStarViewPageSize = 10
-	CoStarShareWorkspaceV12CoStarViewPageSizeN20 CoStarShareWorkspaceV12CoStarViewPageSize = 20
-	CoStarShareWorkspaceV12CoStarViewPageSizeN5  CoStarShareWorkspaceV12CoStarViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV12CoStarViewPageSize enum.
-func (e CoStarShareWorkspaceV12CoStarViewPageSize) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV12CoStarViewPageSizeN10:
-		return true
-	case CoStarShareWorkspaceV12CoStarViewPageSizeN20:
-		return true
-	case CoStarShareWorkspaceV12CoStarViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarShareWorkspaceV12CoStarViewSort.
-const (
-	CoStarShareWorkspaceV12CoStarViewSortCollectionUpdatedAt CoStarShareWorkspaceV12CoStarViewSort = "collectionUpdatedAt"
-	CoStarShareWorkspaceV12CoStarViewSortGlobalScore         CoStarShareWorkspaceV12CoStarViewSort = "globalScore"
-	CoStarShareWorkspaceV12CoStarViewSortPersonalScore       CoStarShareWorkspaceV12CoStarViewSort = "personalScore"
-	CoStarShareWorkspaceV12CoStarViewSortSeriesSize          CoStarShareWorkspaceV12CoStarViewSort = "seriesSize"
-)
-
-// Valid indicates whether the value is a known member of the CoStarShareWorkspaceV12CoStarViewSort enum.
-func (e CoStarShareWorkspaceV12CoStarViewSort) Valid() bool {
-	switch e {
-	case CoStarShareWorkspaceV12CoStarViewSortCollectionUpdatedAt:
-		return true
-	case CoStarShareWorkspaceV12CoStarViewSortGlobalScore:
-		return true
-	case CoStarShareWorkspaceV12CoStarViewSortPersonalScore:
-		return true
-	case CoStarShareWorkspaceV12CoStarViewSortSeriesSize:
+	case CoStarInputV1PositionScopeQuery:
 		return true
 	default:
 		return false
@@ -1278,312 +195,6 @@ func (e CoStarViewV1Sort) Valid() bool {
 	}
 }
 
-// Defines values for CoStarWorkspaceV10CandidatesViewOrder.
-const (
-	CoStarWorkspaceV10CandidatesViewOrderAsc  CoStarWorkspaceV10CandidatesViewOrder = "asc"
-	CoStarWorkspaceV10CandidatesViewOrderDesc CoStarWorkspaceV10CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV10CandidatesViewOrder enum.
-func (e CoStarWorkspaceV10CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV10CandidatesViewOrderAsc:
-		return true
-	case CoStarWorkspaceV10CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV10CandidatesViewPageSize.
-const (
-	CoStarWorkspaceV10CandidatesViewPageSizeN10 CoStarWorkspaceV10CandidatesViewPageSize = 10
-	CoStarWorkspaceV10CandidatesViewPageSizeN20 CoStarWorkspaceV10CandidatesViewPageSize = 20
-	CoStarWorkspaceV10CandidatesViewPageSizeN5  CoStarWorkspaceV10CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV10CandidatesViewPageSize enum.
-func (e CoStarWorkspaceV10CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV10CandidatesViewPageSizeN10:
-		return true
-	case CoStarWorkspaceV10CandidatesViewPageSizeN20:
-		return true
-	case CoStarWorkspaceV10CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV10CandidatesViewSort.
-const (
-	CoStarWorkspaceV10CandidatesViewSortAverage       CoStarWorkspaceV10CandidatesViewSort = "average"
-	CoStarWorkspaceV10CandidatesViewSortCount         CoStarWorkspaceV10CandidatesViewSort = "count"
-	CoStarWorkspaceV10CandidatesViewSortGlobalAverage CoStarWorkspaceV10CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV10CandidatesViewSort enum.
-func (e CoStarWorkspaceV10CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV10CandidatesViewSortAverage:
-		return true
-	case CoStarWorkspaceV10CandidatesViewSortCount:
-		return true
-	case CoStarWorkspaceV10CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV11CandidatesViewOrder.
-const (
-	CoStarWorkspaceV11CandidatesViewOrderAsc  CoStarWorkspaceV11CandidatesViewOrder = "asc"
-	CoStarWorkspaceV11CandidatesViewOrderDesc CoStarWorkspaceV11CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV11CandidatesViewOrder enum.
-func (e CoStarWorkspaceV11CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV11CandidatesViewOrderAsc:
-		return true
-	case CoStarWorkspaceV11CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV11CandidatesViewPageSize.
-const (
-	CoStarWorkspaceV11CandidatesViewPageSizeN10 CoStarWorkspaceV11CandidatesViewPageSize = 10
-	CoStarWorkspaceV11CandidatesViewPageSizeN20 CoStarWorkspaceV11CandidatesViewPageSize = 20
-	CoStarWorkspaceV11CandidatesViewPageSizeN5  CoStarWorkspaceV11CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV11CandidatesViewPageSize enum.
-func (e CoStarWorkspaceV11CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV11CandidatesViewPageSizeN10:
-		return true
-	case CoStarWorkspaceV11CandidatesViewPageSizeN20:
-		return true
-	case CoStarWorkspaceV11CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV11CandidatesViewSort.
-const (
-	CoStarWorkspaceV11CandidatesViewSortAverage       CoStarWorkspaceV11CandidatesViewSort = "average"
-	CoStarWorkspaceV11CandidatesViewSortCount         CoStarWorkspaceV11CandidatesViewSort = "count"
-	CoStarWorkspaceV11CandidatesViewSortGlobalAverage CoStarWorkspaceV11CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV11CandidatesViewSort enum.
-func (e CoStarWorkspaceV11CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV11CandidatesViewSortAverage:
-		return true
-	case CoStarWorkspaceV11CandidatesViewSortCount:
-		return true
-	case CoStarWorkspaceV11CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV11PartnersViewOrder.
-const (
-	CoStarWorkspaceV11PartnersViewOrderAsc  CoStarWorkspaceV11PartnersViewOrder = "asc"
-	CoStarWorkspaceV11PartnersViewOrderDesc CoStarWorkspaceV11PartnersViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV11PartnersViewOrder enum.
-func (e CoStarWorkspaceV11PartnersViewOrder) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV11PartnersViewOrderAsc:
-		return true
-	case CoStarWorkspaceV11PartnersViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV11PartnersViewPageSize.
-const (
-	CoStarWorkspaceV11PartnersViewPageSizeN10 CoStarWorkspaceV11PartnersViewPageSize = 10
-	CoStarWorkspaceV11PartnersViewPageSizeN20 CoStarWorkspaceV11PartnersViewPageSize = 20
-	CoStarWorkspaceV11PartnersViewPageSizeN5  CoStarWorkspaceV11PartnersViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV11PartnersViewPageSize enum.
-func (e CoStarWorkspaceV11PartnersViewPageSize) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV11PartnersViewPageSizeN10:
-		return true
-	case CoStarWorkspaceV11PartnersViewPageSizeN20:
-		return true
-	case CoStarWorkspaceV11PartnersViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV11PartnersViewSort.
-const (
-	CoStarWorkspaceV11PartnersViewSortAverage    CoStarWorkspaceV11PartnersViewSort = "average"
-	CoStarWorkspaceV11PartnersViewSortCount      CoStarWorkspaceV11PartnersViewSort = "count"
-	CoStarWorkspaceV11PartnersViewSortOverall    CoStarWorkspaceV11PartnersViewSort = "overall"
-	CoStarWorkspaceV11PartnersViewSortPreference CoStarWorkspaceV11PartnersViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV11PartnersViewSort enum.
-func (e CoStarWorkspaceV11PartnersViewSort) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV11PartnersViewSortAverage:
-		return true
-	case CoStarWorkspaceV11PartnersViewSortCount:
-		return true
-	case CoStarWorkspaceV11PartnersViewSortOverall:
-		return true
-	case CoStarWorkspaceV11PartnersViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV12CandidatesViewOrder.
-const (
-	CoStarWorkspaceV12CandidatesViewOrderAsc  CoStarWorkspaceV12CandidatesViewOrder = "asc"
-	CoStarWorkspaceV12CandidatesViewOrderDesc CoStarWorkspaceV12CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV12CandidatesViewOrder enum.
-func (e CoStarWorkspaceV12CandidatesViewOrder) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV12CandidatesViewOrderAsc:
-		return true
-	case CoStarWorkspaceV12CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV12CandidatesViewPageSize.
-const (
-	CoStarWorkspaceV12CandidatesViewPageSizeN10 CoStarWorkspaceV12CandidatesViewPageSize = 10
-	CoStarWorkspaceV12CandidatesViewPageSizeN20 CoStarWorkspaceV12CandidatesViewPageSize = 20
-	CoStarWorkspaceV12CandidatesViewPageSizeN5  CoStarWorkspaceV12CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV12CandidatesViewPageSize enum.
-func (e CoStarWorkspaceV12CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV12CandidatesViewPageSizeN10:
-		return true
-	case CoStarWorkspaceV12CandidatesViewPageSizeN20:
-		return true
-	case CoStarWorkspaceV12CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV12CandidatesViewSort.
-const (
-	CoStarWorkspaceV12CandidatesViewSortAverage       CoStarWorkspaceV12CandidatesViewSort = "average"
-	CoStarWorkspaceV12CandidatesViewSortCount         CoStarWorkspaceV12CandidatesViewSort = "count"
-	CoStarWorkspaceV12CandidatesViewSortGlobalAverage CoStarWorkspaceV12CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV12CandidatesViewSort enum.
-func (e CoStarWorkspaceV12CandidatesViewSort) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV12CandidatesViewSortAverage:
-		return true
-	case CoStarWorkspaceV12CandidatesViewSortCount:
-		return true
-	case CoStarWorkspaceV12CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV12CoStarViewOrder.
-const (
-	CoStarWorkspaceV12CoStarViewOrderAsc  CoStarWorkspaceV12CoStarViewOrder = "asc"
-	CoStarWorkspaceV12CoStarViewOrderDesc CoStarWorkspaceV12CoStarViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV12CoStarViewOrder enum.
-func (e CoStarWorkspaceV12CoStarViewOrder) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV12CoStarViewOrderAsc:
-		return true
-	case CoStarWorkspaceV12CoStarViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV12CoStarViewPageSize.
-const (
-	CoStarWorkspaceV12CoStarViewPageSizeN10 CoStarWorkspaceV12CoStarViewPageSize = 10
-	CoStarWorkspaceV12CoStarViewPageSizeN20 CoStarWorkspaceV12CoStarViewPageSize = 20
-	CoStarWorkspaceV12CoStarViewPageSizeN5  CoStarWorkspaceV12CoStarViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV12CoStarViewPageSize enum.
-func (e CoStarWorkspaceV12CoStarViewPageSize) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV12CoStarViewPageSizeN10:
-		return true
-	case CoStarWorkspaceV12CoStarViewPageSizeN20:
-		return true
-	case CoStarWorkspaceV12CoStarViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CoStarWorkspaceV12CoStarViewSort.
-const (
-	CoStarWorkspaceV12CoStarViewSortCollectionUpdatedAt CoStarWorkspaceV12CoStarViewSort = "collectionUpdatedAt"
-	CoStarWorkspaceV12CoStarViewSortGlobalScore         CoStarWorkspaceV12CoStarViewSort = "globalScore"
-	CoStarWorkspaceV12CoStarViewSortPersonalScore       CoStarWorkspaceV12CoStarViewSort = "personalScore"
-	CoStarWorkspaceV12CoStarViewSortSeriesSize          CoStarWorkspaceV12CoStarViewSort = "seriesSize"
-)
-
-// Valid indicates whether the value is a known member of the CoStarWorkspaceV12CoStarViewSort enum.
-func (e CoStarWorkspaceV12CoStarViewSort) Valid() bool {
-	switch e {
-	case CoStarWorkspaceV12CoStarViewSortCollectionUpdatedAt:
-		return true
-	case CoStarWorkspaceV12CoStarViewSortGlobalScore:
-		return true
-	case CoStarWorkspaceV12CoStarViewSortPersonalScore:
-		return true
-	case CoStarWorkspaceV12CoStarViewSortSeriesSize:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for CollectionStatusV1.
 const (
 	CollectionStatusV1Completed  CollectionStatusV1 = "completed"
@@ -1602,6 +213,33 @@ func (e CollectionStatusV1) Valid() bool {
 	case CollectionStatusV1InProgress:
 		return true
 	case CollectionStatusV1OnHold:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectiveGlobalQueryFieldsV1SubjectType.
+const (
+	EffectiveGlobalQueryFieldsV1SubjectTypeAnime EffectiveGlobalQueryFieldsV1SubjectType = "anime"
+	EffectiveGlobalQueryFieldsV1SubjectTypeBook  EffectiveGlobalQueryFieldsV1SubjectType = "book"
+	EffectiveGlobalQueryFieldsV1SubjectTypeGame  EffectiveGlobalQueryFieldsV1SubjectType = "game"
+	EffectiveGlobalQueryFieldsV1SubjectTypeMusic EffectiveGlobalQueryFieldsV1SubjectType = "music"
+	EffectiveGlobalQueryFieldsV1SubjectTypeReal  EffectiveGlobalQueryFieldsV1SubjectType = "real"
+)
+
+// Valid indicates whether the value is a known member of the EffectiveGlobalQueryFieldsV1SubjectType enum.
+func (e EffectiveGlobalQueryFieldsV1SubjectType) Valid() bool {
+	switch e {
+	case EffectiveGlobalQueryFieldsV1SubjectTypeAnime:
+		return true
+	case EffectiveGlobalQueryFieldsV1SubjectTypeBook:
+		return true
+	case EffectiveGlobalQueryFieldsV1SubjectTypeGame:
+		return true
+	case EffectiveGlobalQueryFieldsV1SubjectTypeMusic:
+		return true
+	case EffectiveGlobalQueryFieldsV1SubjectTypeReal:
 		return true
 	default:
 		return false
@@ -1629,6 +267,57 @@ func (e EffectiveGlobalQueryV1SubjectType) Valid() bool {
 	case EffectiveGlobalQueryV1SubjectTypeMusic:
 		return true
 	case EffectiveGlobalQueryV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectivePersonalQueryFieldsV1CollectionStatuses.
+const (
+	EffectivePersonalQueryFieldsV1CollectionStatusesCompleted  EffectivePersonalQueryFieldsV1CollectionStatuses = "completed"
+	EffectivePersonalQueryFieldsV1CollectionStatusesDropped    EffectivePersonalQueryFieldsV1CollectionStatuses = "dropped"
+	EffectivePersonalQueryFieldsV1CollectionStatusesInProgress EffectivePersonalQueryFieldsV1CollectionStatuses = "in_progress"
+	EffectivePersonalQueryFieldsV1CollectionStatusesOnHold     EffectivePersonalQueryFieldsV1CollectionStatuses = "on_hold"
+)
+
+// Valid indicates whether the value is a known member of the EffectivePersonalQueryFieldsV1CollectionStatuses enum.
+func (e EffectivePersonalQueryFieldsV1CollectionStatuses) Valid() bool {
+	switch e {
+	case EffectivePersonalQueryFieldsV1CollectionStatusesCompleted:
+		return true
+	case EffectivePersonalQueryFieldsV1CollectionStatusesDropped:
+		return true
+	case EffectivePersonalQueryFieldsV1CollectionStatusesInProgress:
+		return true
+	case EffectivePersonalQueryFieldsV1CollectionStatusesOnHold:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectivePersonalQueryFieldsV1SubjectType.
+const (
+	EffectivePersonalQueryFieldsV1SubjectTypeAnime EffectivePersonalQueryFieldsV1SubjectType = "anime"
+	EffectivePersonalQueryFieldsV1SubjectTypeBook  EffectivePersonalQueryFieldsV1SubjectType = "book"
+	EffectivePersonalQueryFieldsV1SubjectTypeGame  EffectivePersonalQueryFieldsV1SubjectType = "game"
+	EffectivePersonalQueryFieldsV1SubjectTypeMusic EffectivePersonalQueryFieldsV1SubjectType = "music"
+	EffectivePersonalQueryFieldsV1SubjectTypeReal  EffectivePersonalQueryFieldsV1SubjectType = "real"
+)
+
+// Valid indicates whether the value is a known member of the EffectivePersonalQueryFieldsV1SubjectType enum.
+func (e EffectivePersonalQueryFieldsV1SubjectType) Valid() bool {
+	switch e {
+	case EffectivePersonalQueryFieldsV1SubjectTypeAnime:
+		return true
+	case EffectivePersonalQueryFieldsV1SubjectTypeBook:
+		return true
+	case EffectivePersonalQueryFieldsV1SubjectTypeGame:
+		return true
+	case EffectivePersonalQueryFieldsV1SubjectTypeMusic:
+		return true
+	case EffectivePersonalQueryFieldsV1SubjectTypeReal:
 		return true
 	default:
 		return false
@@ -2205,6 +894,33 @@ func (e FieldErrorCodeV1) Valid() bool {
 	}
 }
 
+// Defines values for GlobalProjectionFieldsV1SubjectType.
+const (
+	GlobalProjectionFieldsV1SubjectTypeAnime GlobalProjectionFieldsV1SubjectType = "anime"
+	GlobalProjectionFieldsV1SubjectTypeBook  GlobalProjectionFieldsV1SubjectType = "book"
+	GlobalProjectionFieldsV1SubjectTypeGame  GlobalProjectionFieldsV1SubjectType = "game"
+	GlobalProjectionFieldsV1SubjectTypeMusic GlobalProjectionFieldsV1SubjectType = "music"
+	GlobalProjectionFieldsV1SubjectTypeReal  GlobalProjectionFieldsV1SubjectType = "real"
+)
+
+// Valid indicates whether the value is a known member of the GlobalProjectionFieldsV1SubjectType enum.
+func (e GlobalProjectionFieldsV1SubjectType) Valid() bool {
+	switch e {
+	case GlobalProjectionFieldsV1SubjectTypeAnime:
+		return true
+	case GlobalProjectionFieldsV1SubjectTypeBook:
+		return true
+	case GlobalProjectionFieldsV1SubjectTypeGame:
+		return true
+	case GlobalProjectionFieldsV1SubjectTypeMusic:
+		return true
+	case GlobalProjectionFieldsV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GlobalProjectionV1SubjectType.
 const (
 	GlobalProjectionV1SubjectTypeAnime GlobalProjectionV1SubjectType = "anime"
@@ -2226,6 +942,33 @@ func (e GlobalProjectionV1SubjectType) Valid() bool {
 	case GlobalProjectionV1SubjectTypeMusic:
 		return true
 	case GlobalProjectionV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GlobalSharedQueryFieldsV1SubjectType.
+const (
+	GlobalSharedQueryFieldsV1SubjectTypeAnime GlobalSharedQueryFieldsV1SubjectType = "anime"
+	GlobalSharedQueryFieldsV1SubjectTypeBook  GlobalSharedQueryFieldsV1SubjectType = "book"
+	GlobalSharedQueryFieldsV1SubjectTypeGame  GlobalSharedQueryFieldsV1SubjectType = "game"
+	GlobalSharedQueryFieldsV1SubjectTypeMusic GlobalSharedQueryFieldsV1SubjectType = "music"
+	GlobalSharedQueryFieldsV1SubjectTypeReal  GlobalSharedQueryFieldsV1SubjectType = "real"
+)
+
+// Valid indicates whether the value is a known member of the GlobalSharedQueryFieldsV1SubjectType enum.
+func (e GlobalSharedQueryFieldsV1SubjectType) Valid() bool {
+	switch e {
+	case GlobalSharedQueryFieldsV1SubjectTypeAnime:
+		return true
+	case GlobalSharedQueryFieldsV1SubjectTypeBook:
+		return true
+	case GlobalSharedQueryFieldsV1SubjectTypeGame:
+		return true
+	case GlobalSharedQueryFieldsV1SubjectTypeMusic:
+		return true
+	case GlobalSharedQueryFieldsV1SubjectTypeReal:
 		return true
 	default:
 		return false
@@ -2280,63 +1023,18 @@ func (e PageSizeV1) Valid() bool {
 	}
 }
 
-// Defines values for PartnersStateV1ViewOrder.
+// Defines values for PartnersInputV1PositionScope.
 const (
-	PartnersStateV1ViewOrderAsc  PartnersStateV1ViewOrder = "asc"
-	PartnersStateV1ViewOrderDesc PartnersStateV1ViewOrder = "desc"
+	PartnersInputV1PositionScopeAll   PartnersInputV1PositionScope = "all"
+	PartnersInputV1PositionScopeQuery PartnersInputV1PositionScope = "query"
 )
 
-// Valid indicates whether the value is a known member of the PartnersStateV1ViewOrder enum.
-func (e PartnersStateV1ViewOrder) Valid() bool {
+// Valid indicates whether the value is a known member of the PartnersInputV1PositionScope enum.
+func (e PartnersInputV1PositionScope) Valid() bool {
 	switch e {
-	case PartnersStateV1ViewOrderAsc:
+	case PartnersInputV1PositionScopeAll:
 		return true
-	case PartnersStateV1ViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PartnersStateV1ViewPageSize.
-const (
-	PartnersStateV1ViewPageSizeN10 PartnersStateV1ViewPageSize = 10
-	PartnersStateV1ViewPageSizeN20 PartnersStateV1ViewPageSize = 20
-	PartnersStateV1ViewPageSizeN5  PartnersStateV1ViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the PartnersStateV1ViewPageSize enum.
-func (e PartnersStateV1ViewPageSize) Valid() bool {
-	switch e {
-	case PartnersStateV1ViewPageSizeN10:
-		return true
-	case PartnersStateV1ViewPageSizeN20:
-		return true
-	case PartnersStateV1ViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PartnersStateV1ViewSort.
-const (
-	PartnersStateV1ViewSortAverage    PartnersStateV1ViewSort = "average"
-	PartnersStateV1ViewSortCount      PartnersStateV1ViewSort = "count"
-	PartnersStateV1ViewSortOverall    PartnersStateV1ViewSort = "overall"
-	PartnersStateV1ViewSortPreference PartnersStateV1ViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the PartnersStateV1ViewSort enum.
-func (e PartnersStateV1ViewSort) Valid() bool {
-	switch e {
-	case PartnersStateV1ViewSortAverage:
-		return true
-	case PartnersStateV1ViewSortCount:
-		return true
-	case PartnersStateV1ViewSortOverall:
-		return true
-	case PartnersStateV1ViewSortPreference:
+	case PartnersInputV1PositionScopeQuery:
 		return true
 	default:
 		return false
@@ -2400,6 +1098,24 @@ func (e PartnersViewV1Sort) Valid() bool {
 	case PartnersViewV1SortOverall:
 		return true
 	case PartnersViewV1SortPreference:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonDetailInputV1PositionScope.
+const (
+	PersonDetailInputV1PositionScopeAll   PersonDetailInputV1PositionScope = "all"
+	PersonDetailInputV1PositionScopeQuery PersonDetailInputV1PositionScope = "query"
+)
+
+// Valid indicates whether the value is a known member of the PersonDetailInputV1PositionScope enum.
+func (e PersonDetailInputV1PositionScope) Valid() bool {
+	switch e {
+	case PersonDetailInputV1PositionScopeAll:
+		return true
+	case PersonDetailInputV1PositionScopeQuery:
 		return true
 	default:
 		return false
@@ -2496,6 +1212,57 @@ func (e PersonDetailViewV1Sort) Valid() bool {
 	}
 }
 
+// Defines values for PersonalProjectionFieldsV1CollectionStatuses.
+const (
+	PersonalProjectionFieldsV1CollectionStatusesCompleted  PersonalProjectionFieldsV1CollectionStatuses = "completed"
+	PersonalProjectionFieldsV1CollectionStatusesDropped    PersonalProjectionFieldsV1CollectionStatuses = "dropped"
+	PersonalProjectionFieldsV1CollectionStatusesInProgress PersonalProjectionFieldsV1CollectionStatuses = "in_progress"
+	PersonalProjectionFieldsV1CollectionStatusesOnHold     PersonalProjectionFieldsV1CollectionStatuses = "on_hold"
+)
+
+// Valid indicates whether the value is a known member of the PersonalProjectionFieldsV1CollectionStatuses enum.
+func (e PersonalProjectionFieldsV1CollectionStatuses) Valid() bool {
+	switch e {
+	case PersonalProjectionFieldsV1CollectionStatusesCompleted:
+		return true
+	case PersonalProjectionFieldsV1CollectionStatusesDropped:
+		return true
+	case PersonalProjectionFieldsV1CollectionStatusesInProgress:
+		return true
+	case PersonalProjectionFieldsV1CollectionStatusesOnHold:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalProjectionFieldsV1SubjectType.
+const (
+	PersonalProjectionFieldsV1SubjectTypeAnime PersonalProjectionFieldsV1SubjectType = "anime"
+	PersonalProjectionFieldsV1SubjectTypeBook  PersonalProjectionFieldsV1SubjectType = "book"
+	PersonalProjectionFieldsV1SubjectTypeGame  PersonalProjectionFieldsV1SubjectType = "game"
+	PersonalProjectionFieldsV1SubjectTypeMusic PersonalProjectionFieldsV1SubjectType = "music"
+	PersonalProjectionFieldsV1SubjectTypeReal  PersonalProjectionFieldsV1SubjectType = "real"
+)
+
+// Valid indicates whether the value is a known member of the PersonalProjectionFieldsV1SubjectType enum.
+func (e PersonalProjectionFieldsV1SubjectType) Valid() bool {
+	switch e {
+	case PersonalProjectionFieldsV1SubjectTypeAnime:
+		return true
+	case PersonalProjectionFieldsV1SubjectTypeBook:
+		return true
+	case PersonalProjectionFieldsV1SubjectTypeGame:
+		return true
+	case PersonalProjectionFieldsV1SubjectTypeMusic:
+		return true
+	case PersonalProjectionFieldsV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PersonalProjectionV1CollectionStatuses.
 const (
 	PersonalProjectionV1CollectionStatusesCompleted  PersonalProjectionV1CollectionStatuses = "completed"
@@ -2541,6 +1308,57 @@ func (e PersonalProjectionV1SubjectType) Valid() bool {
 	case PersonalProjectionV1SubjectTypeMusic:
 		return true
 	case PersonalProjectionV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalSharedQueryFieldsV1CollectionStatuses.
+const (
+	PersonalSharedQueryFieldsV1CollectionStatusesCompleted  PersonalSharedQueryFieldsV1CollectionStatuses = "completed"
+	PersonalSharedQueryFieldsV1CollectionStatusesDropped    PersonalSharedQueryFieldsV1CollectionStatuses = "dropped"
+	PersonalSharedQueryFieldsV1CollectionStatusesInProgress PersonalSharedQueryFieldsV1CollectionStatuses = "in_progress"
+	PersonalSharedQueryFieldsV1CollectionStatusesOnHold     PersonalSharedQueryFieldsV1CollectionStatuses = "on_hold"
+)
+
+// Valid indicates whether the value is a known member of the PersonalSharedQueryFieldsV1CollectionStatuses enum.
+func (e PersonalSharedQueryFieldsV1CollectionStatuses) Valid() bool {
+	switch e {
+	case PersonalSharedQueryFieldsV1CollectionStatusesCompleted:
+		return true
+	case PersonalSharedQueryFieldsV1CollectionStatusesDropped:
+		return true
+	case PersonalSharedQueryFieldsV1CollectionStatusesInProgress:
+		return true
+	case PersonalSharedQueryFieldsV1CollectionStatusesOnHold:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalSharedQueryFieldsV1SubjectType.
+const (
+	PersonalSharedQueryFieldsV1SubjectTypeAnime PersonalSharedQueryFieldsV1SubjectType = "anime"
+	PersonalSharedQueryFieldsV1SubjectTypeBook  PersonalSharedQueryFieldsV1SubjectType = "book"
+	PersonalSharedQueryFieldsV1SubjectTypeGame  PersonalSharedQueryFieldsV1SubjectType = "game"
+	PersonalSharedQueryFieldsV1SubjectTypeMusic PersonalSharedQueryFieldsV1SubjectType = "music"
+	PersonalSharedQueryFieldsV1SubjectTypeReal  PersonalSharedQueryFieldsV1SubjectType = "real"
+)
+
+// Valid indicates whether the value is a known member of the PersonalSharedQueryFieldsV1SubjectType enum.
+func (e PersonalSharedQueryFieldsV1SubjectType) Valid() bool {
+	switch e {
+	case PersonalSharedQueryFieldsV1SubjectTypeAnime:
+		return true
+	case PersonalSharedQueryFieldsV1SubjectTypeBook:
+		return true
+	case PersonalSharedQueryFieldsV1SubjectTypeGame:
+		return true
+	case PersonalSharedQueryFieldsV1SubjectTypeMusic:
+		return true
+	case PersonalSharedQueryFieldsV1SubjectTypeReal:
 		return true
 	default:
 		return false
@@ -2676,633 +1494,6 @@ func (e QueryDigestProjectionV11SubjectType) Valid() bool {
 	}
 }
 
-// Defines values for RankingDetailV1ViewOrder.
-const (
-	RankingDetailV1ViewOrderAsc  RankingDetailV1ViewOrder = "asc"
-	RankingDetailV1ViewOrderDesc RankingDetailV1ViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the RankingDetailV1ViewOrder enum.
-func (e RankingDetailV1ViewOrder) Valid() bool {
-	switch e {
-	case RankingDetailV1ViewOrderAsc:
-		return true
-	case RankingDetailV1ViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingDetailV1ViewPageSize.
-const (
-	RankingDetailV1ViewPageSizeN10 RankingDetailV1ViewPageSize = 10
-	RankingDetailV1ViewPageSizeN20 RankingDetailV1ViewPageSize = 20
-	RankingDetailV1ViewPageSizeN5  RankingDetailV1ViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the RankingDetailV1ViewPageSize enum.
-func (e RankingDetailV1ViewPageSize) Valid() bool {
-	switch e {
-	case RankingDetailV1ViewPageSizeN10:
-		return true
-	case RankingDetailV1ViewPageSizeN20:
-		return true
-	case RankingDetailV1ViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingDetailV1ViewSection.
-const (
-	RankingDetailV1ViewSectionCharacters RankingDetailV1ViewSection = "characters"
-	RankingDetailV1ViewSectionWorks      RankingDetailV1ViewSection = "works"
-)
-
-// Valid indicates whether the value is a known member of the RankingDetailV1ViewSection enum.
-func (e RankingDetailV1ViewSection) Valid() bool {
-	switch e {
-	case RankingDetailV1ViewSectionCharacters:
-		return true
-	case RankingDetailV1ViewSectionWorks:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingDetailV1ViewSort.
-const (
-	RankingDetailV1ViewSortCollectionUpdatedAt RankingDetailV1ViewSort = "collectionUpdatedAt"
-	RankingDetailV1ViewSortGlobalScore         RankingDetailV1ViewSort = "globalScore"
-	RankingDetailV1ViewSortName                RankingDetailV1ViewSort = "name"
-	RankingDetailV1ViewSortPersonalScore       RankingDetailV1ViewSort = "personalScore"
-	RankingDetailV1ViewSortRole                RankingDetailV1ViewSort = "role"
-	RankingDetailV1ViewSortSeriesSize          RankingDetailV1ViewSort = "seriesSize"
-	RankingDetailV1ViewSortWorkCount           RankingDetailV1ViewSort = "workCount"
-)
-
-// Valid indicates whether the value is a known member of the RankingDetailV1ViewSort enum.
-func (e RankingDetailV1ViewSort) Valid() bool {
-	switch e {
-	case RankingDetailV1ViewSortCollectionUpdatedAt:
-		return true
-	case RankingDetailV1ViewSortGlobalScore:
-		return true
-	case RankingDetailV1ViewSortName:
-		return true
-	case RankingDetailV1ViewSortPersonalScore:
-		return true
-	case RankingDetailV1ViewSortRole:
-		return true
-	case RankingDetailV1ViewSortSeriesSize:
-		return true
-	case RankingDetailV1ViewSortWorkCount:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1Query0CollectionStatuses.
-const (
-	RankingSharePayloadV1Query0CollectionStatusesCompleted  RankingSharePayloadV1Query0CollectionStatuses = "completed"
-	RankingSharePayloadV1Query0CollectionStatusesDropped    RankingSharePayloadV1Query0CollectionStatuses = "dropped"
-	RankingSharePayloadV1Query0CollectionStatusesInProgress RankingSharePayloadV1Query0CollectionStatuses = "in_progress"
-	RankingSharePayloadV1Query0CollectionStatusesOnHold     RankingSharePayloadV1Query0CollectionStatuses = "on_hold"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1Query0CollectionStatuses enum.
-func (e RankingSharePayloadV1Query0CollectionStatuses) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1Query0CollectionStatusesCompleted:
-		return true
-	case RankingSharePayloadV1Query0CollectionStatusesDropped:
-		return true
-	case RankingSharePayloadV1Query0CollectionStatusesInProgress:
-		return true
-	case RankingSharePayloadV1Query0CollectionStatusesOnHold:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1Query0SubjectType.
-const (
-	RankingSharePayloadV1Query0SubjectTypeAnime RankingSharePayloadV1Query0SubjectType = "anime"
-	RankingSharePayloadV1Query0SubjectTypeBook  RankingSharePayloadV1Query0SubjectType = "book"
-	RankingSharePayloadV1Query0SubjectTypeGame  RankingSharePayloadV1Query0SubjectType = "game"
-	RankingSharePayloadV1Query0SubjectTypeMusic RankingSharePayloadV1Query0SubjectType = "music"
-	RankingSharePayloadV1Query0SubjectTypeReal  RankingSharePayloadV1Query0SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1Query0SubjectType enum.
-func (e RankingSharePayloadV1Query0SubjectType) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1Query0SubjectTypeAnime:
-		return true
-	case RankingSharePayloadV1Query0SubjectTypeBook:
-		return true
-	case RankingSharePayloadV1Query0SubjectTypeGame:
-		return true
-	case RankingSharePayloadV1Query0SubjectTypeMusic:
-		return true
-	case RankingSharePayloadV1Query0SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1Query1SubjectType.
-const (
-	RankingSharePayloadV1Query1SubjectTypeAnime RankingSharePayloadV1Query1SubjectType = "anime"
-	RankingSharePayloadV1Query1SubjectTypeBook  RankingSharePayloadV1Query1SubjectType = "book"
-	RankingSharePayloadV1Query1SubjectTypeGame  RankingSharePayloadV1Query1SubjectType = "game"
-	RankingSharePayloadV1Query1SubjectTypeMusic RankingSharePayloadV1Query1SubjectType = "music"
-	RankingSharePayloadV1Query1SubjectTypeReal  RankingSharePayloadV1Query1SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1Query1SubjectType enum.
-func (e RankingSharePayloadV1Query1SubjectType) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1Query1SubjectTypeAnime:
-		return true
-	case RankingSharePayloadV1Query1SubjectTypeBook:
-		return true
-	case RankingSharePayloadV1Query1SubjectTypeGame:
-		return true
-	case RankingSharePayloadV1Query1SubjectTypeMusic:
-		return true
-	case RankingSharePayloadV1Query1SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1WorkspaceDetailViewOrder.
-const (
-	RankingSharePayloadV1WorkspaceDetailViewOrderAsc  RankingSharePayloadV1WorkspaceDetailViewOrder = "asc"
-	RankingSharePayloadV1WorkspaceDetailViewOrderDesc RankingSharePayloadV1WorkspaceDetailViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1WorkspaceDetailViewOrder enum.
-func (e RankingSharePayloadV1WorkspaceDetailViewOrder) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1WorkspaceDetailViewOrderAsc:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1WorkspaceDetailViewPageSize.
-const (
-	RankingSharePayloadV1WorkspaceDetailViewPageSizeN10 RankingSharePayloadV1WorkspaceDetailViewPageSize = 10
-	RankingSharePayloadV1WorkspaceDetailViewPageSizeN20 RankingSharePayloadV1WorkspaceDetailViewPageSize = 20
-	RankingSharePayloadV1WorkspaceDetailViewPageSizeN5  RankingSharePayloadV1WorkspaceDetailViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1WorkspaceDetailViewPageSize enum.
-func (e RankingSharePayloadV1WorkspaceDetailViewPageSize) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1WorkspaceDetailViewPageSizeN10:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewPageSizeN20:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1WorkspaceDetailViewSection.
-const (
-	RankingSharePayloadV1WorkspaceDetailViewSectionCharacters RankingSharePayloadV1WorkspaceDetailViewSection = "characters"
-	RankingSharePayloadV1WorkspaceDetailViewSectionWorks      RankingSharePayloadV1WorkspaceDetailViewSection = "works"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1WorkspaceDetailViewSection enum.
-func (e RankingSharePayloadV1WorkspaceDetailViewSection) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1WorkspaceDetailViewSectionCharacters:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewSectionWorks:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1WorkspaceDetailViewSort.
-const (
-	RankingSharePayloadV1WorkspaceDetailViewSortCollectionUpdatedAt RankingSharePayloadV1WorkspaceDetailViewSort = "collectionUpdatedAt"
-	RankingSharePayloadV1WorkspaceDetailViewSortGlobalScore         RankingSharePayloadV1WorkspaceDetailViewSort = "globalScore"
-	RankingSharePayloadV1WorkspaceDetailViewSortName                RankingSharePayloadV1WorkspaceDetailViewSort = "name"
-	RankingSharePayloadV1WorkspaceDetailViewSortPersonalScore       RankingSharePayloadV1WorkspaceDetailViewSort = "personalScore"
-	RankingSharePayloadV1WorkspaceDetailViewSortRole                RankingSharePayloadV1WorkspaceDetailViewSort = "role"
-	RankingSharePayloadV1WorkspaceDetailViewSortSeriesSize          RankingSharePayloadV1WorkspaceDetailViewSort = "seriesSize"
-	RankingSharePayloadV1WorkspaceDetailViewSortWorkCount           RankingSharePayloadV1WorkspaceDetailViewSort = "workCount"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1WorkspaceDetailViewSort enum.
-func (e RankingSharePayloadV1WorkspaceDetailViewSort) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1WorkspaceDetailViewSortCollectionUpdatedAt:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewSortGlobalScore:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewSortName:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewSortPersonalScore:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewSortRole:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewSortSeriesSize:
-		return true
-	case RankingSharePayloadV1WorkspaceDetailViewSortWorkCount:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1WorkspaceRankingsViewOrder.
-const (
-	RankingSharePayloadV1WorkspaceRankingsViewOrderAsc  RankingSharePayloadV1WorkspaceRankingsViewOrder = "asc"
-	RankingSharePayloadV1WorkspaceRankingsViewOrderDesc RankingSharePayloadV1WorkspaceRankingsViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1WorkspaceRankingsViewOrder enum.
-func (e RankingSharePayloadV1WorkspaceRankingsViewOrder) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1WorkspaceRankingsViewOrderAsc:
-		return true
-	case RankingSharePayloadV1WorkspaceRankingsViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1WorkspaceRankingsViewPageSize.
-const (
-	RankingSharePayloadV1WorkspaceRankingsViewPageSizeN10 RankingSharePayloadV1WorkspaceRankingsViewPageSize = 10
-	RankingSharePayloadV1WorkspaceRankingsViewPageSizeN20 RankingSharePayloadV1WorkspaceRankingsViewPageSize = 20
-	RankingSharePayloadV1WorkspaceRankingsViewPageSizeN5  RankingSharePayloadV1WorkspaceRankingsViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1WorkspaceRankingsViewPageSize enum.
-func (e RankingSharePayloadV1WorkspaceRankingsViewPageSize) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1WorkspaceRankingsViewPageSizeN10:
-		return true
-	case RankingSharePayloadV1WorkspaceRankingsViewPageSizeN20:
-		return true
-	case RankingSharePayloadV1WorkspaceRankingsViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingSharePayloadV1WorkspaceRankingsViewSort.
-const (
-	RankingSharePayloadV1WorkspaceRankingsViewSortAverage    RankingSharePayloadV1WorkspaceRankingsViewSort = "average"
-	RankingSharePayloadV1WorkspaceRankingsViewSortCount      RankingSharePayloadV1WorkspaceRankingsViewSort = "count"
-	RankingSharePayloadV1WorkspaceRankingsViewSortOverall    RankingSharePayloadV1WorkspaceRankingsViewSort = "overall"
-	RankingSharePayloadV1WorkspaceRankingsViewSortPreference RankingSharePayloadV1WorkspaceRankingsViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the RankingSharePayloadV1WorkspaceRankingsViewSort enum.
-func (e RankingSharePayloadV1WorkspaceRankingsViewSort) Valid() bool {
-	switch e {
-	case RankingSharePayloadV1WorkspaceRankingsViewSortAverage:
-		return true
-	case RankingSharePayloadV1WorkspaceRankingsViewSortCount:
-		return true
-	case RankingSharePayloadV1WorkspaceRankingsViewSortOverall:
-		return true
-	case RankingSharePayloadV1WorkspaceRankingsViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingShareWorkspaceV1DetailViewOrder.
-const (
-	RankingShareWorkspaceV1DetailViewOrderAsc  RankingShareWorkspaceV1DetailViewOrder = "asc"
-	RankingShareWorkspaceV1DetailViewOrderDesc RankingShareWorkspaceV1DetailViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the RankingShareWorkspaceV1DetailViewOrder enum.
-func (e RankingShareWorkspaceV1DetailViewOrder) Valid() bool {
-	switch e {
-	case RankingShareWorkspaceV1DetailViewOrderAsc:
-		return true
-	case RankingShareWorkspaceV1DetailViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingShareWorkspaceV1DetailViewPageSize.
-const (
-	RankingShareWorkspaceV1DetailViewPageSizeN10 RankingShareWorkspaceV1DetailViewPageSize = 10
-	RankingShareWorkspaceV1DetailViewPageSizeN20 RankingShareWorkspaceV1DetailViewPageSize = 20
-	RankingShareWorkspaceV1DetailViewPageSizeN5  RankingShareWorkspaceV1DetailViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the RankingShareWorkspaceV1DetailViewPageSize enum.
-func (e RankingShareWorkspaceV1DetailViewPageSize) Valid() bool {
-	switch e {
-	case RankingShareWorkspaceV1DetailViewPageSizeN10:
-		return true
-	case RankingShareWorkspaceV1DetailViewPageSizeN20:
-		return true
-	case RankingShareWorkspaceV1DetailViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingShareWorkspaceV1DetailViewSection.
-const (
-	RankingShareWorkspaceV1DetailViewSectionCharacters RankingShareWorkspaceV1DetailViewSection = "characters"
-	RankingShareWorkspaceV1DetailViewSectionWorks      RankingShareWorkspaceV1DetailViewSection = "works"
-)
-
-// Valid indicates whether the value is a known member of the RankingShareWorkspaceV1DetailViewSection enum.
-func (e RankingShareWorkspaceV1DetailViewSection) Valid() bool {
-	switch e {
-	case RankingShareWorkspaceV1DetailViewSectionCharacters:
-		return true
-	case RankingShareWorkspaceV1DetailViewSectionWorks:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingShareWorkspaceV1DetailViewSort.
-const (
-	RankingShareWorkspaceV1DetailViewSortCollectionUpdatedAt RankingShareWorkspaceV1DetailViewSort = "collectionUpdatedAt"
-	RankingShareWorkspaceV1DetailViewSortGlobalScore         RankingShareWorkspaceV1DetailViewSort = "globalScore"
-	RankingShareWorkspaceV1DetailViewSortName                RankingShareWorkspaceV1DetailViewSort = "name"
-	RankingShareWorkspaceV1DetailViewSortPersonalScore       RankingShareWorkspaceV1DetailViewSort = "personalScore"
-	RankingShareWorkspaceV1DetailViewSortRole                RankingShareWorkspaceV1DetailViewSort = "role"
-	RankingShareWorkspaceV1DetailViewSortSeriesSize          RankingShareWorkspaceV1DetailViewSort = "seriesSize"
-	RankingShareWorkspaceV1DetailViewSortWorkCount           RankingShareWorkspaceV1DetailViewSort = "workCount"
-)
-
-// Valid indicates whether the value is a known member of the RankingShareWorkspaceV1DetailViewSort enum.
-func (e RankingShareWorkspaceV1DetailViewSort) Valid() bool {
-	switch e {
-	case RankingShareWorkspaceV1DetailViewSortCollectionUpdatedAt:
-		return true
-	case RankingShareWorkspaceV1DetailViewSortGlobalScore:
-		return true
-	case RankingShareWorkspaceV1DetailViewSortName:
-		return true
-	case RankingShareWorkspaceV1DetailViewSortPersonalScore:
-		return true
-	case RankingShareWorkspaceV1DetailViewSortRole:
-		return true
-	case RankingShareWorkspaceV1DetailViewSortSeriesSize:
-		return true
-	case RankingShareWorkspaceV1DetailViewSortWorkCount:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingShareWorkspaceV1RankingsViewOrder.
-const (
-	RankingShareWorkspaceV1RankingsViewOrderAsc  RankingShareWorkspaceV1RankingsViewOrder = "asc"
-	RankingShareWorkspaceV1RankingsViewOrderDesc RankingShareWorkspaceV1RankingsViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the RankingShareWorkspaceV1RankingsViewOrder enum.
-func (e RankingShareWorkspaceV1RankingsViewOrder) Valid() bool {
-	switch e {
-	case RankingShareWorkspaceV1RankingsViewOrderAsc:
-		return true
-	case RankingShareWorkspaceV1RankingsViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingShareWorkspaceV1RankingsViewPageSize.
-const (
-	RankingShareWorkspaceV1RankingsViewPageSizeN10 RankingShareWorkspaceV1RankingsViewPageSize = 10
-	RankingShareWorkspaceV1RankingsViewPageSizeN20 RankingShareWorkspaceV1RankingsViewPageSize = 20
-	RankingShareWorkspaceV1RankingsViewPageSizeN5  RankingShareWorkspaceV1RankingsViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the RankingShareWorkspaceV1RankingsViewPageSize enum.
-func (e RankingShareWorkspaceV1RankingsViewPageSize) Valid() bool {
-	switch e {
-	case RankingShareWorkspaceV1RankingsViewPageSizeN10:
-		return true
-	case RankingShareWorkspaceV1RankingsViewPageSizeN20:
-		return true
-	case RankingShareWorkspaceV1RankingsViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingShareWorkspaceV1RankingsViewSort.
-const (
-	RankingShareWorkspaceV1RankingsViewSortAverage    RankingShareWorkspaceV1RankingsViewSort = "average"
-	RankingShareWorkspaceV1RankingsViewSortCount      RankingShareWorkspaceV1RankingsViewSort = "count"
-	RankingShareWorkspaceV1RankingsViewSortOverall    RankingShareWorkspaceV1RankingsViewSort = "overall"
-	RankingShareWorkspaceV1RankingsViewSortPreference RankingShareWorkspaceV1RankingsViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the RankingShareWorkspaceV1RankingsViewSort enum.
-func (e RankingShareWorkspaceV1RankingsViewSort) Valid() bool {
-	switch e {
-	case RankingShareWorkspaceV1RankingsViewSortAverage:
-		return true
-	case RankingShareWorkspaceV1RankingsViewSortCount:
-		return true
-	case RankingShareWorkspaceV1RankingsViewSortOverall:
-		return true
-	case RankingShareWorkspaceV1RankingsViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingWorkspaceV1DetailViewOrder.
-const (
-	RankingWorkspaceV1DetailViewOrderAsc  RankingWorkspaceV1DetailViewOrder = "asc"
-	RankingWorkspaceV1DetailViewOrderDesc RankingWorkspaceV1DetailViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the RankingWorkspaceV1DetailViewOrder enum.
-func (e RankingWorkspaceV1DetailViewOrder) Valid() bool {
-	switch e {
-	case RankingWorkspaceV1DetailViewOrderAsc:
-		return true
-	case RankingWorkspaceV1DetailViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingWorkspaceV1DetailViewPageSize.
-const (
-	RankingWorkspaceV1DetailViewPageSizeN10 RankingWorkspaceV1DetailViewPageSize = 10
-	RankingWorkspaceV1DetailViewPageSizeN20 RankingWorkspaceV1DetailViewPageSize = 20
-	RankingWorkspaceV1DetailViewPageSizeN5  RankingWorkspaceV1DetailViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the RankingWorkspaceV1DetailViewPageSize enum.
-func (e RankingWorkspaceV1DetailViewPageSize) Valid() bool {
-	switch e {
-	case RankingWorkspaceV1DetailViewPageSizeN10:
-		return true
-	case RankingWorkspaceV1DetailViewPageSizeN20:
-		return true
-	case RankingWorkspaceV1DetailViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingWorkspaceV1DetailViewSection.
-const (
-	RankingWorkspaceV1DetailViewSectionCharacters RankingWorkspaceV1DetailViewSection = "characters"
-	RankingWorkspaceV1DetailViewSectionWorks      RankingWorkspaceV1DetailViewSection = "works"
-)
-
-// Valid indicates whether the value is a known member of the RankingWorkspaceV1DetailViewSection enum.
-func (e RankingWorkspaceV1DetailViewSection) Valid() bool {
-	switch e {
-	case RankingWorkspaceV1DetailViewSectionCharacters:
-		return true
-	case RankingWorkspaceV1DetailViewSectionWorks:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingWorkspaceV1DetailViewSort.
-const (
-	RankingWorkspaceV1DetailViewSortCollectionUpdatedAt RankingWorkspaceV1DetailViewSort = "collectionUpdatedAt"
-	RankingWorkspaceV1DetailViewSortGlobalScore         RankingWorkspaceV1DetailViewSort = "globalScore"
-	RankingWorkspaceV1DetailViewSortName                RankingWorkspaceV1DetailViewSort = "name"
-	RankingWorkspaceV1DetailViewSortPersonalScore       RankingWorkspaceV1DetailViewSort = "personalScore"
-	RankingWorkspaceV1DetailViewSortRole                RankingWorkspaceV1DetailViewSort = "role"
-	RankingWorkspaceV1DetailViewSortSeriesSize          RankingWorkspaceV1DetailViewSort = "seriesSize"
-	RankingWorkspaceV1DetailViewSortWorkCount           RankingWorkspaceV1DetailViewSort = "workCount"
-)
-
-// Valid indicates whether the value is a known member of the RankingWorkspaceV1DetailViewSort enum.
-func (e RankingWorkspaceV1DetailViewSort) Valid() bool {
-	switch e {
-	case RankingWorkspaceV1DetailViewSortCollectionUpdatedAt:
-		return true
-	case RankingWorkspaceV1DetailViewSortGlobalScore:
-		return true
-	case RankingWorkspaceV1DetailViewSortName:
-		return true
-	case RankingWorkspaceV1DetailViewSortPersonalScore:
-		return true
-	case RankingWorkspaceV1DetailViewSortRole:
-		return true
-	case RankingWorkspaceV1DetailViewSortSeriesSize:
-		return true
-	case RankingWorkspaceV1DetailViewSortWorkCount:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingWorkspaceV1RankingsViewOrder.
-const (
-	RankingWorkspaceV1RankingsViewOrderAsc  RankingWorkspaceV1RankingsViewOrder = "asc"
-	RankingWorkspaceV1RankingsViewOrderDesc RankingWorkspaceV1RankingsViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the RankingWorkspaceV1RankingsViewOrder enum.
-func (e RankingWorkspaceV1RankingsViewOrder) Valid() bool {
-	switch e {
-	case RankingWorkspaceV1RankingsViewOrderAsc:
-		return true
-	case RankingWorkspaceV1RankingsViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingWorkspaceV1RankingsViewPageSize.
-const (
-	RankingWorkspaceV1RankingsViewPageSizeN10 RankingWorkspaceV1RankingsViewPageSize = 10
-	RankingWorkspaceV1RankingsViewPageSizeN20 RankingWorkspaceV1RankingsViewPageSize = 20
-	RankingWorkspaceV1RankingsViewPageSizeN5  RankingWorkspaceV1RankingsViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the RankingWorkspaceV1RankingsViewPageSize enum.
-func (e RankingWorkspaceV1RankingsViewPageSize) Valid() bool {
-	switch e {
-	case RankingWorkspaceV1RankingsViewPageSizeN10:
-		return true
-	case RankingWorkspaceV1RankingsViewPageSizeN20:
-		return true
-	case RankingWorkspaceV1RankingsViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RankingWorkspaceV1RankingsViewSort.
-const (
-	RankingWorkspaceV1RankingsViewSortAverage    RankingWorkspaceV1RankingsViewSort = "average"
-	RankingWorkspaceV1RankingsViewSortCount      RankingWorkspaceV1RankingsViewSort = "count"
-	RankingWorkspaceV1RankingsViewSortOverall    RankingWorkspaceV1RankingsViewSort = "overall"
-	RankingWorkspaceV1RankingsViewSortPreference RankingWorkspaceV1RankingsViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the RankingWorkspaceV1RankingsViewSort enum.
-func (e RankingWorkspaceV1RankingsViewSort) Valid() bool {
-	switch e {
-	case RankingWorkspaceV1RankingsViewSortAverage:
-		return true
-	case RankingWorkspaceV1RankingsViewSortCount:
-		return true
-	case RankingWorkspaceV1RankingsViewSortOverall:
-		return true
-	case RankingWorkspaceV1RankingsViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for RankingsViewV1Order.
 const (
 	RankingsViewV1OrderAsc  RankingsViewV1Order = "asc"
@@ -3360,621 +1551,6 @@ func (e RankingsViewV1Sort) Valid() bool {
 	case RankingsViewV1SortOverall:
 		return true
 	case RankingsViewV1SortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10Query0CollectionStatuses.
-const (
-	SharePayloadV10Query0CollectionStatusesCompleted  SharePayloadV10Query0CollectionStatuses = "completed"
-	SharePayloadV10Query0CollectionStatusesDropped    SharePayloadV10Query0CollectionStatuses = "dropped"
-	SharePayloadV10Query0CollectionStatusesInProgress SharePayloadV10Query0CollectionStatuses = "in_progress"
-	SharePayloadV10Query0CollectionStatusesOnHold     SharePayloadV10Query0CollectionStatuses = "on_hold"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10Query0CollectionStatuses enum.
-func (e SharePayloadV10Query0CollectionStatuses) Valid() bool {
-	switch e {
-	case SharePayloadV10Query0CollectionStatusesCompleted:
-		return true
-	case SharePayloadV10Query0CollectionStatusesDropped:
-		return true
-	case SharePayloadV10Query0CollectionStatusesInProgress:
-		return true
-	case SharePayloadV10Query0CollectionStatusesOnHold:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10Query0SubjectType.
-const (
-	SharePayloadV10Query0SubjectTypeAnime SharePayloadV10Query0SubjectType = "anime"
-	SharePayloadV10Query0SubjectTypeBook  SharePayloadV10Query0SubjectType = "book"
-	SharePayloadV10Query0SubjectTypeGame  SharePayloadV10Query0SubjectType = "game"
-	SharePayloadV10Query0SubjectTypeMusic SharePayloadV10Query0SubjectType = "music"
-	SharePayloadV10Query0SubjectTypeReal  SharePayloadV10Query0SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10Query0SubjectType enum.
-func (e SharePayloadV10Query0SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV10Query0SubjectTypeAnime:
-		return true
-	case SharePayloadV10Query0SubjectTypeBook:
-		return true
-	case SharePayloadV10Query0SubjectTypeGame:
-		return true
-	case SharePayloadV10Query0SubjectTypeMusic:
-		return true
-	case SharePayloadV10Query0SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10Query1SubjectType.
-const (
-	SharePayloadV10Query1SubjectTypeAnime SharePayloadV10Query1SubjectType = "anime"
-	SharePayloadV10Query1SubjectTypeBook  SharePayloadV10Query1SubjectType = "book"
-	SharePayloadV10Query1SubjectTypeGame  SharePayloadV10Query1SubjectType = "game"
-	SharePayloadV10Query1SubjectTypeMusic SharePayloadV10Query1SubjectType = "music"
-	SharePayloadV10Query1SubjectTypeReal  SharePayloadV10Query1SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10Query1SubjectType enum.
-func (e SharePayloadV10Query1SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV10Query1SubjectTypeAnime:
-		return true
-	case SharePayloadV10Query1SubjectTypeBook:
-		return true
-	case SharePayloadV10Query1SubjectTypeGame:
-		return true
-	case SharePayloadV10Query1SubjectTypeMusic:
-		return true
-	case SharePayloadV10Query1SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10WorkspaceDetailViewOrder.
-const (
-	SharePayloadV10WorkspaceDetailViewOrderAsc  SharePayloadV10WorkspaceDetailViewOrder = "asc"
-	SharePayloadV10WorkspaceDetailViewOrderDesc SharePayloadV10WorkspaceDetailViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10WorkspaceDetailViewOrder enum.
-func (e SharePayloadV10WorkspaceDetailViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV10WorkspaceDetailViewOrderAsc:
-		return true
-	case SharePayloadV10WorkspaceDetailViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10WorkspaceDetailViewPageSize.
-const (
-	SharePayloadV10WorkspaceDetailViewPageSizeN10 SharePayloadV10WorkspaceDetailViewPageSize = 10
-	SharePayloadV10WorkspaceDetailViewPageSizeN20 SharePayloadV10WorkspaceDetailViewPageSize = 20
-	SharePayloadV10WorkspaceDetailViewPageSizeN5  SharePayloadV10WorkspaceDetailViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10WorkspaceDetailViewPageSize enum.
-func (e SharePayloadV10WorkspaceDetailViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV10WorkspaceDetailViewPageSizeN10:
-		return true
-	case SharePayloadV10WorkspaceDetailViewPageSizeN20:
-		return true
-	case SharePayloadV10WorkspaceDetailViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10WorkspaceDetailViewSection.
-const (
-	SharePayloadV10WorkspaceDetailViewSectionCharacters SharePayloadV10WorkspaceDetailViewSection = "characters"
-	SharePayloadV10WorkspaceDetailViewSectionWorks      SharePayloadV10WorkspaceDetailViewSection = "works"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10WorkspaceDetailViewSection enum.
-func (e SharePayloadV10WorkspaceDetailViewSection) Valid() bool {
-	switch e {
-	case SharePayloadV10WorkspaceDetailViewSectionCharacters:
-		return true
-	case SharePayloadV10WorkspaceDetailViewSectionWorks:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10WorkspaceDetailViewSort.
-const (
-	SharePayloadV10WorkspaceDetailViewSortCollectionUpdatedAt SharePayloadV10WorkspaceDetailViewSort = "collectionUpdatedAt"
-	SharePayloadV10WorkspaceDetailViewSortGlobalScore         SharePayloadV10WorkspaceDetailViewSort = "globalScore"
-	SharePayloadV10WorkspaceDetailViewSortName                SharePayloadV10WorkspaceDetailViewSort = "name"
-	SharePayloadV10WorkspaceDetailViewSortPersonalScore       SharePayloadV10WorkspaceDetailViewSort = "personalScore"
-	SharePayloadV10WorkspaceDetailViewSortRole                SharePayloadV10WorkspaceDetailViewSort = "role"
-	SharePayloadV10WorkspaceDetailViewSortSeriesSize          SharePayloadV10WorkspaceDetailViewSort = "seriesSize"
-	SharePayloadV10WorkspaceDetailViewSortWorkCount           SharePayloadV10WorkspaceDetailViewSort = "workCount"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10WorkspaceDetailViewSort enum.
-func (e SharePayloadV10WorkspaceDetailViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV10WorkspaceDetailViewSortCollectionUpdatedAt:
-		return true
-	case SharePayloadV10WorkspaceDetailViewSortGlobalScore:
-		return true
-	case SharePayloadV10WorkspaceDetailViewSortName:
-		return true
-	case SharePayloadV10WorkspaceDetailViewSortPersonalScore:
-		return true
-	case SharePayloadV10WorkspaceDetailViewSortRole:
-		return true
-	case SharePayloadV10WorkspaceDetailViewSortSeriesSize:
-		return true
-	case SharePayloadV10WorkspaceDetailViewSortWorkCount:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10WorkspaceRankingsViewOrder.
-const (
-	SharePayloadV10WorkspaceRankingsViewOrderAsc  SharePayloadV10WorkspaceRankingsViewOrder = "asc"
-	SharePayloadV10WorkspaceRankingsViewOrderDesc SharePayloadV10WorkspaceRankingsViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10WorkspaceRankingsViewOrder enum.
-func (e SharePayloadV10WorkspaceRankingsViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV10WorkspaceRankingsViewOrderAsc:
-		return true
-	case SharePayloadV10WorkspaceRankingsViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10WorkspaceRankingsViewPageSize.
-const (
-	SharePayloadV10WorkspaceRankingsViewPageSizeN10 SharePayloadV10WorkspaceRankingsViewPageSize = 10
-	SharePayloadV10WorkspaceRankingsViewPageSizeN20 SharePayloadV10WorkspaceRankingsViewPageSize = 20
-	SharePayloadV10WorkspaceRankingsViewPageSizeN5  SharePayloadV10WorkspaceRankingsViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10WorkspaceRankingsViewPageSize enum.
-func (e SharePayloadV10WorkspaceRankingsViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV10WorkspaceRankingsViewPageSizeN10:
-		return true
-	case SharePayloadV10WorkspaceRankingsViewPageSizeN20:
-		return true
-	case SharePayloadV10WorkspaceRankingsViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV10WorkspaceRankingsViewSort.
-const (
-	SharePayloadV10WorkspaceRankingsViewSortAverage    SharePayloadV10WorkspaceRankingsViewSort = "average"
-	SharePayloadV10WorkspaceRankingsViewSortCount      SharePayloadV10WorkspaceRankingsViewSort = "count"
-	SharePayloadV10WorkspaceRankingsViewSortOverall    SharePayloadV10WorkspaceRankingsViewSort = "overall"
-	SharePayloadV10WorkspaceRankingsViewSortPreference SharePayloadV10WorkspaceRankingsViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV10WorkspaceRankingsViewSort enum.
-func (e SharePayloadV10WorkspaceRankingsViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV10WorkspaceRankingsViewSortAverage:
-		return true
-	case SharePayloadV10WorkspaceRankingsViewSortCount:
-		return true
-	case SharePayloadV10WorkspaceRankingsViewSortOverall:
-		return true
-	case SharePayloadV10WorkspaceRankingsViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Query0CollectionStatuses.
-const (
-	SharePayloadV11Query0CollectionStatusesCompleted  SharePayloadV11Query0CollectionStatuses = "completed"
-	SharePayloadV11Query0CollectionStatusesDropped    SharePayloadV11Query0CollectionStatuses = "dropped"
-	SharePayloadV11Query0CollectionStatusesInProgress SharePayloadV11Query0CollectionStatuses = "in_progress"
-	SharePayloadV11Query0CollectionStatusesOnHold     SharePayloadV11Query0CollectionStatuses = "on_hold"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Query0CollectionStatuses enum.
-func (e SharePayloadV11Query0CollectionStatuses) Valid() bool {
-	switch e {
-	case SharePayloadV11Query0CollectionStatusesCompleted:
-		return true
-	case SharePayloadV11Query0CollectionStatusesDropped:
-		return true
-	case SharePayloadV11Query0CollectionStatusesInProgress:
-		return true
-	case SharePayloadV11Query0CollectionStatusesOnHold:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Query0SubjectType.
-const (
-	SharePayloadV11Query0SubjectTypeAnime SharePayloadV11Query0SubjectType = "anime"
-	SharePayloadV11Query0SubjectTypeBook  SharePayloadV11Query0SubjectType = "book"
-	SharePayloadV11Query0SubjectTypeGame  SharePayloadV11Query0SubjectType = "game"
-	SharePayloadV11Query0SubjectTypeMusic SharePayloadV11Query0SubjectType = "music"
-	SharePayloadV11Query0SubjectTypeReal  SharePayloadV11Query0SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Query0SubjectType enum.
-func (e SharePayloadV11Query0SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV11Query0SubjectTypeAnime:
-		return true
-	case SharePayloadV11Query0SubjectTypeBook:
-		return true
-	case SharePayloadV11Query0SubjectTypeGame:
-		return true
-	case SharePayloadV11Query0SubjectTypeMusic:
-		return true
-	case SharePayloadV11Query0SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Query1SubjectType.
-const (
-	SharePayloadV11Query1SubjectTypeAnime SharePayloadV11Query1SubjectType = "anime"
-	SharePayloadV11Query1SubjectTypeBook  SharePayloadV11Query1SubjectType = "book"
-	SharePayloadV11Query1SubjectTypeGame  SharePayloadV11Query1SubjectType = "game"
-	SharePayloadV11Query1SubjectTypeMusic SharePayloadV11Query1SubjectType = "music"
-	SharePayloadV11Query1SubjectTypeReal  SharePayloadV11Query1SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Query1SubjectType enum.
-func (e SharePayloadV11Query1SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV11Query1SubjectTypeAnime:
-		return true
-	case SharePayloadV11Query1SubjectTypeBook:
-		return true
-	case SharePayloadV11Query1SubjectTypeGame:
-		return true
-	case SharePayloadV11Query1SubjectTypeMusic:
-		return true
-	case SharePayloadV11Query1SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace0CandidatesViewOrder.
-const (
-	SharePayloadV11Workspace0CandidatesViewOrderAsc  SharePayloadV11Workspace0CandidatesViewOrder = "asc"
-	SharePayloadV11Workspace0CandidatesViewOrderDesc SharePayloadV11Workspace0CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace0CandidatesViewOrder enum.
-func (e SharePayloadV11Workspace0CandidatesViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace0CandidatesViewOrderAsc:
-		return true
-	case SharePayloadV11Workspace0CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace0CandidatesViewPageSize.
-const (
-	SharePayloadV11Workspace0CandidatesViewPageSizeN10 SharePayloadV11Workspace0CandidatesViewPageSize = 10
-	SharePayloadV11Workspace0CandidatesViewPageSizeN20 SharePayloadV11Workspace0CandidatesViewPageSize = 20
-	SharePayloadV11Workspace0CandidatesViewPageSizeN5  SharePayloadV11Workspace0CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace0CandidatesViewPageSize enum.
-func (e SharePayloadV11Workspace0CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace0CandidatesViewPageSizeN10:
-		return true
-	case SharePayloadV11Workspace0CandidatesViewPageSizeN20:
-		return true
-	case SharePayloadV11Workspace0CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace0CandidatesViewSort.
-const (
-	SharePayloadV11Workspace0CandidatesViewSortAverage       SharePayloadV11Workspace0CandidatesViewSort = "average"
-	SharePayloadV11Workspace0CandidatesViewSortCount         SharePayloadV11Workspace0CandidatesViewSort = "count"
-	SharePayloadV11Workspace0CandidatesViewSortGlobalAverage SharePayloadV11Workspace0CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace0CandidatesViewSort enum.
-func (e SharePayloadV11Workspace0CandidatesViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace0CandidatesViewSortAverage:
-		return true
-	case SharePayloadV11Workspace0CandidatesViewSortCount:
-		return true
-	case SharePayloadV11Workspace0CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace1CandidatesViewOrder.
-const (
-	SharePayloadV11Workspace1CandidatesViewOrderAsc  SharePayloadV11Workspace1CandidatesViewOrder = "asc"
-	SharePayloadV11Workspace1CandidatesViewOrderDesc SharePayloadV11Workspace1CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace1CandidatesViewOrder enum.
-func (e SharePayloadV11Workspace1CandidatesViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace1CandidatesViewOrderAsc:
-		return true
-	case SharePayloadV11Workspace1CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace1CandidatesViewPageSize.
-const (
-	SharePayloadV11Workspace1CandidatesViewPageSizeN10 SharePayloadV11Workspace1CandidatesViewPageSize = 10
-	SharePayloadV11Workspace1CandidatesViewPageSizeN20 SharePayloadV11Workspace1CandidatesViewPageSize = 20
-	SharePayloadV11Workspace1CandidatesViewPageSizeN5  SharePayloadV11Workspace1CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace1CandidatesViewPageSize enum.
-func (e SharePayloadV11Workspace1CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace1CandidatesViewPageSizeN10:
-		return true
-	case SharePayloadV11Workspace1CandidatesViewPageSizeN20:
-		return true
-	case SharePayloadV11Workspace1CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace1CandidatesViewSort.
-const (
-	SharePayloadV11Workspace1CandidatesViewSortAverage       SharePayloadV11Workspace1CandidatesViewSort = "average"
-	SharePayloadV11Workspace1CandidatesViewSortCount         SharePayloadV11Workspace1CandidatesViewSort = "count"
-	SharePayloadV11Workspace1CandidatesViewSortGlobalAverage SharePayloadV11Workspace1CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace1CandidatesViewSort enum.
-func (e SharePayloadV11Workspace1CandidatesViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace1CandidatesViewSortAverage:
-		return true
-	case SharePayloadV11Workspace1CandidatesViewSortCount:
-		return true
-	case SharePayloadV11Workspace1CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace1PartnersViewOrder.
-const (
-	SharePayloadV11Workspace1PartnersViewOrderAsc  SharePayloadV11Workspace1PartnersViewOrder = "asc"
-	SharePayloadV11Workspace1PartnersViewOrderDesc SharePayloadV11Workspace1PartnersViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace1PartnersViewOrder enum.
-func (e SharePayloadV11Workspace1PartnersViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace1PartnersViewOrderAsc:
-		return true
-	case SharePayloadV11Workspace1PartnersViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace1PartnersViewPageSize.
-const (
-	SharePayloadV11Workspace1PartnersViewPageSizeN10 SharePayloadV11Workspace1PartnersViewPageSize = 10
-	SharePayloadV11Workspace1PartnersViewPageSizeN20 SharePayloadV11Workspace1PartnersViewPageSize = 20
-	SharePayloadV11Workspace1PartnersViewPageSizeN5  SharePayloadV11Workspace1PartnersViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace1PartnersViewPageSize enum.
-func (e SharePayloadV11Workspace1PartnersViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace1PartnersViewPageSizeN10:
-		return true
-	case SharePayloadV11Workspace1PartnersViewPageSizeN20:
-		return true
-	case SharePayloadV11Workspace1PartnersViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace1PartnersViewSort.
-const (
-	SharePayloadV11Workspace1PartnersViewSortAverage    SharePayloadV11Workspace1PartnersViewSort = "average"
-	SharePayloadV11Workspace1PartnersViewSortCount      SharePayloadV11Workspace1PartnersViewSort = "count"
-	SharePayloadV11Workspace1PartnersViewSortOverall    SharePayloadV11Workspace1PartnersViewSort = "overall"
-	SharePayloadV11Workspace1PartnersViewSortPreference SharePayloadV11Workspace1PartnersViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace1PartnersViewSort enum.
-func (e SharePayloadV11Workspace1PartnersViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace1PartnersViewSortAverage:
-		return true
-	case SharePayloadV11Workspace1PartnersViewSortCount:
-		return true
-	case SharePayloadV11Workspace1PartnersViewSortOverall:
-		return true
-	case SharePayloadV11Workspace1PartnersViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace2CandidatesViewOrder.
-const (
-	SharePayloadV11Workspace2CandidatesViewOrderAsc  SharePayloadV11Workspace2CandidatesViewOrder = "asc"
-	SharePayloadV11Workspace2CandidatesViewOrderDesc SharePayloadV11Workspace2CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace2CandidatesViewOrder enum.
-func (e SharePayloadV11Workspace2CandidatesViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace2CandidatesViewOrderAsc:
-		return true
-	case SharePayloadV11Workspace2CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace2CandidatesViewPageSize.
-const (
-	SharePayloadV11Workspace2CandidatesViewPageSizeN10 SharePayloadV11Workspace2CandidatesViewPageSize = 10
-	SharePayloadV11Workspace2CandidatesViewPageSizeN20 SharePayloadV11Workspace2CandidatesViewPageSize = 20
-	SharePayloadV11Workspace2CandidatesViewPageSizeN5  SharePayloadV11Workspace2CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace2CandidatesViewPageSize enum.
-func (e SharePayloadV11Workspace2CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace2CandidatesViewPageSizeN10:
-		return true
-	case SharePayloadV11Workspace2CandidatesViewPageSizeN20:
-		return true
-	case SharePayloadV11Workspace2CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace2CandidatesViewSort.
-const (
-	SharePayloadV11Workspace2CandidatesViewSortAverage       SharePayloadV11Workspace2CandidatesViewSort = "average"
-	SharePayloadV11Workspace2CandidatesViewSortCount         SharePayloadV11Workspace2CandidatesViewSort = "count"
-	SharePayloadV11Workspace2CandidatesViewSortGlobalAverage SharePayloadV11Workspace2CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace2CandidatesViewSort enum.
-func (e SharePayloadV11Workspace2CandidatesViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace2CandidatesViewSortAverage:
-		return true
-	case SharePayloadV11Workspace2CandidatesViewSortCount:
-		return true
-	case SharePayloadV11Workspace2CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace2CoStarViewOrder.
-const (
-	SharePayloadV11Workspace2CoStarViewOrderAsc  SharePayloadV11Workspace2CoStarViewOrder = "asc"
-	SharePayloadV11Workspace2CoStarViewOrderDesc SharePayloadV11Workspace2CoStarViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace2CoStarViewOrder enum.
-func (e SharePayloadV11Workspace2CoStarViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace2CoStarViewOrderAsc:
-		return true
-	case SharePayloadV11Workspace2CoStarViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace2CoStarViewPageSize.
-const (
-	SharePayloadV11Workspace2CoStarViewPageSizeN10 SharePayloadV11Workspace2CoStarViewPageSize = 10
-	SharePayloadV11Workspace2CoStarViewPageSizeN20 SharePayloadV11Workspace2CoStarViewPageSize = 20
-	SharePayloadV11Workspace2CoStarViewPageSizeN5  SharePayloadV11Workspace2CoStarViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace2CoStarViewPageSize enum.
-func (e SharePayloadV11Workspace2CoStarViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace2CoStarViewPageSizeN10:
-		return true
-	case SharePayloadV11Workspace2CoStarViewPageSizeN20:
-		return true
-	case SharePayloadV11Workspace2CoStarViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV11Workspace2CoStarViewSort.
-const (
-	SharePayloadV11Workspace2CoStarViewSortCollectionUpdatedAt SharePayloadV11Workspace2CoStarViewSort = "collectionUpdatedAt"
-	SharePayloadV11Workspace2CoStarViewSortGlobalScore         SharePayloadV11Workspace2CoStarViewSort = "globalScore"
-	SharePayloadV11Workspace2CoStarViewSortPersonalScore       SharePayloadV11Workspace2CoStarViewSort = "personalScore"
-	SharePayloadV11Workspace2CoStarViewSortSeriesSize          SharePayloadV11Workspace2CoStarViewSort = "seriesSize"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV11Workspace2CoStarViewSort enum.
-func (e SharePayloadV11Workspace2CoStarViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV11Workspace2CoStarViewSortCollectionUpdatedAt:
-		return true
-	case SharePayloadV11Workspace2CoStarViewSortGlobalScore:
-		return true
-	case SharePayloadV11Workspace2CoStarViewSortPersonalScore:
-		return true
-	case SharePayloadV11Workspace2CoStarViewSortSeriesSize:
 		return true
 	default:
 		return false
@@ -4428,621 +2004,6 @@ func (e QueryDigestProjectionV1Schema1SubjectType) Valid() bool {
 	case QueryDigestProjectionV1Schema1SubjectTypeMusic:
 		return true
 	case QueryDigestProjectionV1Schema1SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0Query0CollectionStatuses.
-const (
-	SharePayloadV1Schema0Query0CollectionStatusesCompleted  SharePayloadV1Schema0Query0CollectionStatuses = "completed"
-	SharePayloadV1Schema0Query0CollectionStatusesDropped    SharePayloadV1Schema0Query0CollectionStatuses = "dropped"
-	SharePayloadV1Schema0Query0CollectionStatusesInProgress SharePayloadV1Schema0Query0CollectionStatuses = "in_progress"
-	SharePayloadV1Schema0Query0CollectionStatusesOnHold     SharePayloadV1Schema0Query0CollectionStatuses = "on_hold"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0Query0CollectionStatuses enum.
-func (e SharePayloadV1Schema0Query0CollectionStatuses) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0Query0CollectionStatusesCompleted:
-		return true
-	case SharePayloadV1Schema0Query0CollectionStatusesDropped:
-		return true
-	case SharePayloadV1Schema0Query0CollectionStatusesInProgress:
-		return true
-	case SharePayloadV1Schema0Query0CollectionStatusesOnHold:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0Query0SubjectType.
-const (
-	SharePayloadV1Schema0Query0SubjectTypeAnime SharePayloadV1Schema0Query0SubjectType = "anime"
-	SharePayloadV1Schema0Query0SubjectTypeBook  SharePayloadV1Schema0Query0SubjectType = "book"
-	SharePayloadV1Schema0Query0SubjectTypeGame  SharePayloadV1Schema0Query0SubjectType = "game"
-	SharePayloadV1Schema0Query0SubjectTypeMusic SharePayloadV1Schema0Query0SubjectType = "music"
-	SharePayloadV1Schema0Query0SubjectTypeReal  SharePayloadV1Schema0Query0SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0Query0SubjectType enum.
-func (e SharePayloadV1Schema0Query0SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0Query0SubjectTypeAnime:
-		return true
-	case SharePayloadV1Schema0Query0SubjectTypeBook:
-		return true
-	case SharePayloadV1Schema0Query0SubjectTypeGame:
-		return true
-	case SharePayloadV1Schema0Query0SubjectTypeMusic:
-		return true
-	case SharePayloadV1Schema0Query0SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0Query1SubjectType.
-const (
-	SharePayloadV1Schema0Query1SubjectTypeAnime SharePayloadV1Schema0Query1SubjectType = "anime"
-	SharePayloadV1Schema0Query1SubjectTypeBook  SharePayloadV1Schema0Query1SubjectType = "book"
-	SharePayloadV1Schema0Query1SubjectTypeGame  SharePayloadV1Schema0Query1SubjectType = "game"
-	SharePayloadV1Schema0Query1SubjectTypeMusic SharePayloadV1Schema0Query1SubjectType = "music"
-	SharePayloadV1Schema0Query1SubjectTypeReal  SharePayloadV1Schema0Query1SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0Query1SubjectType enum.
-func (e SharePayloadV1Schema0Query1SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0Query1SubjectTypeAnime:
-		return true
-	case SharePayloadV1Schema0Query1SubjectTypeBook:
-		return true
-	case SharePayloadV1Schema0Query1SubjectTypeGame:
-		return true
-	case SharePayloadV1Schema0Query1SubjectTypeMusic:
-		return true
-	case SharePayloadV1Schema0Query1SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0WorkspaceDetailViewOrder.
-const (
-	SharePayloadV1Schema0WorkspaceDetailViewOrderAsc  SharePayloadV1Schema0WorkspaceDetailViewOrder = "asc"
-	SharePayloadV1Schema0WorkspaceDetailViewOrderDesc SharePayloadV1Schema0WorkspaceDetailViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0WorkspaceDetailViewOrder enum.
-func (e SharePayloadV1Schema0WorkspaceDetailViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0WorkspaceDetailViewOrderAsc:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0WorkspaceDetailViewPageSize.
-const (
-	SharePayloadV1Schema0WorkspaceDetailViewPageSizeN10 SharePayloadV1Schema0WorkspaceDetailViewPageSize = 10
-	SharePayloadV1Schema0WorkspaceDetailViewPageSizeN20 SharePayloadV1Schema0WorkspaceDetailViewPageSize = 20
-	SharePayloadV1Schema0WorkspaceDetailViewPageSizeN5  SharePayloadV1Schema0WorkspaceDetailViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0WorkspaceDetailViewPageSize enum.
-func (e SharePayloadV1Schema0WorkspaceDetailViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0WorkspaceDetailViewPageSizeN10:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewPageSizeN20:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0WorkspaceDetailViewSection.
-const (
-	SharePayloadV1Schema0WorkspaceDetailViewSectionCharacters SharePayloadV1Schema0WorkspaceDetailViewSection = "characters"
-	SharePayloadV1Schema0WorkspaceDetailViewSectionWorks      SharePayloadV1Schema0WorkspaceDetailViewSection = "works"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0WorkspaceDetailViewSection enum.
-func (e SharePayloadV1Schema0WorkspaceDetailViewSection) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0WorkspaceDetailViewSectionCharacters:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewSectionWorks:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0WorkspaceDetailViewSort.
-const (
-	SharePayloadV1Schema0WorkspaceDetailViewSortCollectionUpdatedAt SharePayloadV1Schema0WorkspaceDetailViewSort = "collectionUpdatedAt"
-	SharePayloadV1Schema0WorkspaceDetailViewSortGlobalScore         SharePayloadV1Schema0WorkspaceDetailViewSort = "globalScore"
-	SharePayloadV1Schema0WorkspaceDetailViewSortName                SharePayloadV1Schema0WorkspaceDetailViewSort = "name"
-	SharePayloadV1Schema0WorkspaceDetailViewSortPersonalScore       SharePayloadV1Schema0WorkspaceDetailViewSort = "personalScore"
-	SharePayloadV1Schema0WorkspaceDetailViewSortRole                SharePayloadV1Schema0WorkspaceDetailViewSort = "role"
-	SharePayloadV1Schema0WorkspaceDetailViewSortSeriesSize          SharePayloadV1Schema0WorkspaceDetailViewSort = "seriesSize"
-	SharePayloadV1Schema0WorkspaceDetailViewSortWorkCount           SharePayloadV1Schema0WorkspaceDetailViewSort = "workCount"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0WorkspaceDetailViewSort enum.
-func (e SharePayloadV1Schema0WorkspaceDetailViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0WorkspaceDetailViewSortCollectionUpdatedAt:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewSortGlobalScore:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewSortName:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewSortPersonalScore:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewSortRole:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewSortSeriesSize:
-		return true
-	case SharePayloadV1Schema0WorkspaceDetailViewSortWorkCount:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0WorkspaceRankingsViewOrder.
-const (
-	SharePayloadV1Schema0WorkspaceRankingsViewOrderAsc  SharePayloadV1Schema0WorkspaceRankingsViewOrder = "asc"
-	SharePayloadV1Schema0WorkspaceRankingsViewOrderDesc SharePayloadV1Schema0WorkspaceRankingsViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0WorkspaceRankingsViewOrder enum.
-func (e SharePayloadV1Schema0WorkspaceRankingsViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0WorkspaceRankingsViewOrderAsc:
-		return true
-	case SharePayloadV1Schema0WorkspaceRankingsViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0WorkspaceRankingsViewPageSize.
-const (
-	SharePayloadV1Schema0WorkspaceRankingsViewPageSizeN10 SharePayloadV1Schema0WorkspaceRankingsViewPageSize = 10
-	SharePayloadV1Schema0WorkspaceRankingsViewPageSizeN20 SharePayloadV1Schema0WorkspaceRankingsViewPageSize = 20
-	SharePayloadV1Schema0WorkspaceRankingsViewPageSizeN5  SharePayloadV1Schema0WorkspaceRankingsViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0WorkspaceRankingsViewPageSize enum.
-func (e SharePayloadV1Schema0WorkspaceRankingsViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0WorkspaceRankingsViewPageSizeN10:
-		return true
-	case SharePayloadV1Schema0WorkspaceRankingsViewPageSizeN20:
-		return true
-	case SharePayloadV1Schema0WorkspaceRankingsViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema0WorkspaceRankingsViewSort.
-const (
-	SharePayloadV1Schema0WorkspaceRankingsViewSortAverage    SharePayloadV1Schema0WorkspaceRankingsViewSort = "average"
-	SharePayloadV1Schema0WorkspaceRankingsViewSortCount      SharePayloadV1Schema0WorkspaceRankingsViewSort = "count"
-	SharePayloadV1Schema0WorkspaceRankingsViewSortOverall    SharePayloadV1Schema0WorkspaceRankingsViewSort = "overall"
-	SharePayloadV1Schema0WorkspaceRankingsViewSortPreference SharePayloadV1Schema0WorkspaceRankingsViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema0WorkspaceRankingsViewSort enum.
-func (e SharePayloadV1Schema0WorkspaceRankingsViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema0WorkspaceRankingsViewSortAverage:
-		return true
-	case SharePayloadV1Schema0WorkspaceRankingsViewSortCount:
-		return true
-	case SharePayloadV1Schema0WorkspaceRankingsViewSortOverall:
-		return true
-	case SharePayloadV1Schema0WorkspaceRankingsViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Query0CollectionStatuses.
-const (
-	SharePayloadV1Schema1Query0CollectionStatusesCompleted  SharePayloadV1Schema1Query0CollectionStatuses = "completed"
-	SharePayloadV1Schema1Query0CollectionStatusesDropped    SharePayloadV1Schema1Query0CollectionStatuses = "dropped"
-	SharePayloadV1Schema1Query0CollectionStatusesInProgress SharePayloadV1Schema1Query0CollectionStatuses = "in_progress"
-	SharePayloadV1Schema1Query0CollectionStatusesOnHold     SharePayloadV1Schema1Query0CollectionStatuses = "on_hold"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Query0CollectionStatuses enum.
-func (e SharePayloadV1Schema1Query0CollectionStatuses) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Query0CollectionStatusesCompleted:
-		return true
-	case SharePayloadV1Schema1Query0CollectionStatusesDropped:
-		return true
-	case SharePayloadV1Schema1Query0CollectionStatusesInProgress:
-		return true
-	case SharePayloadV1Schema1Query0CollectionStatusesOnHold:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Query0SubjectType.
-const (
-	SharePayloadV1Schema1Query0SubjectTypeAnime SharePayloadV1Schema1Query0SubjectType = "anime"
-	SharePayloadV1Schema1Query0SubjectTypeBook  SharePayloadV1Schema1Query0SubjectType = "book"
-	SharePayloadV1Schema1Query0SubjectTypeGame  SharePayloadV1Schema1Query0SubjectType = "game"
-	SharePayloadV1Schema1Query0SubjectTypeMusic SharePayloadV1Schema1Query0SubjectType = "music"
-	SharePayloadV1Schema1Query0SubjectTypeReal  SharePayloadV1Schema1Query0SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Query0SubjectType enum.
-func (e SharePayloadV1Schema1Query0SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Query0SubjectTypeAnime:
-		return true
-	case SharePayloadV1Schema1Query0SubjectTypeBook:
-		return true
-	case SharePayloadV1Schema1Query0SubjectTypeGame:
-		return true
-	case SharePayloadV1Schema1Query0SubjectTypeMusic:
-		return true
-	case SharePayloadV1Schema1Query0SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Query1SubjectType.
-const (
-	SharePayloadV1Schema1Query1SubjectTypeAnime SharePayloadV1Schema1Query1SubjectType = "anime"
-	SharePayloadV1Schema1Query1SubjectTypeBook  SharePayloadV1Schema1Query1SubjectType = "book"
-	SharePayloadV1Schema1Query1SubjectTypeGame  SharePayloadV1Schema1Query1SubjectType = "game"
-	SharePayloadV1Schema1Query1SubjectTypeMusic SharePayloadV1Schema1Query1SubjectType = "music"
-	SharePayloadV1Schema1Query1SubjectTypeReal  SharePayloadV1Schema1Query1SubjectType = "real"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Query1SubjectType enum.
-func (e SharePayloadV1Schema1Query1SubjectType) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Query1SubjectTypeAnime:
-		return true
-	case SharePayloadV1Schema1Query1SubjectTypeBook:
-		return true
-	case SharePayloadV1Schema1Query1SubjectTypeGame:
-		return true
-	case SharePayloadV1Schema1Query1SubjectTypeMusic:
-		return true
-	case SharePayloadV1Schema1Query1SubjectTypeReal:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace0CandidatesViewOrder.
-const (
-	SharePayloadV1Schema1Workspace0CandidatesViewOrderAsc  SharePayloadV1Schema1Workspace0CandidatesViewOrder = "asc"
-	SharePayloadV1Schema1Workspace0CandidatesViewOrderDesc SharePayloadV1Schema1Workspace0CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace0CandidatesViewOrder enum.
-func (e SharePayloadV1Schema1Workspace0CandidatesViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace0CandidatesViewOrderAsc:
-		return true
-	case SharePayloadV1Schema1Workspace0CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace0CandidatesViewPageSize.
-const (
-	SharePayloadV1Schema1Workspace0CandidatesViewPageSizeN10 SharePayloadV1Schema1Workspace0CandidatesViewPageSize = 10
-	SharePayloadV1Schema1Workspace0CandidatesViewPageSizeN20 SharePayloadV1Schema1Workspace0CandidatesViewPageSize = 20
-	SharePayloadV1Schema1Workspace0CandidatesViewPageSizeN5  SharePayloadV1Schema1Workspace0CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace0CandidatesViewPageSize enum.
-func (e SharePayloadV1Schema1Workspace0CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace0CandidatesViewPageSizeN10:
-		return true
-	case SharePayloadV1Schema1Workspace0CandidatesViewPageSizeN20:
-		return true
-	case SharePayloadV1Schema1Workspace0CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace0CandidatesViewSort.
-const (
-	SharePayloadV1Schema1Workspace0CandidatesViewSortAverage       SharePayloadV1Schema1Workspace0CandidatesViewSort = "average"
-	SharePayloadV1Schema1Workspace0CandidatesViewSortCount         SharePayloadV1Schema1Workspace0CandidatesViewSort = "count"
-	SharePayloadV1Schema1Workspace0CandidatesViewSortGlobalAverage SharePayloadV1Schema1Workspace0CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace0CandidatesViewSort enum.
-func (e SharePayloadV1Schema1Workspace0CandidatesViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace0CandidatesViewSortAverage:
-		return true
-	case SharePayloadV1Schema1Workspace0CandidatesViewSortCount:
-		return true
-	case SharePayloadV1Schema1Workspace0CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace1CandidatesViewOrder.
-const (
-	SharePayloadV1Schema1Workspace1CandidatesViewOrderAsc  SharePayloadV1Schema1Workspace1CandidatesViewOrder = "asc"
-	SharePayloadV1Schema1Workspace1CandidatesViewOrderDesc SharePayloadV1Schema1Workspace1CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace1CandidatesViewOrder enum.
-func (e SharePayloadV1Schema1Workspace1CandidatesViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace1CandidatesViewOrderAsc:
-		return true
-	case SharePayloadV1Schema1Workspace1CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace1CandidatesViewPageSize.
-const (
-	SharePayloadV1Schema1Workspace1CandidatesViewPageSizeN10 SharePayloadV1Schema1Workspace1CandidatesViewPageSize = 10
-	SharePayloadV1Schema1Workspace1CandidatesViewPageSizeN20 SharePayloadV1Schema1Workspace1CandidatesViewPageSize = 20
-	SharePayloadV1Schema1Workspace1CandidatesViewPageSizeN5  SharePayloadV1Schema1Workspace1CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace1CandidatesViewPageSize enum.
-func (e SharePayloadV1Schema1Workspace1CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace1CandidatesViewPageSizeN10:
-		return true
-	case SharePayloadV1Schema1Workspace1CandidatesViewPageSizeN20:
-		return true
-	case SharePayloadV1Schema1Workspace1CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace1CandidatesViewSort.
-const (
-	SharePayloadV1Schema1Workspace1CandidatesViewSortAverage       SharePayloadV1Schema1Workspace1CandidatesViewSort = "average"
-	SharePayloadV1Schema1Workspace1CandidatesViewSortCount         SharePayloadV1Schema1Workspace1CandidatesViewSort = "count"
-	SharePayloadV1Schema1Workspace1CandidatesViewSortGlobalAverage SharePayloadV1Schema1Workspace1CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace1CandidatesViewSort enum.
-func (e SharePayloadV1Schema1Workspace1CandidatesViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace1CandidatesViewSortAverage:
-		return true
-	case SharePayloadV1Schema1Workspace1CandidatesViewSortCount:
-		return true
-	case SharePayloadV1Schema1Workspace1CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace1PartnersViewOrder.
-const (
-	SharePayloadV1Schema1Workspace1PartnersViewOrderAsc  SharePayloadV1Schema1Workspace1PartnersViewOrder = "asc"
-	SharePayloadV1Schema1Workspace1PartnersViewOrderDesc SharePayloadV1Schema1Workspace1PartnersViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace1PartnersViewOrder enum.
-func (e SharePayloadV1Schema1Workspace1PartnersViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace1PartnersViewOrderAsc:
-		return true
-	case SharePayloadV1Schema1Workspace1PartnersViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace1PartnersViewPageSize.
-const (
-	SharePayloadV1Schema1Workspace1PartnersViewPageSizeN10 SharePayloadV1Schema1Workspace1PartnersViewPageSize = 10
-	SharePayloadV1Schema1Workspace1PartnersViewPageSizeN20 SharePayloadV1Schema1Workspace1PartnersViewPageSize = 20
-	SharePayloadV1Schema1Workspace1PartnersViewPageSizeN5  SharePayloadV1Schema1Workspace1PartnersViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace1PartnersViewPageSize enum.
-func (e SharePayloadV1Schema1Workspace1PartnersViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace1PartnersViewPageSizeN10:
-		return true
-	case SharePayloadV1Schema1Workspace1PartnersViewPageSizeN20:
-		return true
-	case SharePayloadV1Schema1Workspace1PartnersViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace1PartnersViewSort.
-const (
-	SharePayloadV1Schema1Workspace1PartnersViewSortAverage    SharePayloadV1Schema1Workspace1PartnersViewSort = "average"
-	SharePayloadV1Schema1Workspace1PartnersViewSortCount      SharePayloadV1Schema1Workspace1PartnersViewSort = "count"
-	SharePayloadV1Schema1Workspace1PartnersViewSortOverall    SharePayloadV1Schema1Workspace1PartnersViewSort = "overall"
-	SharePayloadV1Schema1Workspace1PartnersViewSortPreference SharePayloadV1Schema1Workspace1PartnersViewSort = "preference"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace1PartnersViewSort enum.
-func (e SharePayloadV1Schema1Workspace1PartnersViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace1PartnersViewSortAverage:
-		return true
-	case SharePayloadV1Schema1Workspace1PartnersViewSortCount:
-		return true
-	case SharePayloadV1Schema1Workspace1PartnersViewSortOverall:
-		return true
-	case SharePayloadV1Schema1Workspace1PartnersViewSortPreference:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace2CandidatesViewOrder.
-const (
-	SharePayloadV1Schema1Workspace2CandidatesViewOrderAsc  SharePayloadV1Schema1Workspace2CandidatesViewOrder = "asc"
-	SharePayloadV1Schema1Workspace2CandidatesViewOrderDesc SharePayloadV1Schema1Workspace2CandidatesViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace2CandidatesViewOrder enum.
-func (e SharePayloadV1Schema1Workspace2CandidatesViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace2CandidatesViewOrderAsc:
-		return true
-	case SharePayloadV1Schema1Workspace2CandidatesViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace2CandidatesViewPageSize.
-const (
-	SharePayloadV1Schema1Workspace2CandidatesViewPageSizeN10 SharePayloadV1Schema1Workspace2CandidatesViewPageSize = 10
-	SharePayloadV1Schema1Workspace2CandidatesViewPageSizeN20 SharePayloadV1Schema1Workspace2CandidatesViewPageSize = 20
-	SharePayloadV1Schema1Workspace2CandidatesViewPageSizeN5  SharePayloadV1Schema1Workspace2CandidatesViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace2CandidatesViewPageSize enum.
-func (e SharePayloadV1Schema1Workspace2CandidatesViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace2CandidatesViewPageSizeN10:
-		return true
-	case SharePayloadV1Schema1Workspace2CandidatesViewPageSizeN20:
-		return true
-	case SharePayloadV1Schema1Workspace2CandidatesViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace2CandidatesViewSort.
-const (
-	SharePayloadV1Schema1Workspace2CandidatesViewSortAverage       SharePayloadV1Schema1Workspace2CandidatesViewSort = "average"
-	SharePayloadV1Schema1Workspace2CandidatesViewSortCount         SharePayloadV1Schema1Workspace2CandidatesViewSort = "count"
-	SharePayloadV1Schema1Workspace2CandidatesViewSortGlobalAverage SharePayloadV1Schema1Workspace2CandidatesViewSort = "globalAverage"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace2CandidatesViewSort enum.
-func (e SharePayloadV1Schema1Workspace2CandidatesViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace2CandidatesViewSortAverage:
-		return true
-	case SharePayloadV1Schema1Workspace2CandidatesViewSortCount:
-		return true
-	case SharePayloadV1Schema1Workspace2CandidatesViewSortGlobalAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace2CoStarViewOrder.
-const (
-	SharePayloadV1Schema1Workspace2CoStarViewOrderAsc  SharePayloadV1Schema1Workspace2CoStarViewOrder = "asc"
-	SharePayloadV1Schema1Workspace2CoStarViewOrderDesc SharePayloadV1Schema1Workspace2CoStarViewOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace2CoStarViewOrder enum.
-func (e SharePayloadV1Schema1Workspace2CoStarViewOrder) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace2CoStarViewOrderAsc:
-		return true
-	case SharePayloadV1Schema1Workspace2CoStarViewOrderDesc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace2CoStarViewPageSize.
-const (
-	SharePayloadV1Schema1Workspace2CoStarViewPageSizeN10 SharePayloadV1Schema1Workspace2CoStarViewPageSize = 10
-	SharePayloadV1Schema1Workspace2CoStarViewPageSizeN20 SharePayloadV1Schema1Workspace2CoStarViewPageSize = 20
-	SharePayloadV1Schema1Workspace2CoStarViewPageSizeN5  SharePayloadV1Schema1Workspace2CoStarViewPageSize = 5
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace2CoStarViewPageSize enum.
-func (e SharePayloadV1Schema1Workspace2CoStarViewPageSize) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace2CoStarViewPageSizeN10:
-		return true
-	case SharePayloadV1Schema1Workspace2CoStarViewPageSizeN20:
-		return true
-	case SharePayloadV1Schema1Workspace2CoStarViewPageSizeN5:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SharePayloadV1Schema1Workspace2CoStarViewSort.
-const (
-	SharePayloadV1Schema1Workspace2CoStarViewSortCollectionUpdatedAt SharePayloadV1Schema1Workspace2CoStarViewSort = "collectionUpdatedAt"
-	SharePayloadV1Schema1Workspace2CoStarViewSortGlobalScore         SharePayloadV1Schema1Workspace2CoStarViewSort = "globalScore"
-	SharePayloadV1Schema1Workspace2CoStarViewSortPersonalScore       SharePayloadV1Schema1Workspace2CoStarViewSort = "personalScore"
-	SharePayloadV1Schema1Workspace2CoStarViewSortSeriesSize          SharePayloadV1Schema1Workspace2CoStarViewSort = "seriesSize"
-)
-
-// Valid indicates whether the value is a known member of the SharePayloadV1Schema1Workspace2CoStarViewSort enum.
-func (e SharePayloadV1Schema1Workspace2CoStarViewSort) Valid() bool {
-	switch e {
-	case SharePayloadV1Schema1Workspace2CoStarViewSortCollectionUpdatedAt:
-		return true
-	case SharePayloadV1Schema1Workspace2CoStarViewSortGlobalScore:
-		return true
-	case SharePayloadV1Schema1Workspace2CoStarViewSortPersonalScore:
-		return true
-	case SharePayloadV1Schema1Workspace2CoStarViewSortSeriesSize:
 		return true
 	default:
 		return false
@@ -6452,31 +3413,14 @@ func (e UnsupportedMediaTypeErrorV1ErrorFieldErrors) Valid() bool {
 
 // CandidatesInputV1 defines model for CandidatesInputV1.
 type CandidatesInputV1 struct {
-	PositionKey string `json:"positionKey"`
+	PositionKey *string `json:"positionKey"`
+
+	// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+	PositionScope *CandidatesInputV1PositionScope `json:"positionScope,omitempty"`
 }
 
-// CandidatesStateV1 defines model for CandidatesStateV1.
-type CandidatesStateV1 struct {
-	Input struct {
-		PositionKey string `json:"positionKey"`
-	} `json:"input"`
-	View struct {
-		Order    *CandidatesStateV1ViewOrder    `json:"order,omitempty"`
-		Page     *int                           `json:"page,omitempty"`
-		PageSize *CandidatesStateV1ViewPageSize `json:"pageSize,omitempty"`
-		Search   *string                        `json:"search,omitempty"`
-		Sort     *CandidatesStateV1ViewSort     `json:"sort,omitempty"`
-	} `json:"view"`
-}
-
-// CandidatesStateV1ViewOrder defines model for CandidatesStateV1.View.Order.
-type CandidatesStateV1ViewOrder string
-
-// CandidatesStateV1ViewPageSize defines model for CandidatesStateV1.View.PageSize.
-type CandidatesStateV1ViewPageSize int
-
-// CandidatesStateV1ViewSort defines model for CandidatesStateV1.View.Sort.
-type CandidatesStateV1ViewSort string
+// CandidatesInputV1PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+type CandidatesInputV1PositionScope string
 
 // CandidatesViewV1 defines model for CandidatesViewV1.
 type CandidatesViewV1 struct {
@@ -6508,535 +3452,19 @@ type CatalogContextV1 struct {
 // CatalogContextV1PositionsSubjectType defines model for CatalogContextV1.Positions.SubjectType.
 type CatalogContextV1PositionsSubjectType string
 
-// CoStarAnalysisV1 defines model for CoStarAnalysisV1.
-type CoStarAnalysisV1 struct {
-	Input struct {
-		Participants []struct {
-			PersonId     int      `json:"personId"`
-			PositionKeys []string `json:"positionKeys"`
-		} `json:"participants"`
-	} `json:"input"`
-	View struct {
-		Order    *CoStarAnalysisV1ViewOrder    `json:"order,omitempty"`
-		Page     *int                          `json:"page,omitempty"`
-		PageSize *CoStarAnalysisV1ViewPageSize `json:"pageSize,omitempty"`
-		Search   *string                       `json:"search,omitempty"`
-		Sort     *CoStarAnalysisV1ViewSort     `json:"sort,omitempty"`
-	} `json:"view"`
-}
-
-// CoStarAnalysisV1ViewOrder defines model for CoStarAnalysisV1.View.Order.
-type CoStarAnalysisV1ViewOrder string
-
-// CoStarAnalysisV1ViewPageSize defines model for CoStarAnalysisV1.View.PageSize.
-type CoStarAnalysisV1ViewPageSize int
-
-// CoStarAnalysisV1ViewSort defines model for CoStarAnalysisV1.View.Sort.
-type CoStarAnalysisV1ViewSort string
-
-// CoStarAnalysisWorkspaceV1 defines model for CoStarAnalysisWorkspaceV1.
-type CoStarAnalysisWorkspaceV1 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarAnalysisWorkspaceV1CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                             `json:"page,omitempty"`
-			PageSize *CoStarAnalysisWorkspaceV1CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                          `json:"search,omitempty"`
-			Sort     *CoStarAnalysisWorkspaceV1CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	CoStar struct {
-		Input struct {
-			Participants []struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"participants"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarAnalysisWorkspaceV1CoStarViewOrder    `json:"order,omitempty"`
-			Page     *int                                         `json:"page,omitempty"`
-			PageSize *CoStarAnalysisWorkspaceV1CoStarViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                      `json:"search,omitempty"`
-			Sort     *CoStarAnalysisWorkspaceV1CoStarViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"coStar"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarAnalysisWorkspaceV1CandidatesViewOrder defines model for CoStarAnalysisWorkspaceV1.Candidates.View.Order.
-type CoStarAnalysisWorkspaceV1CandidatesViewOrder string
-
-// CoStarAnalysisWorkspaceV1CandidatesViewPageSize defines model for CoStarAnalysisWorkspaceV1.Candidates.View.PageSize.
-type CoStarAnalysisWorkspaceV1CandidatesViewPageSize int
-
-// CoStarAnalysisWorkspaceV1CandidatesViewSort defines model for CoStarAnalysisWorkspaceV1.Candidates.View.Sort.
-type CoStarAnalysisWorkspaceV1CandidatesViewSort string
-
-// CoStarAnalysisWorkspaceV1CoStarViewOrder defines model for CoStarAnalysisWorkspaceV1.CoStar.View.Order.
-type CoStarAnalysisWorkspaceV1CoStarViewOrder string
-
-// CoStarAnalysisWorkspaceV1CoStarViewPageSize defines model for CoStarAnalysisWorkspaceV1.CoStar.View.PageSize.
-type CoStarAnalysisWorkspaceV1CoStarViewPageSize int
-
-// CoStarAnalysisWorkspaceV1CoStarViewSort defines model for CoStarAnalysisWorkspaceV1.CoStar.View.Sort.
-type CoStarAnalysisWorkspaceV1CoStarViewSort string
-
-// CoStarEmptyWorkspaceV1 defines model for CoStarEmptyWorkspaceV1.
-type CoStarEmptyWorkspaceV1 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarEmptyWorkspaceV1CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                          `json:"page,omitempty"`
-			PageSize *CoStarEmptyWorkspaceV1CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                       `json:"search,omitempty"`
-			Sort     *CoStarEmptyWorkspaceV1CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarEmptyWorkspaceV1CandidatesViewOrder defines model for CoStarEmptyWorkspaceV1.Candidates.View.Order.
-type CoStarEmptyWorkspaceV1CandidatesViewOrder string
-
-// CoStarEmptyWorkspaceV1CandidatesViewPageSize defines model for CoStarEmptyWorkspaceV1.Candidates.View.PageSize.
-type CoStarEmptyWorkspaceV1CandidatesViewPageSize int
-
-// CoStarEmptyWorkspaceV1CandidatesViewSort defines model for CoStarEmptyWorkspaceV1.Candidates.View.Sort.
-type CoStarEmptyWorkspaceV1CandidatesViewSort string
-
 // CoStarInputV1 defines model for CoStarInputV1.
 type CoStarInputV1 struct {
 	Participants []struct {
 		PersonId     int      `json:"personId"`
 		PositionKeys []string `json:"positionKeys"`
 	} `json:"participants"`
+
+	// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+	PositionScope *CoStarInputV1PositionScope `json:"positionScope,omitempty"`
 }
 
-// CoStarPartnersWorkspaceV1 defines model for CoStarPartnersWorkspaceV1.
-type CoStarPartnersWorkspaceV1 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarPartnersWorkspaceV1CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                             `json:"page,omitempty"`
-			PageSize *CoStarPartnersWorkspaceV1CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                          `json:"search,omitempty"`
-			Sort     *CoStarPartnersWorkspaceV1CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind     interface{} `json:"kind"`
-	Partners struct {
-		Input struct {
-			CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-			Source               struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"source"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarPartnersWorkspaceV1PartnersViewOrder    `json:"order,omitempty"`
-			Page     *int                                           `json:"page,omitempty"`
-			PageSize *CoStarPartnersWorkspaceV1PartnersViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                        `json:"search,omitempty"`
-			Sort     *CoStarPartnersWorkspaceV1PartnersViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"partners"`
-	State interface{} `json:"state"`
-}
-
-// CoStarPartnersWorkspaceV1CandidatesViewOrder defines model for CoStarPartnersWorkspaceV1.Candidates.View.Order.
-type CoStarPartnersWorkspaceV1CandidatesViewOrder string
-
-// CoStarPartnersWorkspaceV1CandidatesViewPageSize defines model for CoStarPartnersWorkspaceV1.Candidates.View.PageSize.
-type CoStarPartnersWorkspaceV1CandidatesViewPageSize int
-
-// CoStarPartnersWorkspaceV1CandidatesViewSort defines model for CoStarPartnersWorkspaceV1.Candidates.View.Sort.
-type CoStarPartnersWorkspaceV1CandidatesViewSort string
-
-// CoStarPartnersWorkspaceV1PartnersViewOrder defines model for CoStarPartnersWorkspaceV1.Partners.View.Order.
-type CoStarPartnersWorkspaceV1PartnersViewOrder string
-
-// CoStarPartnersWorkspaceV1PartnersViewPageSize defines model for CoStarPartnersWorkspaceV1.Partners.View.PageSize.
-type CoStarPartnersWorkspaceV1PartnersViewPageSize int
-
-// CoStarPartnersWorkspaceV1PartnersViewSort defines model for CoStarPartnersWorkspaceV1.Partners.View.Sort.
-type CoStarPartnersWorkspaceV1PartnersViewSort string
-
-// CoStarSharePayloadV1 defines model for CoStarSharePayloadV1.
-type CoStarSharePayloadV1 struct {
-	Query     CoStarSharePayloadV1_Query     `json:"query"`
-	Workspace CoStarSharePayloadV1_Workspace `json:"workspace"`
-}
-
-// CoStarSharePayloadV1Query0 defines model for CoStarSharePayloadV1.Query.0.
-type CoStarSharePayloadV1Query0 struct {
-	CollectionStatuses []CoStarSharePayloadV1Query0CollectionStatuses `json:"collectionStatuses"`
-	Filters            *struct {
-		CollectionUpdatedAt *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"collectionUpdatedAt,omitempty"`
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		PersonalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"personalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		ScoreDifference *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"scoreDifference,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                  `json:"includeNSFW"`
-	MergeSeries  bool                                  `json:"mergeSeries"`
-	PositionKeys []string                              `json:"positionKeys"`
-	Scope        interface{}                           `json:"scope"`
-	SubjectType  CoStarSharePayloadV1Query0SubjectType `json:"subjectType"`
-	Uid          string                                `json:"uid"`
-}
-
-// CoStarSharePayloadV1Query0CollectionStatuses defines model for CoStarSharePayloadV1.Query.0.CollectionStatuses.
-type CoStarSharePayloadV1Query0CollectionStatuses string
-
-// CoStarSharePayloadV1Query0SubjectType defines model for CoStarSharePayloadV1.Query.0.SubjectType.
-type CoStarSharePayloadV1Query0SubjectType string
-
-// CoStarSharePayloadV1Query1 defines model for CoStarSharePayloadV1.Query.1.
-type CoStarSharePayloadV1Query1 struct {
-	Filters *struct {
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                  `json:"includeNSFW"`
-	MergeSeries  bool                                  `json:"mergeSeries"`
-	PositionKeys []string                              `json:"positionKeys"`
-	Scope        interface{}                           `json:"scope"`
-	SubjectType  CoStarSharePayloadV1Query1SubjectType `json:"subjectType"`
-}
-
-// CoStarSharePayloadV1Query1SubjectType defines model for CoStarSharePayloadV1.Query.1.SubjectType.
-type CoStarSharePayloadV1Query1SubjectType string
-
-// CoStarSharePayloadV1_Query defines model for CoStarSharePayloadV1.Query.
-type CoStarSharePayloadV1_Query struct {
-	union json.RawMessage
-}
-
-// CoStarSharePayloadV1Workspace0 defines model for CoStarSharePayloadV1.Workspace.0.
-type CoStarSharePayloadV1Workspace0 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarSharePayloadV1Workspace0CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                                  `json:"page,omitempty"`
-			PageSize *CoStarSharePayloadV1Workspace0CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                               `json:"search,omitempty"`
-			Sort     *CoStarSharePayloadV1Workspace0CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarSharePayloadV1Workspace0CandidatesViewOrder defines model for CoStarSharePayloadV1.Workspace.0.Candidates.View.Order.
-type CoStarSharePayloadV1Workspace0CandidatesViewOrder string
-
-// CoStarSharePayloadV1Workspace0CandidatesViewPageSize defines model for CoStarSharePayloadV1.Workspace.0.Candidates.View.PageSize.
-type CoStarSharePayloadV1Workspace0CandidatesViewPageSize int
-
-// CoStarSharePayloadV1Workspace0CandidatesViewSort defines model for CoStarSharePayloadV1.Workspace.0.Candidates.View.Sort.
-type CoStarSharePayloadV1Workspace0CandidatesViewSort string
-
-// CoStarSharePayloadV1Workspace1 defines model for CoStarSharePayloadV1.Workspace.1.
-type CoStarSharePayloadV1Workspace1 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarSharePayloadV1Workspace1CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                                  `json:"page,omitempty"`
-			PageSize *CoStarSharePayloadV1Workspace1CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                               `json:"search,omitempty"`
-			Sort     *CoStarSharePayloadV1Workspace1CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind     interface{} `json:"kind"`
-	Partners struct {
-		Input struct {
-			CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-			Source               struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"source"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarSharePayloadV1Workspace1PartnersViewOrder    `json:"order,omitempty"`
-			Page     *int                                                `json:"page,omitempty"`
-			PageSize *CoStarSharePayloadV1Workspace1PartnersViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                             `json:"search,omitempty"`
-			Sort     *CoStarSharePayloadV1Workspace1PartnersViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"partners"`
-	State interface{} `json:"state"`
-}
-
-// CoStarSharePayloadV1Workspace1CandidatesViewOrder defines model for CoStarSharePayloadV1.Workspace.1.Candidates.View.Order.
-type CoStarSharePayloadV1Workspace1CandidatesViewOrder string
-
-// CoStarSharePayloadV1Workspace1CandidatesViewPageSize defines model for CoStarSharePayloadV1.Workspace.1.Candidates.View.PageSize.
-type CoStarSharePayloadV1Workspace1CandidatesViewPageSize int
-
-// CoStarSharePayloadV1Workspace1CandidatesViewSort defines model for CoStarSharePayloadV1.Workspace.1.Candidates.View.Sort.
-type CoStarSharePayloadV1Workspace1CandidatesViewSort string
-
-// CoStarSharePayloadV1Workspace1PartnersViewOrder defines model for CoStarSharePayloadV1.Workspace.1.Partners.View.Order.
-type CoStarSharePayloadV1Workspace1PartnersViewOrder string
-
-// CoStarSharePayloadV1Workspace1PartnersViewPageSize defines model for CoStarSharePayloadV1.Workspace.1.Partners.View.PageSize.
-type CoStarSharePayloadV1Workspace1PartnersViewPageSize int
-
-// CoStarSharePayloadV1Workspace1PartnersViewSort defines model for CoStarSharePayloadV1.Workspace.1.Partners.View.Sort.
-type CoStarSharePayloadV1Workspace1PartnersViewSort string
-
-// CoStarSharePayloadV1Workspace2 defines model for CoStarSharePayloadV1.Workspace.2.
-type CoStarSharePayloadV1Workspace2 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarSharePayloadV1Workspace2CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                                  `json:"page,omitempty"`
-			PageSize *CoStarSharePayloadV1Workspace2CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                               `json:"search,omitempty"`
-			Sort     *CoStarSharePayloadV1Workspace2CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	CoStar struct {
-		Input struct {
-			Participants []struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"participants"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarSharePayloadV1Workspace2CoStarViewOrder    `json:"order,omitempty"`
-			Page     *int                                              `json:"page,omitempty"`
-			PageSize *CoStarSharePayloadV1Workspace2CoStarViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                           `json:"search,omitempty"`
-			Sort     *CoStarSharePayloadV1Workspace2CoStarViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"coStar"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarSharePayloadV1Workspace2CandidatesViewOrder defines model for CoStarSharePayloadV1.Workspace.2.Candidates.View.Order.
-type CoStarSharePayloadV1Workspace2CandidatesViewOrder string
-
-// CoStarSharePayloadV1Workspace2CandidatesViewPageSize defines model for CoStarSharePayloadV1.Workspace.2.Candidates.View.PageSize.
-type CoStarSharePayloadV1Workspace2CandidatesViewPageSize int
-
-// CoStarSharePayloadV1Workspace2CandidatesViewSort defines model for CoStarSharePayloadV1.Workspace.2.Candidates.View.Sort.
-type CoStarSharePayloadV1Workspace2CandidatesViewSort string
-
-// CoStarSharePayloadV1Workspace2CoStarViewOrder defines model for CoStarSharePayloadV1.Workspace.2.CoStar.View.Order.
-type CoStarSharePayloadV1Workspace2CoStarViewOrder string
-
-// CoStarSharePayloadV1Workspace2CoStarViewPageSize defines model for CoStarSharePayloadV1.Workspace.2.CoStar.View.PageSize.
-type CoStarSharePayloadV1Workspace2CoStarViewPageSize int
-
-// CoStarSharePayloadV1Workspace2CoStarViewSort defines model for CoStarSharePayloadV1.Workspace.2.CoStar.View.Sort.
-type CoStarSharePayloadV1Workspace2CoStarViewSort string
-
-// CoStarSharePayloadV1_Workspace defines model for CoStarSharePayloadV1.Workspace.
-type CoStarSharePayloadV1_Workspace struct {
-	union json.RawMessage
-}
-
-// CoStarShareWorkspaceV1 defines model for CoStarShareWorkspaceV1.
-type CoStarShareWorkspaceV1 struct {
-	union json.RawMessage
-}
-
-// CoStarShareWorkspaceV10 defines model for CoStarShareWorkspaceV1.0.
-type CoStarShareWorkspaceV10 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarShareWorkspaceV10CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                           `json:"page,omitempty"`
-			PageSize *CoStarShareWorkspaceV10CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                        `json:"search,omitempty"`
-			Sort     *CoStarShareWorkspaceV10CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarShareWorkspaceV10CandidatesViewOrder defines model for CoStarShareWorkspaceV1.0.Candidates.View.Order.
-type CoStarShareWorkspaceV10CandidatesViewOrder string
-
-// CoStarShareWorkspaceV10CandidatesViewPageSize defines model for CoStarShareWorkspaceV1.0.Candidates.View.PageSize.
-type CoStarShareWorkspaceV10CandidatesViewPageSize int
-
-// CoStarShareWorkspaceV10CandidatesViewSort defines model for CoStarShareWorkspaceV1.0.Candidates.View.Sort.
-type CoStarShareWorkspaceV10CandidatesViewSort string
-
-// CoStarShareWorkspaceV11 defines model for CoStarShareWorkspaceV1.1.
-type CoStarShareWorkspaceV11 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarShareWorkspaceV11CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                           `json:"page,omitempty"`
-			PageSize *CoStarShareWorkspaceV11CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                        `json:"search,omitempty"`
-			Sort     *CoStarShareWorkspaceV11CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind     interface{} `json:"kind"`
-	Partners struct {
-		Input struct {
-			CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-			Source               struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"source"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarShareWorkspaceV11PartnersViewOrder    `json:"order,omitempty"`
-			Page     *int                                         `json:"page,omitempty"`
-			PageSize *CoStarShareWorkspaceV11PartnersViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                      `json:"search,omitempty"`
-			Sort     *CoStarShareWorkspaceV11PartnersViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"partners"`
-	State interface{} `json:"state"`
-}
-
-// CoStarShareWorkspaceV11CandidatesViewOrder defines model for CoStarShareWorkspaceV1.1.Candidates.View.Order.
-type CoStarShareWorkspaceV11CandidatesViewOrder string
-
-// CoStarShareWorkspaceV11CandidatesViewPageSize defines model for CoStarShareWorkspaceV1.1.Candidates.View.PageSize.
-type CoStarShareWorkspaceV11CandidatesViewPageSize int
-
-// CoStarShareWorkspaceV11CandidatesViewSort defines model for CoStarShareWorkspaceV1.1.Candidates.View.Sort.
-type CoStarShareWorkspaceV11CandidatesViewSort string
-
-// CoStarShareWorkspaceV11PartnersViewOrder defines model for CoStarShareWorkspaceV1.1.Partners.View.Order.
-type CoStarShareWorkspaceV11PartnersViewOrder string
-
-// CoStarShareWorkspaceV11PartnersViewPageSize defines model for CoStarShareWorkspaceV1.1.Partners.View.PageSize.
-type CoStarShareWorkspaceV11PartnersViewPageSize int
-
-// CoStarShareWorkspaceV11PartnersViewSort defines model for CoStarShareWorkspaceV1.1.Partners.View.Sort.
-type CoStarShareWorkspaceV11PartnersViewSort string
-
-// CoStarShareWorkspaceV12 defines model for CoStarShareWorkspaceV1.2.
-type CoStarShareWorkspaceV12 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarShareWorkspaceV12CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                           `json:"page,omitempty"`
-			PageSize *CoStarShareWorkspaceV12CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                        `json:"search,omitempty"`
-			Sort     *CoStarShareWorkspaceV12CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	CoStar struct {
-		Input struct {
-			Participants []struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"participants"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarShareWorkspaceV12CoStarViewOrder    `json:"order,omitempty"`
-			Page     *int                                       `json:"page,omitempty"`
-			PageSize *CoStarShareWorkspaceV12CoStarViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                    `json:"search,omitempty"`
-			Sort     *CoStarShareWorkspaceV12CoStarViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"coStar"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarShareWorkspaceV12CandidatesViewOrder defines model for CoStarShareWorkspaceV1.2.Candidates.View.Order.
-type CoStarShareWorkspaceV12CandidatesViewOrder string
-
-// CoStarShareWorkspaceV12CandidatesViewPageSize defines model for CoStarShareWorkspaceV1.2.Candidates.View.PageSize.
-type CoStarShareWorkspaceV12CandidatesViewPageSize int
-
-// CoStarShareWorkspaceV12CandidatesViewSort defines model for CoStarShareWorkspaceV1.2.Candidates.View.Sort.
-type CoStarShareWorkspaceV12CandidatesViewSort string
-
-// CoStarShareWorkspaceV12CoStarViewOrder defines model for CoStarShareWorkspaceV1.2.CoStar.View.Order.
-type CoStarShareWorkspaceV12CoStarViewOrder string
-
-// CoStarShareWorkspaceV12CoStarViewPageSize defines model for CoStarShareWorkspaceV1.2.CoStar.View.PageSize.
-type CoStarShareWorkspaceV12CoStarViewPageSize int
-
-// CoStarShareWorkspaceV12CoStarViewSort defines model for CoStarShareWorkspaceV1.2.CoStar.View.Sort.
-type CoStarShareWorkspaceV12CoStarViewSort string
+// CoStarInputV1PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+type CoStarInputV1PositionScope string
 
 // CoStarViewV1 defines model for CoStarViewV1.
 type CoStarViewV1 struct {
@@ -7055,141 +3483,6 @@ type CoStarViewV1PageSize int
 
 // CoStarViewV1Sort defines model for CoStarViewV1.Sort.
 type CoStarViewV1Sort string
-
-// CoStarWorkspaceV1 defines model for CoStarWorkspaceV1.
-type CoStarWorkspaceV1 struct {
-	union json.RawMessage
-}
-
-// CoStarWorkspaceV10 defines model for CoStarWorkspaceV1.0.
-type CoStarWorkspaceV10 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarWorkspaceV10CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                      `json:"page,omitempty"`
-			PageSize *CoStarWorkspaceV10CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                   `json:"search,omitempty"`
-			Sort     *CoStarWorkspaceV10CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarWorkspaceV10CandidatesViewOrder defines model for CoStarWorkspaceV1.0.Candidates.View.Order.
-type CoStarWorkspaceV10CandidatesViewOrder string
-
-// CoStarWorkspaceV10CandidatesViewPageSize defines model for CoStarWorkspaceV1.0.Candidates.View.PageSize.
-type CoStarWorkspaceV10CandidatesViewPageSize int
-
-// CoStarWorkspaceV10CandidatesViewSort defines model for CoStarWorkspaceV1.0.Candidates.View.Sort.
-type CoStarWorkspaceV10CandidatesViewSort string
-
-// CoStarWorkspaceV11 defines model for CoStarWorkspaceV1.1.
-type CoStarWorkspaceV11 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarWorkspaceV11CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                      `json:"page,omitempty"`
-			PageSize *CoStarWorkspaceV11CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                   `json:"search,omitempty"`
-			Sort     *CoStarWorkspaceV11CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind     interface{} `json:"kind"`
-	Partners struct {
-		Input struct {
-			CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-			Source               struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"source"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarWorkspaceV11PartnersViewOrder    `json:"order,omitempty"`
-			Page     *int                                    `json:"page,omitempty"`
-			PageSize *CoStarWorkspaceV11PartnersViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                 `json:"search,omitempty"`
-			Sort     *CoStarWorkspaceV11PartnersViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"partners"`
-	State interface{} `json:"state"`
-}
-
-// CoStarWorkspaceV11CandidatesViewOrder defines model for CoStarWorkspaceV1.1.Candidates.View.Order.
-type CoStarWorkspaceV11CandidatesViewOrder string
-
-// CoStarWorkspaceV11CandidatesViewPageSize defines model for CoStarWorkspaceV1.1.Candidates.View.PageSize.
-type CoStarWorkspaceV11CandidatesViewPageSize int
-
-// CoStarWorkspaceV11CandidatesViewSort defines model for CoStarWorkspaceV1.1.Candidates.View.Sort.
-type CoStarWorkspaceV11CandidatesViewSort string
-
-// CoStarWorkspaceV11PartnersViewOrder defines model for CoStarWorkspaceV1.1.Partners.View.Order.
-type CoStarWorkspaceV11PartnersViewOrder string
-
-// CoStarWorkspaceV11PartnersViewPageSize defines model for CoStarWorkspaceV1.1.Partners.View.PageSize.
-type CoStarWorkspaceV11PartnersViewPageSize int
-
-// CoStarWorkspaceV11PartnersViewSort defines model for CoStarWorkspaceV1.1.Partners.View.Sort.
-type CoStarWorkspaceV11PartnersViewSort string
-
-// CoStarWorkspaceV12 defines model for CoStarWorkspaceV1.2.
-type CoStarWorkspaceV12 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarWorkspaceV12CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                      `json:"page,omitempty"`
-			PageSize *CoStarWorkspaceV12CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                   `json:"search,omitempty"`
-			Sort     *CoStarWorkspaceV12CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	CoStar struct {
-		Input struct {
-			Participants []struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"participants"`
-		} `json:"input"`
-		View struct {
-			Order    *CoStarWorkspaceV12CoStarViewOrder    `json:"order,omitempty"`
-			Page     *int                                  `json:"page,omitempty"`
-			PageSize *CoStarWorkspaceV12CoStarViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                               `json:"search,omitempty"`
-			Sort     *CoStarWorkspaceV12CoStarViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"coStar"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// CoStarWorkspaceV12CandidatesViewOrder defines model for CoStarWorkspaceV1.2.Candidates.View.Order.
-type CoStarWorkspaceV12CandidatesViewOrder string
-
-// CoStarWorkspaceV12CandidatesViewPageSize defines model for CoStarWorkspaceV1.2.Candidates.View.PageSize.
-type CoStarWorkspaceV12CandidatesViewPageSize int
-
-// CoStarWorkspaceV12CandidatesViewSort defines model for CoStarWorkspaceV1.2.Candidates.View.Sort.
-type CoStarWorkspaceV12CandidatesViewSort string
-
-// CoStarWorkspaceV12CoStarViewOrder defines model for CoStarWorkspaceV1.2.CoStar.View.Order.
-type CoStarWorkspaceV12CoStarViewOrder string
-
-// CoStarWorkspaceV12CoStarViewPageSize defines model for CoStarWorkspaceV1.2.CoStar.View.PageSize.
-type CoStarWorkspaceV12CoStarViewPageSize int
-
-// CoStarWorkspaceV12CoStarViewSort defines model for CoStarWorkspaceV1.2.CoStar.View.Sort.
-type CoStarWorkspaceV12CoStarViewSort string
 
 // CollectionStatusV1 defines model for CollectionStatusV1.
 type CollectionStatusV1 string
@@ -7242,6 +3535,40 @@ type EffectiveCommonFiltersV1 struct {
 	} `json:"tags,omitempty"`
 }
 
+// EffectiveGlobalQueryFieldsV1 defines model for EffectiveGlobalQueryFieldsV1.
+type EffectiveGlobalQueryFieldsV1 struct {
+	Filters *struct {
+		GlobalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"globalScore,omitempty"`
+		RatingCount *struct {
+			Max *int `json:"max,omitempty"`
+			Min *int `json:"min,omitempty"`
+		} `json:"ratingCount,omitempty"`
+		SubjectDate *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"subjectDate,omitempty"`
+		Tags *struct {
+			Exclude *[]struct {
+				AllOf []string `json:"allOf"`
+			} `json:"exclude,omitempty"`
+			Include *[]struct {
+				AnyOf []string `json:"anyOf"`
+			} `json:"include,omitempty"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+	IncludeNSFW  bool                                    `json:"includeNSFW"`
+	MergeSeries  bool                                    `json:"mergeSeries"`
+	PositionKeys []string                                `json:"positionKeys"`
+	Scope        interface{}                             `json:"scope"`
+	SubjectType  EffectiveGlobalQueryFieldsV1SubjectType `json:"subjectType"`
+}
+
+// EffectiveGlobalQueryFieldsV1SubjectType defines model for EffectiveGlobalQueryFieldsV1.SubjectType.
+type EffectiveGlobalQueryFieldsV1SubjectType string
+
 // EffectiveGlobalQueryV1 defines model for EffectiveGlobalQueryV1.
 type EffectiveGlobalQueryV1 struct {
 	Filters *struct {
@@ -7268,7 +3595,7 @@ type EffectiveGlobalQueryV1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                              `json:"includeNSFW"`
 	MergeSeries  bool                              `json:"mergeSeries"`
-	PositionKeys []string                          `json:"positionKeys"`
+	PositionKeys []interface{}                     `json:"positionKeys"`
 	Scope        interface{}                       `json:"scope"`
 	SubjectType  EffectiveGlobalQueryV1SubjectType `json:"subjectType"`
 }
@@ -7312,6 +3639,57 @@ type EffectivePersonalFiltersV1 struct {
 	} `json:"tags,omitempty"`
 }
 
+// EffectivePersonalQueryFieldsV1 defines model for EffectivePersonalQueryFieldsV1.
+type EffectivePersonalQueryFieldsV1 struct {
+	CollectionStatuses []EffectivePersonalQueryFieldsV1CollectionStatuses `json:"collectionStatuses"`
+	Filters            *struct {
+		CollectionUpdatedAt *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"collectionUpdatedAt,omitempty"`
+		GlobalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"globalScore,omitempty"`
+		PersonalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"personalScore,omitempty"`
+		RatingCount *struct {
+			Max *int `json:"max,omitempty"`
+			Min *int `json:"min,omitempty"`
+		} `json:"ratingCount,omitempty"`
+		ScoreDifference *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"scoreDifference,omitempty"`
+		SubjectDate *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"subjectDate,omitempty"`
+		Tags *struct {
+			Exclude *[]struct {
+				AllOf []string `json:"allOf"`
+			} `json:"exclude,omitempty"`
+			Include *[]struct {
+				AnyOf []string `json:"anyOf"`
+			} `json:"include,omitempty"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+	IncludeNSFW  bool                                      `json:"includeNSFW"`
+	MergeSeries  bool                                      `json:"mergeSeries"`
+	PositionKeys []string                                  `json:"positionKeys"`
+	Scope        interface{}                               `json:"scope"`
+	SubjectType  EffectivePersonalQueryFieldsV1SubjectType `json:"subjectType"`
+	Uid          string                                    `json:"uid"`
+}
+
+// EffectivePersonalQueryFieldsV1CollectionStatuses defines model for EffectivePersonalQueryFieldsV1.CollectionStatuses.
+type EffectivePersonalQueryFieldsV1CollectionStatuses string
+
+// EffectivePersonalQueryFieldsV1SubjectType defines model for EffectivePersonalQueryFieldsV1.SubjectType.
+type EffectivePersonalQueryFieldsV1SubjectType string
+
 // EffectivePersonalQueryV1 defines model for EffectivePersonalQueryV1.
 type EffectivePersonalQueryV1 struct {
 	CollectionStatuses []EffectivePersonalQueryV1CollectionStatuses `json:"collectionStatuses"`
@@ -7351,7 +3729,7 @@ type EffectivePersonalQueryV1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                                `json:"includeNSFW"`
 	MergeSeries  bool                                `json:"mergeSeries"`
-	PositionKeys []string                            `json:"positionKeys"`
+	PositionKeys []interface{}                       `json:"positionKeys"`
 	Scope        interface{}                         `json:"scope"`
 	SubjectType  EffectivePersonalQueryV1SubjectType `json:"subjectType"`
 	Uid          string                              `json:"uid"`
@@ -7407,7 +3785,7 @@ type EffectiveQueryV10 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                         `json:"includeNSFW"`
 	MergeSeries  bool                         `json:"mergeSeries"`
-	PositionKeys []string                     `json:"positionKeys"`
+	PositionKeys []interface{}                `json:"positionKeys"`
 	Scope        interface{}                  `json:"scope"`
 	SubjectType  EffectiveQueryV10SubjectType `json:"subjectType"`
 	Uid          string                       `json:"uid"`
@@ -7445,7 +3823,7 @@ type EffectiveQueryV11 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                         `json:"includeNSFW"`
 	MergeSeries  bool                         `json:"mergeSeries"`
-	PositionKeys []string                     `json:"positionKeys"`
+	PositionKeys []interface{}                `json:"positionKeys"`
 	Scope        interface{}                  `json:"scope"`
 	SubjectType  EffectiveQueryV11SubjectType `json:"subjectType"`
 }
@@ -7502,6 +3880,40 @@ type FieldErrorCodeV1 string
 // FieldErrorsV1 defines model for FieldErrorsV1.
 type FieldErrorsV1 map[string][]string
 
+// GlobalProjectionFieldsV1 defines model for GlobalProjectionFieldsV1.
+type GlobalProjectionFieldsV1 struct {
+	Filters *struct {
+		GlobalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"globalScore,omitempty"`
+		RatingCount *struct {
+			Max *int `json:"max,omitempty"`
+			Min *int `json:"min,omitempty"`
+		} `json:"ratingCount,omitempty"`
+		SubjectDate *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"subjectDate,omitempty"`
+		Tags *struct {
+			Exclude *[]struct {
+				AllOf []string `json:"allOf"`
+			} `json:"exclude,omitempty"`
+			Include *[]struct {
+				AnyOf []string `json:"anyOf"`
+			} `json:"include,omitempty"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+	IncludeNSFW  bool                                `json:"includeNSFW"`
+	MergeSeries  bool                                `json:"mergeSeries"`
+	PositionKeys []string                            `json:"positionKeys"`
+	Scope        interface{}                         `json:"scope"`
+	SubjectType  GlobalProjectionFieldsV1SubjectType `json:"subjectType"`
+}
+
+// GlobalProjectionFieldsV1SubjectType defines model for GlobalProjectionFieldsV1.SubjectType.
+type GlobalProjectionFieldsV1SubjectType string
+
 // GlobalProjectionV1 defines model for GlobalProjectionV1.
 type GlobalProjectionV1 struct {
 	Filters *struct {
@@ -7528,13 +3940,47 @@ type GlobalProjectionV1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                          `json:"includeNSFW"`
 	MergeSeries  bool                          `json:"mergeSeries"`
-	PositionKeys []string                      `json:"positionKeys"`
+	PositionKeys []interface{}                 `json:"positionKeys"`
 	Scope        interface{}                   `json:"scope"`
 	SubjectType  GlobalProjectionV1SubjectType `json:"subjectType"`
 }
 
 // GlobalProjectionV1SubjectType defines model for GlobalProjectionV1.SubjectType.
 type GlobalProjectionV1SubjectType string
+
+// GlobalSharedQueryFieldsV1 defines model for GlobalSharedQueryFieldsV1.
+type GlobalSharedQueryFieldsV1 struct {
+	Filters *struct {
+		GlobalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"globalScore,omitempty"`
+		RatingCount *struct {
+			Max *int `json:"max,omitempty"`
+			Min *int `json:"min,omitempty"`
+		} `json:"ratingCount,omitempty"`
+		SubjectDate *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"subjectDate,omitempty"`
+		Tags *struct {
+			Exclude *[]struct {
+				AllOf []string `json:"allOf"`
+			} `json:"exclude,omitempty"`
+			Include *[]struct {
+				AnyOf []string `json:"anyOf"`
+			} `json:"include,omitempty"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+	IncludeNSFW  *bool                                `json:"includeNSFW,omitempty"`
+	MergeSeries  *bool                                `json:"mergeSeries,omitempty"`
+	PositionKeys []string                             `json:"positionKeys"`
+	Scope        interface{}                          `json:"scope"`
+	SubjectType  GlobalSharedQueryFieldsV1SubjectType `json:"subjectType"`
+}
+
+// GlobalSharedQueryFieldsV1SubjectType defines model for GlobalSharedQueryFieldsV1.SubjectType.
+type GlobalSharedQueryFieldsV1SubjectType string
 
 // GlobalSharedQueryV1 defines model for GlobalSharedQueryV1.
 type GlobalSharedQueryV1 struct {
@@ -7562,7 +4008,7 @@ type GlobalSharedQueryV1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                          `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                          `json:"mergeSeries,omitempty"`
-	PositionKeys []string                       `json:"positionKeys"`
+	PositionKeys []interface{}                  `json:"positionKeys"`
 	Scope        interface{}                    `json:"scope"`
 	SubjectType  GlobalSharedQueryV1SubjectType `json:"subjectType"`
 }
@@ -7607,38 +4053,17 @@ type PageV1 = int
 // PartnersInputV1 defines model for PartnersInputV1.
 type PartnersInputV1 struct {
 	CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-	Source               struct {
+
+	// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+	PositionScope *PartnersInputV1PositionScope `json:"positionScope,omitempty"`
+	Source        struct {
 		PersonId     int      `json:"personId"`
 		PositionKeys []string `json:"positionKeys"`
 	} `json:"source"`
 }
 
-// PartnersStateV1 defines model for PartnersStateV1.
-type PartnersStateV1 struct {
-	Input struct {
-		CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-		Source               struct {
-			PersonId     int      `json:"personId"`
-			PositionKeys []string `json:"positionKeys"`
-		} `json:"source"`
-	} `json:"input"`
-	View struct {
-		Order    *PartnersStateV1ViewOrder    `json:"order,omitempty"`
-		Page     *int                         `json:"page,omitempty"`
-		PageSize *PartnersStateV1ViewPageSize `json:"pageSize,omitempty"`
-		Search   *string                      `json:"search,omitempty"`
-		Sort     *PartnersStateV1ViewSort     `json:"sort,omitempty"`
-	} `json:"view"`
-}
-
-// PartnersStateV1ViewOrder defines model for PartnersStateV1.View.Order.
-type PartnersStateV1ViewOrder string
-
-// PartnersStateV1ViewPageSize defines model for PartnersStateV1.View.PageSize.
-type PartnersStateV1ViewPageSize int
-
-// PartnersStateV1ViewSort defines model for PartnersStateV1.View.Sort.
-type PartnersStateV1ViewSort string
+// PartnersInputV1PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+type PartnersInputV1PositionScope string
 
 // PartnersViewV1 defines model for PartnersViewV1.
 type PartnersViewV1 struct {
@@ -7661,7 +4086,16 @@ type PartnersViewV1Sort string
 // PersonDetailInputV1 defines model for PersonDetailInputV1.
 type PersonDetailInputV1 struct {
 	PersonId int `json:"personId"`
+
+	// PositionKeys Optional explicit identity scope within positionScope. Omission retains full ranking membership.
+	PositionKeys *[]string `json:"positionKeys,omitempty"`
+
+	// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array only with explicit nonempty input.positionKeys.
+	PositionScope *PersonDetailInputV1PositionScope `json:"positionScope,omitempty"`
 }
+
+// PersonDetailInputV1PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array only with explicit nonempty input.positionKeys.
+type PersonDetailInputV1PositionScope string
 
 // PersonDetailViewV1 defines model for PersonDetailViewV1.
 type PersonDetailViewV1 struct {
@@ -7727,6 +4161,56 @@ type PersonalFiltersInputV1 struct {
 	} `json:"tags,omitempty"`
 }
 
+// PersonalProjectionFieldsV1 defines model for PersonalProjectionFieldsV1.
+type PersonalProjectionFieldsV1 struct {
+	CollectionStatuses []PersonalProjectionFieldsV1CollectionStatuses `json:"collectionStatuses"`
+	Filters            *struct {
+		CollectionUpdatedAt *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"collectionUpdatedAt,omitempty"`
+		GlobalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"globalScore,omitempty"`
+		PersonalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"personalScore,omitempty"`
+		RatingCount *struct {
+			Max *int `json:"max,omitempty"`
+			Min *int `json:"min,omitempty"`
+		} `json:"ratingCount,omitempty"`
+		ScoreDifference *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"scoreDifference,omitempty"`
+		SubjectDate *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"subjectDate,omitempty"`
+		Tags *struct {
+			Exclude *[]struct {
+				AllOf []string `json:"allOf"`
+			} `json:"exclude,omitempty"`
+			Include *[]struct {
+				AnyOf []string `json:"anyOf"`
+			} `json:"include,omitempty"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+	IncludeNSFW  bool                                  `json:"includeNSFW"`
+	MergeSeries  bool                                  `json:"mergeSeries"`
+	PositionKeys []string                              `json:"positionKeys"`
+	Scope        interface{}                           `json:"scope"`
+	SubjectType  PersonalProjectionFieldsV1SubjectType `json:"subjectType"`
+}
+
+// PersonalProjectionFieldsV1CollectionStatuses defines model for PersonalProjectionFieldsV1.CollectionStatuses.
+type PersonalProjectionFieldsV1CollectionStatuses string
+
+// PersonalProjectionFieldsV1SubjectType defines model for PersonalProjectionFieldsV1.SubjectType.
+type PersonalProjectionFieldsV1SubjectType string
+
 // PersonalProjectionV1 defines model for PersonalProjectionV1.
 type PersonalProjectionV1 struct {
 	CollectionStatuses []PersonalProjectionV1CollectionStatuses `json:"collectionStatuses"`
@@ -7766,7 +4250,7 @@ type PersonalProjectionV1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                            `json:"includeNSFW"`
 	MergeSeries  bool                            `json:"mergeSeries"`
-	PositionKeys []string                        `json:"positionKeys"`
+	PositionKeys []interface{}                   `json:"positionKeys"`
 	Scope        interface{}                     `json:"scope"`
 	SubjectType  PersonalProjectionV1SubjectType `json:"subjectType"`
 }
@@ -7776,6 +4260,57 @@ type PersonalProjectionV1CollectionStatuses string
 
 // PersonalProjectionV1SubjectType defines model for PersonalProjectionV1.SubjectType.
 type PersonalProjectionV1SubjectType string
+
+// PersonalSharedQueryFieldsV1 defines model for PersonalSharedQueryFieldsV1.
+type PersonalSharedQueryFieldsV1 struct {
+	CollectionStatuses []PersonalSharedQueryFieldsV1CollectionStatuses `json:"collectionStatuses"`
+	Filters            *struct {
+		CollectionUpdatedAt *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"collectionUpdatedAt,omitempty"`
+		GlobalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"globalScore,omitempty"`
+		PersonalScore *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"personalScore,omitempty"`
+		RatingCount *struct {
+			Max *int `json:"max,omitempty"`
+			Min *int `json:"min,omitempty"`
+		} `json:"ratingCount,omitempty"`
+		ScoreDifference *struct {
+			Max *float32 `json:"max,omitempty"`
+			Min *float32 `json:"min,omitempty"`
+		} `json:"scoreDifference,omitempty"`
+		SubjectDate *struct {
+			Max *string `json:"max,omitempty"`
+			Min *string `json:"min,omitempty"`
+		} `json:"subjectDate,omitempty"`
+		Tags *struct {
+			Exclude *[]struct {
+				AllOf []string `json:"allOf"`
+			} `json:"exclude,omitempty"`
+			Include *[]struct {
+				AnyOf []string `json:"anyOf"`
+			} `json:"include,omitempty"`
+		} `json:"tags,omitempty"`
+	} `json:"filters,omitempty"`
+	IncludeNSFW  *bool                                  `json:"includeNSFW,omitempty"`
+	MergeSeries  *bool                                  `json:"mergeSeries,omitempty"`
+	PositionKeys []string                               `json:"positionKeys"`
+	Scope        interface{}                            `json:"scope"`
+	SubjectType  PersonalSharedQueryFieldsV1SubjectType `json:"subjectType"`
+	Uid          string                                 `json:"uid"`
+}
+
+// PersonalSharedQueryFieldsV1CollectionStatuses defines model for PersonalSharedQueryFieldsV1.CollectionStatuses.
+type PersonalSharedQueryFieldsV1CollectionStatuses string
+
+// PersonalSharedQueryFieldsV1SubjectType defines model for PersonalSharedQueryFieldsV1.SubjectType.
+type PersonalSharedQueryFieldsV1SubjectType string
 
 // PersonalSharedQueryV1 defines model for PersonalSharedQueryV1.
 type PersonalSharedQueryV1 struct {
@@ -7816,7 +4351,7 @@ type PersonalSharedQueryV1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                            `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                            `json:"mergeSeries,omitempty"`
-	PositionKeys []string                         `json:"positionKeys"`
+	PositionKeys []interface{}                    `json:"positionKeys"`
 	Scope        interface{}                      `json:"scope"`
 	SubjectType  PersonalSharedQueryV1SubjectType `json:"subjectType"`
 	Uid          string                           `json:"uid"`
@@ -7875,7 +4410,7 @@ type QueryDigestProjectionV10 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                                `json:"includeNSFW"`
 	MergeSeries  bool                                `json:"mergeSeries"`
-	PositionKeys []string                            `json:"positionKeys"`
+	PositionKeys []interface{}                       `json:"positionKeys"`
 	Scope        interface{}                         `json:"scope"`
 	SubjectType  QueryDigestProjectionV10SubjectType `json:"subjectType"`
 }
@@ -7912,7 +4447,7 @@ type QueryDigestProjectionV11 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                                `json:"includeNSFW"`
 	MergeSeries  bool                                `json:"mergeSeries"`
-	PositionKeys []string                            `json:"positionKeys"`
+	PositionKeys []interface{}                       `json:"positionKeys"`
 	Scope        interface{}                         `json:"scope"`
 	SubjectType  QueryDigestProjectionV11SubjectType `json:"subjectType"`
 }
@@ -7920,271 +4455,14 @@ type QueryDigestProjectionV11 struct {
 // QueryDigestProjectionV11SubjectType defines model for QueryDigestProjectionV1.1.SubjectType.
 type QueryDigestProjectionV11SubjectType string
 
-// RankingDetailV1 defines model for RankingDetailV1.
-type RankingDetailV1 struct {
-	Input struct {
-		PersonId int `json:"personId"`
-	} `json:"input"`
-	View struct {
-		Order    *RankingDetailV1ViewOrder    `json:"order,omitempty"`
-		Page     *int                         `json:"page,omitempty"`
-		PageSize *RankingDetailV1ViewPageSize `json:"pageSize,omitempty"`
-		Search   *string                      `json:"search,omitempty"`
-		Section  *RankingDetailV1ViewSection  `json:"section,omitempty"`
-		Sort     *RankingDetailV1ViewSort     `json:"sort,omitempty"`
-	} `json:"view"`
-}
-
-// RankingDetailV1ViewOrder defines model for RankingDetailV1.View.Order.
-type RankingDetailV1ViewOrder string
-
-// RankingDetailV1ViewPageSize defines model for RankingDetailV1.View.PageSize.
-type RankingDetailV1ViewPageSize int
-
-// RankingDetailV1ViewSection defines model for RankingDetailV1.View.Section.
-type RankingDetailV1ViewSection string
-
-// RankingDetailV1ViewSort defines model for RankingDetailV1.View.Sort.
-type RankingDetailV1ViewSort string
-
-// RankingSharePayloadV1 defines model for RankingSharePayloadV1.
-type RankingSharePayloadV1 struct {
-	Query     RankingSharePayloadV1_Query `json:"query"`
-	Workspace struct {
-		Detail *struct {
-			Input struct {
-				PersonId int `json:"personId"`
-			} `json:"input"`
-			View struct {
-				Order    *RankingSharePayloadV1WorkspaceDetailViewOrder    `json:"order,omitempty"`
-				Page     *int                                              `json:"page,omitempty"`
-				PageSize *RankingSharePayloadV1WorkspaceDetailViewPageSize `json:"pageSize,omitempty"`
-				Search   *string                                           `json:"search,omitempty"`
-				Section  *RankingSharePayloadV1WorkspaceDetailViewSection  `json:"section,omitempty"`
-				Sort     *RankingSharePayloadV1WorkspaceDetailViewSort     `json:"sort,omitempty"`
-			} `json:"view"`
-		} `json:"detail,omitempty"`
-		Kind         interface{} `json:"kind"`
-		RankingsView struct {
-			Order    *RankingSharePayloadV1WorkspaceRankingsViewOrder    `json:"order,omitempty"`
-			Page     *int                                                `json:"page,omitempty"`
-			PageSize *RankingSharePayloadV1WorkspaceRankingsViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                             `json:"search,omitempty"`
-			Sort     *RankingSharePayloadV1WorkspaceRankingsViewSort     `json:"sort,omitempty"`
-		} `json:"rankingsView"`
-	} `json:"workspace"`
-}
-
-// RankingSharePayloadV1Query0 defines model for RankingSharePayloadV1.Query.0.
-type RankingSharePayloadV1Query0 struct {
-	CollectionStatuses []RankingSharePayloadV1Query0CollectionStatuses `json:"collectionStatuses"`
-	Filters            *struct {
-		CollectionUpdatedAt *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"collectionUpdatedAt,omitempty"`
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		PersonalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"personalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		ScoreDifference *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"scoreDifference,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                   `json:"includeNSFW"`
-	MergeSeries  bool                                   `json:"mergeSeries"`
-	PositionKeys []string                               `json:"positionKeys"`
-	Scope        interface{}                            `json:"scope"`
-	SubjectType  RankingSharePayloadV1Query0SubjectType `json:"subjectType"`
-	Uid          string                                 `json:"uid"`
-}
-
-// RankingSharePayloadV1Query0CollectionStatuses defines model for RankingSharePayloadV1.Query.0.CollectionStatuses.
-type RankingSharePayloadV1Query0CollectionStatuses string
-
-// RankingSharePayloadV1Query0SubjectType defines model for RankingSharePayloadV1.Query.0.SubjectType.
-type RankingSharePayloadV1Query0SubjectType string
-
-// RankingSharePayloadV1Query1 defines model for RankingSharePayloadV1.Query.1.
-type RankingSharePayloadV1Query1 struct {
-	Filters *struct {
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                   `json:"includeNSFW"`
-	MergeSeries  bool                                   `json:"mergeSeries"`
-	PositionKeys []string                               `json:"positionKeys"`
-	Scope        interface{}                            `json:"scope"`
-	SubjectType  RankingSharePayloadV1Query1SubjectType `json:"subjectType"`
-}
-
-// RankingSharePayloadV1Query1SubjectType defines model for RankingSharePayloadV1.Query.1.SubjectType.
-type RankingSharePayloadV1Query1SubjectType string
-
-// RankingSharePayloadV1_Query defines model for RankingSharePayloadV1.Query.
-type RankingSharePayloadV1_Query struct {
-	union json.RawMessage
-}
-
-// RankingSharePayloadV1WorkspaceDetailViewOrder defines model for RankingSharePayloadV1.Workspace.Detail.View.Order.
-type RankingSharePayloadV1WorkspaceDetailViewOrder string
-
-// RankingSharePayloadV1WorkspaceDetailViewPageSize defines model for RankingSharePayloadV1.Workspace.Detail.View.PageSize.
-type RankingSharePayloadV1WorkspaceDetailViewPageSize int
-
-// RankingSharePayloadV1WorkspaceDetailViewSection defines model for RankingSharePayloadV1.Workspace.Detail.View.Section.
-type RankingSharePayloadV1WorkspaceDetailViewSection string
-
-// RankingSharePayloadV1WorkspaceDetailViewSort defines model for RankingSharePayloadV1.Workspace.Detail.View.Sort.
-type RankingSharePayloadV1WorkspaceDetailViewSort string
-
-// RankingSharePayloadV1WorkspaceRankingsViewOrder defines model for RankingSharePayloadV1.Workspace.RankingsView.Order.
-type RankingSharePayloadV1WorkspaceRankingsViewOrder string
-
-// RankingSharePayloadV1WorkspaceRankingsViewPageSize defines model for RankingSharePayloadV1.Workspace.RankingsView.PageSize.
-type RankingSharePayloadV1WorkspaceRankingsViewPageSize int
-
-// RankingSharePayloadV1WorkspaceRankingsViewSort defines model for RankingSharePayloadV1.Workspace.RankingsView.Sort.
-type RankingSharePayloadV1WorkspaceRankingsViewSort string
-
-// RankingShareWorkspaceV1 defines model for RankingShareWorkspaceV1.
-type RankingShareWorkspaceV1 struct {
-	Detail *struct {
-		Input struct {
-			PersonId int `json:"personId"`
-		} `json:"input"`
-		View struct {
-			Order    *RankingShareWorkspaceV1DetailViewOrder    `json:"order,omitempty"`
-			Page     *int                                       `json:"page,omitempty"`
-			PageSize *RankingShareWorkspaceV1DetailViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                    `json:"search,omitempty"`
-			Section  *RankingShareWorkspaceV1DetailViewSection  `json:"section,omitempty"`
-			Sort     *RankingShareWorkspaceV1DetailViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"detail,omitempty"`
-	Kind         interface{} `json:"kind"`
-	RankingsView struct {
-		Order    *RankingShareWorkspaceV1RankingsViewOrder    `json:"order,omitempty"`
-		Page     *int                                         `json:"page,omitempty"`
-		PageSize *RankingShareWorkspaceV1RankingsViewPageSize `json:"pageSize,omitempty"`
-		Search   *string                                      `json:"search,omitempty"`
-		Sort     *RankingShareWorkspaceV1RankingsViewSort     `json:"sort,omitempty"`
-	} `json:"rankingsView"`
-}
-
-// RankingShareWorkspaceV1DetailViewOrder defines model for RankingShareWorkspaceV1.Detail.View.Order.
-type RankingShareWorkspaceV1DetailViewOrder string
-
-// RankingShareWorkspaceV1DetailViewPageSize defines model for RankingShareWorkspaceV1.Detail.View.PageSize.
-type RankingShareWorkspaceV1DetailViewPageSize int
-
-// RankingShareWorkspaceV1DetailViewSection defines model for RankingShareWorkspaceV1.Detail.View.Section.
-type RankingShareWorkspaceV1DetailViewSection string
-
-// RankingShareWorkspaceV1DetailViewSort defines model for RankingShareWorkspaceV1.Detail.View.Sort.
-type RankingShareWorkspaceV1DetailViewSort string
-
-// RankingShareWorkspaceV1RankingsViewOrder defines model for RankingShareWorkspaceV1.RankingsView.Order.
-type RankingShareWorkspaceV1RankingsViewOrder string
-
-// RankingShareWorkspaceV1RankingsViewPageSize defines model for RankingShareWorkspaceV1.RankingsView.PageSize.
-type RankingShareWorkspaceV1RankingsViewPageSize int
-
-// RankingShareWorkspaceV1RankingsViewSort defines model for RankingShareWorkspaceV1.RankingsView.Sort.
-type RankingShareWorkspaceV1RankingsViewSort string
-
-// RankingWorkspaceV1 defines model for RankingWorkspaceV1.
-type RankingWorkspaceV1 struct {
-	Detail *struct {
-		Input struct {
-			PersonId int `json:"personId"`
-		} `json:"input"`
-		View struct {
-			Order    *RankingWorkspaceV1DetailViewOrder    `json:"order,omitempty"`
-			Page     *int                                  `json:"page,omitempty"`
-			PageSize *RankingWorkspaceV1DetailViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                               `json:"search,omitempty"`
-			Section  *RankingWorkspaceV1DetailViewSection  `json:"section,omitempty"`
-			Sort     *RankingWorkspaceV1DetailViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"detail,omitempty"`
-	Kind         interface{} `json:"kind"`
-	RankingsView struct {
-		Order    *RankingWorkspaceV1RankingsViewOrder    `json:"order,omitempty"`
-		Page     *int                                    `json:"page,omitempty"`
-		PageSize *RankingWorkspaceV1RankingsViewPageSize `json:"pageSize,omitempty"`
-		Search   *string                                 `json:"search,omitempty"`
-		Sort     *RankingWorkspaceV1RankingsViewSort     `json:"sort,omitempty"`
-	} `json:"rankingsView"`
-}
-
-// RankingWorkspaceV1DetailViewOrder defines model for RankingWorkspaceV1.Detail.View.Order.
-type RankingWorkspaceV1DetailViewOrder string
-
-// RankingWorkspaceV1DetailViewPageSize defines model for RankingWorkspaceV1.Detail.View.PageSize.
-type RankingWorkspaceV1DetailViewPageSize int
-
-// RankingWorkspaceV1DetailViewSection defines model for RankingWorkspaceV1.Detail.View.Section.
-type RankingWorkspaceV1DetailViewSection string
-
-// RankingWorkspaceV1DetailViewSort defines model for RankingWorkspaceV1.Detail.View.Sort.
-type RankingWorkspaceV1DetailViewSort string
-
-// RankingWorkspaceV1RankingsViewOrder defines model for RankingWorkspaceV1.RankingsView.Order.
-type RankingWorkspaceV1RankingsViewOrder string
-
-// RankingWorkspaceV1RankingsViewPageSize defines model for RankingWorkspaceV1.RankingsView.PageSize.
-type RankingWorkspaceV1RankingsViewPageSize int
-
-// RankingWorkspaceV1RankingsViewSort defines model for RankingWorkspaceV1.RankingsView.Sort.
-type RankingWorkspaceV1RankingsViewSort string
-
 // RankingsViewV1 defines model for RankingsViewV1.
 type RankingsViewV1 struct {
-	Order    *RankingsViewV1Order    `json:"order,omitempty"`
-	Page     *int                    `json:"page,omitempty"`
-	PageSize *RankingsViewV1PageSize `json:"pageSize,omitempty"`
-	Search   *string                 `json:"search,omitempty"`
-	Sort     *RankingsViewV1Sort     `json:"sort,omitempty"`
+	LocatePersonId *int                    `json:"locatePersonId,omitempty"`
+	Order          *RankingsViewV1Order    `json:"order,omitempty"`
+	Page           *int                    `json:"page,omitempty"`
+	PageSize       *RankingsViewV1PageSize `json:"pageSize,omitempty"`
+	Search         *string                 `json:"search,omitempty"`
+	Sort           *RankingsViewV1Sort     `json:"sort,omitempty"`
 }
 
 // RankingsViewV1Order defines model for RankingsViewV1.Order.
@@ -8216,381 +4494,6 @@ type ScoreRangeV1 struct {
 
 // SearchTextV1 defines model for SearchTextV1.
 type SearchTextV1 = string
-
-// SharePayloadV1 defines model for SharePayloadV1.
-type SharePayloadV1 struct {
-	union json.RawMessage
-}
-
-// SharePayloadV10 defines model for SharePayloadV1.0.
-type SharePayloadV10 struct {
-	Query     SharePayloadV1_0_Query `json:"query"`
-	Workspace struct {
-		Detail *struct {
-			Input struct {
-				PersonId int `json:"personId"`
-			} `json:"input"`
-			View struct {
-				Order    *SharePayloadV10WorkspaceDetailViewOrder    `json:"order,omitempty"`
-				Page     *int                                        `json:"page,omitempty"`
-				PageSize *SharePayloadV10WorkspaceDetailViewPageSize `json:"pageSize,omitempty"`
-				Search   *string                                     `json:"search,omitempty"`
-				Section  *SharePayloadV10WorkspaceDetailViewSection  `json:"section,omitempty"`
-				Sort     *SharePayloadV10WorkspaceDetailViewSort     `json:"sort,omitempty"`
-			} `json:"view"`
-		} `json:"detail,omitempty"`
-		Kind         interface{} `json:"kind"`
-		RankingsView struct {
-			Order    *SharePayloadV10WorkspaceRankingsViewOrder    `json:"order,omitempty"`
-			Page     *int                                          `json:"page,omitempty"`
-			PageSize *SharePayloadV10WorkspaceRankingsViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                       `json:"search,omitempty"`
-			Sort     *SharePayloadV10WorkspaceRankingsViewSort     `json:"sort,omitempty"`
-		} `json:"rankingsView"`
-	} `json:"workspace"`
-}
-
-// SharePayloadV10Query0 defines model for SharePayloadV1.0.Query.0.
-type SharePayloadV10Query0 struct {
-	CollectionStatuses []SharePayloadV10Query0CollectionStatuses `json:"collectionStatuses"`
-	Filters            *struct {
-		CollectionUpdatedAt *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"collectionUpdatedAt,omitempty"`
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		PersonalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"personalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		ScoreDifference *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"scoreDifference,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                             `json:"includeNSFW"`
-	MergeSeries  bool                             `json:"mergeSeries"`
-	PositionKeys []string                         `json:"positionKeys"`
-	Scope        interface{}                      `json:"scope"`
-	SubjectType  SharePayloadV10Query0SubjectType `json:"subjectType"`
-	Uid          string                           `json:"uid"`
-}
-
-// SharePayloadV10Query0CollectionStatuses defines model for SharePayloadV1.0.Query.0.CollectionStatuses.
-type SharePayloadV10Query0CollectionStatuses string
-
-// SharePayloadV10Query0SubjectType defines model for SharePayloadV1.0.Query.0.SubjectType.
-type SharePayloadV10Query0SubjectType string
-
-// SharePayloadV10Query1 defines model for SharePayloadV1.0.Query.1.
-type SharePayloadV10Query1 struct {
-	Filters *struct {
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                             `json:"includeNSFW"`
-	MergeSeries  bool                             `json:"mergeSeries"`
-	PositionKeys []string                         `json:"positionKeys"`
-	Scope        interface{}                      `json:"scope"`
-	SubjectType  SharePayloadV10Query1SubjectType `json:"subjectType"`
-}
-
-// SharePayloadV10Query1SubjectType defines model for SharePayloadV1.0.Query.1.SubjectType.
-type SharePayloadV10Query1SubjectType string
-
-// SharePayloadV1_0_Query defines model for SharePayloadV1.0.Query.
-type SharePayloadV1_0_Query struct {
-	union json.RawMessage
-}
-
-// SharePayloadV10WorkspaceDetailViewOrder defines model for SharePayloadV1.0.Workspace.Detail.View.Order.
-type SharePayloadV10WorkspaceDetailViewOrder string
-
-// SharePayloadV10WorkspaceDetailViewPageSize defines model for SharePayloadV1.0.Workspace.Detail.View.PageSize.
-type SharePayloadV10WorkspaceDetailViewPageSize int
-
-// SharePayloadV10WorkspaceDetailViewSection defines model for SharePayloadV1.0.Workspace.Detail.View.Section.
-type SharePayloadV10WorkspaceDetailViewSection string
-
-// SharePayloadV10WorkspaceDetailViewSort defines model for SharePayloadV1.0.Workspace.Detail.View.Sort.
-type SharePayloadV10WorkspaceDetailViewSort string
-
-// SharePayloadV10WorkspaceRankingsViewOrder defines model for SharePayloadV1.0.Workspace.RankingsView.Order.
-type SharePayloadV10WorkspaceRankingsViewOrder string
-
-// SharePayloadV10WorkspaceRankingsViewPageSize defines model for SharePayloadV1.0.Workspace.RankingsView.PageSize.
-type SharePayloadV10WorkspaceRankingsViewPageSize int
-
-// SharePayloadV10WorkspaceRankingsViewSort defines model for SharePayloadV1.0.Workspace.RankingsView.Sort.
-type SharePayloadV10WorkspaceRankingsViewSort string
-
-// SharePayloadV11 defines model for SharePayloadV1.1.
-type SharePayloadV11 struct {
-	Query     SharePayloadV1_1_Query     `json:"query"`
-	Workspace SharePayloadV1_1_Workspace `json:"workspace"`
-}
-
-// SharePayloadV11Query0 defines model for SharePayloadV1.1.Query.0.
-type SharePayloadV11Query0 struct {
-	CollectionStatuses []SharePayloadV11Query0CollectionStatuses `json:"collectionStatuses"`
-	Filters            *struct {
-		CollectionUpdatedAt *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"collectionUpdatedAt,omitempty"`
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		PersonalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"personalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		ScoreDifference *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"scoreDifference,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                             `json:"includeNSFW"`
-	MergeSeries  bool                             `json:"mergeSeries"`
-	PositionKeys []string                         `json:"positionKeys"`
-	Scope        interface{}                      `json:"scope"`
-	SubjectType  SharePayloadV11Query0SubjectType `json:"subjectType"`
-	Uid          string                           `json:"uid"`
-}
-
-// SharePayloadV11Query0CollectionStatuses defines model for SharePayloadV1.1.Query.0.CollectionStatuses.
-type SharePayloadV11Query0CollectionStatuses string
-
-// SharePayloadV11Query0SubjectType defines model for SharePayloadV1.1.Query.0.SubjectType.
-type SharePayloadV11Query0SubjectType string
-
-// SharePayloadV11Query1 defines model for SharePayloadV1.1.Query.1.
-type SharePayloadV11Query1 struct {
-	Filters *struct {
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                             `json:"includeNSFW"`
-	MergeSeries  bool                             `json:"mergeSeries"`
-	PositionKeys []string                         `json:"positionKeys"`
-	Scope        interface{}                      `json:"scope"`
-	SubjectType  SharePayloadV11Query1SubjectType `json:"subjectType"`
-}
-
-// SharePayloadV11Query1SubjectType defines model for SharePayloadV1.1.Query.1.SubjectType.
-type SharePayloadV11Query1SubjectType string
-
-// SharePayloadV1_1_Query defines model for SharePayloadV1.1.Query.
-type SharePayloadV1_1_Query struct {
-	union json.RawMessage
-}
-
-// SharePayloadV11Workspace0 defines model for SharePayloadV1.1.Workspace.0.
-type SharePayloadV11Workspace0 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV11Workspace0CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                             `json:"page,omitempty"`
-			PageSize *SharePayloadV11Workspace0CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                          `json:"search,omitempty"`
-			Sort     *SharePayloadV11Workspace0CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// SharePayloadV11Workspace0CandidatesViewOrder defines model for SharePayloadV1.1.Workspace.0.Candidates.View.Order.
-type SharePayloadV11Workspace0CandidatesViewOrder string
-
-// SharePayloadV11Workspace0CandidatesViewPageSize defines model for SharePayloadV1.1.Workspace.0.Candidates.View.PageSize.
-type SharePayloadV11Workspace0CandidatesViewPageSize int
-
-// SharePayloadV11Workspace0CandidatesViewSort defines model for SharePayloadV1.1.Workspace.0.Candidates.View.Sort.
-type SharePayloadV11Workspace0CandidatesViewSort string
-
-// SharePayloadV11Workspace1 defines model for SharePayloadV1.1.Workspace.1.
-type SharePayloadV11Workspace1 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV11Workspace1CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                             `json:"page,omitempty"`
-			PageSize *SharePayloadV11Workspace1CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                          `json:"search,omitempty"`
-			Sort     *SharePayloadV11Workspace1CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind     interface{} `json:"kind"`
-	Partners struct {
-		Input struct {
-			CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-			Source               struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"source"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV11Workspace1PartnersViewOrder    `json:"order,omitempty"`
-			Page     *int                                           `json:"page,omitempty"`
-			PageSize *SharePayloadV11Workspace1PartnersViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                        `json:"search,omitempty"`
-			Sort     *SharePayloadV11Workspace1PartnersViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"partners"`
-	State interface{} `json:"state"`
-}
-
-// SharePayloadV11Workspace1CandidatesViewOrder defines model for SharePayloadV1.1.Workspace.1.Candidates.View.Order.
-type SharePayloadV11Workspace1CandidatesViewOrder string
-
-// SharePayloadV11Workspace1CandidatesViewPageSize defines model for SharePayloadV1.1.Workspace.1.Candidates.View.PageSize.
-type SharePayloadV11Workspace1CandidatesViewPageSize int
-
-// SharePayloadV11Workspace1CandidatesViewSort defines model for SharePayloadV1.1.Workspace.1.Candidates.View.Sort.
-type SharePayloadV11Workspace1CandidatesViewSort string
-
-// SharePayloadV11Workspace1PartnersViewOrder defines model for SharePayloadV1.1.Workspace.1.Partners.View.Order.
-type SharePayloadV11Workspace1PartnersViewOrder string
-
-// SharePayloadV11Workspace1PartnersViewPageSize defines model for SharePayloadV1.1.Workspace.1.Partners.View.PageSize.
-type SharePayloadV11Workspace1PartnersViewPageSize int
-
-// SharePayloadV11Workspace1PartnersViewSort defines model for SharePayloadV1.1.Workspace.1.Partners.View.Sort.
-type SharePayloadV11Workspace1PartnersViewSort string
-
-// SharePayloadV11Workspace2 defines model for SharePayloadV1.1.Workspace.2.
-type SharePayloadV11Workspace2 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV11Workspace2CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                             `json:"page,omitempty"`
-			PageSize *SharePayloadV11Workspace2CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                          `json:"search,omitempty"`
-			Sort     *SharePayloadV11Workspace2CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	CoStar struct {
-		Input struct {
-			Participants []struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"participants"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV11Workspace2CoStarViewOrder    `json:"order,omitempty"`
-			Page     *int                                         `json:"page,omitempty"`
-			PageSize *SharePayloadV11Workspace2CoStarViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                      `json:"search,omitempty"`
-			Sort     *SharePayloadV11Workspace2CoStarViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"coStar"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// SharePayloadV11Workspace2CandidatesViewOrder defines model for SharePayloadV1.1.Workspace.2.Candidates.View.Order.
-type SharePayloadV11Workspace2CandidatesViewOrder string
-
-// SharePayloadV11Workspace2CandidatesViewPageSize defines model for SharePayloadV1.1.Workspace.2.Candidates.View.PageSize.
-type SharePayloadV11Workspace2CandidatesViewPageSize int
-
-// SharePayloadV11Workspace2CandidatesViewSort defines model for SharePayloadV1.1.Workspace.2.Candidates.View.Sort.
-type SharePayloadV11Workspace2CandidatesViewSort string
-
-// SharePayloadV11Workspace2CoStarViewOrder defines model for SharePayloadV1.1.Workspace.2.CoStar.View.Order.
-type SharePayloadV11Workspace2CoStarViewOrder string
-
-// SharePayloadV11Workspace2CoStarViewPageSize defines model for SharePayloadV1.1.Workspace.2.CoStar.View.PageSize.
-type SharePayloadV11Workspace2CoStarViewPageSize int
-
-// SharePayloadV11Workspace2CoStarViewSort defines model for SharePayloadV1.1.Workspace.2.CoStar.View.Sort.
-type SharePayloadV11Workspace2CoStarViewSort string
-
-// SharePayloadV1_1_Workspace defines model for SharePayloadV1.1.Workspace.
-type SharePayloadV1_1_Workspace struct {
-	union json.RawMessage
-}
 
 // SharedQueryV1 defines model for SharedQueryV1.
 type SharedQueryV1 struct {
@@ -8636,7 +4539,7 @@ type SharedQueryV10 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                     `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                     `json:"mergeSeries,omitempty"`
-	PositionKeys []string                  `json:"positionKeys"`
+	PositionKeys []interface{}             `json:"positionKeys"`
 	Scope        interface{}               `json:"scope"`
 	SubjectType  SharedQueryV10SubjectType `json:"subjectType"`
 	Uid          string                    `json:"uid"`
@@ -8674,7 +4577,7 @@ type SharedQueryV11 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                     `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                     `json:"mergeSeries,omitempty"`
-	PositionKeys []string                  `json:"positionKeys"`
+	PositionKeys []interface{}             `json:"positionKeys"`
 	Scope        interface{}               `json:"scope"`
 	SubjectType  SharedQueryV11SubjectType `json:"subjectType"`
 }
@@ -8767,7 +4670,7 @@ type EffectiveQueryV1Schema0 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                               `json:"includeNSFW"`
 	MergeSeries  bool                               `json:"mergeSeries"`
-	PositionKeys []string                           `json:"positionKeys"`
+	PositionKeys []interface{}                      `json:"positionKeys"`
 	Scope        interface{}                        `json:"scope"`
 	SubjectType  EffectiveQueryV1Schema0SubjectType `json:"subjectType"`
 	Uid          string                             `json:"uid"`
@@ -8805,7 +4708,7 @@ type EffectiveQueryV1Schema1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                               `json:"includeNSFW"`
 	MergeSeries  bool                               `json:"mergeSeries"`
-	PositionKeys []string                           `json:"positionKeys"`
+	PositionKeys []interface{}                      `json:"positionKeys"`
 	Scope        interface{}                        `json:"scope"`
 	SubjectType  EffectiveQueryV1Schema1SubjectType `json:"subjectType"`
 }
@@ -8877,7 +4780,7 @@ type QueryDigestProjectionV1Schema0 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                                      `json:"includeNSFW"`
 	MergeSeries  bool                                      `json:"mergeSeries"`
-	PositionKeys []string                                  `json:"positionKeys"`
+	PositionKeys []interface{}                             `json:"positionKeys"`
 	Scope        interface{}                               `json:"scope"`
 	SubjectType  QueryDigestProjectionV1Schema0SubjectType `json:"subjectType"`
 }
@@ -8914,388 +4817,13 @@ type QueryDigestProjectionV1Schema1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  bool                                      `json:"includeNSFW"`
 	MergeSeries  bool                                      `json:"mergeSeries"`
-	PositionKeys []string                                  `json:"positionKeys"`
+	PositionKeys []interface{}                             `json:"positionKeys"`
 	Scope        interface{}                               `json:"scope"`
 	SubjectType  QueryDigestProjectionV1Schema1SubjectType `json:"subjectType"`
 }
 
 // QueryDigestProjectionV1Schema1SubjectType defines model for QueryDigestProjectionV1Schema.1.SubjectType.
 type QueryDigestProjectionV1Schema1SubjectType string
-
-// SharePayloadV1Schema defines model for share-payload-v1.schema.
-type SharePayloadV1Schema struct {
-	union json.RawMessage
-}
-
-// SharePayloadV1Schema0 defines model for SharePayloadV1Schema.0.
-type SharePayloadV1Schema0 struct {
-	Query     SharePayloadV1Schema_0_Query `json:"query"`
-	Workspace struct {
-		Detail *struct {
-			Input struct {
-				PersonId int `json:"personId"`
-			} `json:"input"`
-			View struct {
-				Order    *SharePayloadV1Schema0WorkspaceDetailViewOrder    `json:"order,omitempty"`
-				Page     *int                                              `json:"page,omitempty"`
-				PageSize *SharePayloadV1Schema0WorkspaceDetailViewPageSize `json:"pageSize,omitempty"`
-				Search   *string                                           `json:"search,omitempty"`
-				Section  *SharePayloadV1Schema0WorkspaceDetailViewSection  `json:"section,omitempty"`
-				Sort     *SharePayloadV1Schema0WorkspaceDetailViewSort     `json:"sort,omitempty"`
-			} `json:"view"`
-		} `json:"detail,omitempty"`
-		Kind         interface{} `json:"kind"`
-		RankingsView struct {
-			Order    *SharePayloadV1Schema0WorkspaceRankingsViewOrder    `json:"order,omitempty"`
-			Page     *int                                                `json:"page,omitempty"`
-			PageSize *SharePayloadV1Schema0WorkspaceRankingsViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                             `json:"search,omitempty"`
-			Sort     *SharePayloadV1Schema0WorkspaceRankingsViewSort     `json:"sort,omitempty"`
-		} `json:"rankingsView"`
-	} `json:"workspace"`
-}
-
-// SharePayloadV1Schema0Query0 defines model for SharePayloadV1Schema.0.Query.0.
-type SharePayloadV1Schema0Query0 struct {
-	CollectionStatuses []SharePayloadV1Schema0Query0CollectionStatuses `json:"collectionStatuses"`
-	Filters            *struct {
-		CollectionUpdatedAt *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"collectionUpdatedAt,omitempty"`
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		PersonalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"personalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		ScoreDifference *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"scoreDifference,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                   `json:"includeNSFW"`
-	MergeSeries  bool                                   `json:"mergeSeries"`
-	PositionKeys []string                               `json:"positionKeys"`
-	Scope        interface{}                            `json:"scope"`
-	SubjectType  SharePayloadV1Schema0Query0SubjectType `json:"subjectType"`
-	Uid          string                                 `json:"uid"`
-}
-
-// SharePayloadV1Schema0Query0CollectionStatuses defines model for SharePayloadV1Schema.0.Query.0.CollectionStatuses.
-type SharePayloadV1Schema0Query0CollectionStatuses string
-
-// SharePayloadV1Schema0Query0SubjectType defines model for SharePayloadV1Schema.0.Query.0.SubjectType.
-type SharePayloadV1Schema0Query0SubjectType string
-
-// SharePayloadV1Schema0Query1 defines model for SharePayloadV1Schema.0.Query.1.
-type SharePayloadV1Schema0Query1 struct {
-	Filters *struct {
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                   `json:"includeNSFW"`
-	MergeSeries  bool                                   `json:"mergeSeries"`
-	PositionKeys []string                               `json:"positionKeys"`
-	Scope        interface{}                            `json:"scope"`
-	SubjectType  SharePayloadV1Schema0Query1SubjectType `json:"subjectType"`
-}
-
-// SharePayloadV1Schema0Query1SubjectType defines model for SharePayloadV1Schema.0.Query.1.SubjectType.
-type SharePayloadV1Schema0Query1SubjectType string
-
-// SharePayloadV1Schema_0_Query defines model for SharePayloadV1Schema.0.Query.
-type SharePayloadV1Schema_0_Query struct {
-	union json.RawMessage
-}
-
-// SharePayloadV1Schema0WorkspaceDetailViewOrder defines model for SharePayloadV1Schema.0.Workspace.Detail.View.Order.
-type SharePayloadV1Schema0WorkspaceDetailViewOrder string
-
-// SharePayloadV1Schema0WorkspaceDetailViewPageSize defines model for SharePayloadV1Schema.0.Workspace.Detail.View.PageSize.
-type SharePayloadV1Schema0WorkspaceDetailViewPageSize int
-
-// SharePayloadV1Schema0WorkspaceDetailViewSection defines model for SharePayloadV1Schema.0.Workspace.Detail.View.Section.
-type SharePayloadV1Schema0WorkspaceDetailViewSection string
-
-// SharePayloadV1Schema0WorkspaceDetailViewSort defines model for SharePayloadV1Schema.0.Workspace.Detail.View.Sort.
-type SharePayloadV1Schema0WorkspaceDetailViewSort string
-
-// SharePayloadV1Schema0WorkspaceRankingsViewOrder defines model for SharePayloadV1Schema.0.Workspace.RankingsView.Order.
-type SharePayloadV1Schema0WorkspaceRankingsViewOrder string
-
-// SharePayloadV1Schema0WorkspaceRankingsViewPageSize defines model for SharePayloadV1Schema.0.Workspace.RankingsView.PageSize.
-type SharePayloadV1Schema0WorkspaceRankingsViewPageSize int
-
-// SharePayloadV1Schema0WorkspaceRankingsViewSort defines model for SharePayloadV1Schema.0.Workspace.RankingsView.Sort.
-type SharePayloadV1Schema0WorkspaceRankingsViewSort string
-
-// SharePayloadV1Schema1 defines model for SharePayloadV1Schema.1.
-type SharePayloadV1Schema1 struct {
-	Query     SharePayloadV1Schema_1_Query     `json:"query"`
-	Workspace SharePayloadV1Schema_1_Workspace `json:"workspace"`
-}
-
-// SharePayloadV1Schema1Query0 defines model for SharePayloadV1Schema.1.Query.0.
-type SharePayloadV1Schema1Query0 struct {
-	CollectionStatuses []SharePayloadV1Schema1Query0CollectionStatuses `json:"collectionStatuses"`
-	Filters            *struct {
-		CollectionUpdatedAt *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"collectionUpdatedAt,omitempty"`
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		PersonalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"personalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		ScoreDifference *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"scoreDifference,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                   `json:"includeNSFW"`
-	MergeSeries  bool                                   `json:"mergeSeries"`
-	PositionKeys []string                               `json:"positionKeys"`
-	Scope        interface{}                            `json:"scope"`
-	SubjectType  SharePayloadV1Schema1Query0SubjectType `json:"subjectType"`
-	Uid          string                                 `json:"uid"`
-}
-
-// SharePayloadV1Schema1Query0CollectionStatuses defines model for SharePayloadV1Schema.1.Query.0.CollectionStatuses.
-type SharePayloadV1Schema1Query0CollectionStatuses string
-
-// SharePayloadV1Schema1Query0SubjectType defines model for SharePayloadV1Schema.1.Query.0.SubjectType.
-type SharePayloadV1Schema1Query0SubjectType string
-
-// SharePayloadV1Schema1Query1 defines model for SharePayloadV1Schema.1.Query.1.
-type SharePayloadV1Schema1Query1 struct {
-	Filters *struct {
-		GlobalScore *struct {
-			Max *float32 `json:"max,omitempty"`
-			Min *float32 `json:"min,omitempty"`
-		} `json:"globalScore,omitempty"`
-		RatingCount *struct {
-			Max *int `json:"max,omitempty"`
-			Min *int `json:"min,omitempty"`
-		} `json:"ratingCount,omitempty"`
-		SubjectDate *struct {
-			Max *string `json:"max,omitempty"`
-			Min *string `json:"min,omitempty"`
-		} `json:"subjectDate,omitempty"`
-		Tags *struct {
-			Exclude *[]struct {
-				AllOf []string `json:"allOf"`
-			} `json:"exclude,omitempty"`
-			Include *[]struct {
-				AnyOf []string `json:"anyOf"`
-			} `json:"include,omitempty"`
-		} `json:"tags,omitempty"`
-	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                   `json:"includeNSFW"`
-	MergeSeries  bool                                   `json:"mergeSeries"`
-	PositionKeys []string                               `json:"positionKeys"`
-	Scope        interface{}                            `json:"scope"`
-	SubjectType  SharePayloadV1Schema1Query1SubjectType `json:"subjectType"`
-}
-
-// SharePayloadV1Schema1Query1SubjectType defines model for SharePayloadV1Schema.1.Query.1.SubjectType.
-type SharePayloadV1Schema1Query1SubjectType string
-
-// SharePayloadV1Schema_1_Query defines model for SharePayloadV1Schema.1.Query.
-type SharePayloadV1Schema_1_Query struct {
-	union json.RawMessage
-}
-
-// SharePayloadV1Schema1Workspace0 defines model for SharePayloadV1Schema.1.Workspace.0.
-type SharePayloadV1Schema1Workspace0 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV1Schema1Workspace0CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                                   `json:"page,omitempty"`
-			PageSize *SharePayloadV1Schema1Workspace0CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                                `json:"search,omitempty"`
-			Sort     *SharePayloadV1Schema1Workspace0CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// SharePayloadV1Schema1Workspace0CandidatesViewOrder defines model for SharePayloadV1Schema.1.Workspace.0.Candidates.View.Order.
-type SharePayloadV1Schema1Workspace0CandidatesViewOrder string
-
-// SharePayloadV1Schema1Workspace0CandidatesViewPageSize defines model for SharePayloadV1Schema.1.Workspace.0.Candidates.View.PageSize.
-type SharePayloadV1Schema1Workspace0CandidatesViewPageSize int
-
-// SharePayloadV1Schema1Workspace0CandidatesViewSort defines model for SharePayloadV1Schema.1.Workspace.0.Candidates.View.Sort.
-type SharePayloadV1Schema1Workspace0CandidatesViewSort string
-
-// SharePayloadV1Schema1Workspace1 defines model for SharePayloadV1Schema.1.Workspace.1.
-type SharePayloadV1Schema1Workspace1 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV1Schema1Workspace1CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                                   `json:"page,omitempty"`
-			PageSize *SharePayloadV1Schema1Workspace1CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                                `json:"search,omitempty"`
-			Sort     *SharePayloadV1Schema1Workspace1CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	Kind     interface{} `json:"kind"`
-	Partners struct {
-		Input struct {
-			CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-			Source               struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"source"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV1Schema1Workspace1PartnersViewOrder    `json:"order,omitempty"`
-			Page     *int                                                 `json:"page,omitempty"`
-			PageSize *SharePayloadV1Schema1Workspace1PartnersViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                              `json:"search,omitempty"`
-			Sort     *SharePayloadV1Schema1Workspace1PartnersViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"partners"`
-	State interface{} `json:"state"`
-}
-
-// SharePayloadV1Schema1Workspace1CandidatesViewOrder defines model for SharePayloadV1Schema.1.Workspace.1.Candidates.View.Order.
-type SharePayloadV1Schema1Workspace1CandidatesViewOrder string
-
-// SharePayloadV1Schema1Workspace1CandidatesViewPageSize defines model for SharePayloadV1Schema.1.Workspace.1.Candidates.View.PageSize.
-type SharePayloadV1Schema1Workspace1CandidatesViewPageSize int
-
-// SharePayloadV1Schema1Workspace1CandidatesViewSort defines model for SharePayloadV1Schema.1.Workspace.1.Candidates.View.Sort.
-type SharePayloadV1Schema1Workspace1CandidatesViewSort string
-
-// SharePayloadV1Schema1Workspace1PartnersViewOrder defines model for SharePayloadV1Schema.1.Workspace.1.Partners.View.Order.
-type SharePayloadV1Schema1Workspace1PartnersViewOrder string
-
-// SharePayloadV1Schema1Workspace1PartnersViewPageSize defines model for SharePayloadV1Schema.1.Workspace.1.Partners.View.PageSize.
-type SharePayloadV1Schema1Workspace1PartnersViewPageSize int
-
-// SharePayloadV1Schema1Workspace1PartnersViewSort defines model for SharePayloadV1Schema.1.Workspace.1.Partners.View.Sort.
-type SharePayloadV1Schema1Workspace1PartnersViewSort string
-
-// SharePayloadV1Schema1Workspace2 defines model for SharePayloadV1Schema.1.Workspace.2.
-type SharePayloadV1Schema1Workspace2 struct {
-	Candidates struct {
-		Input struct {
-			PositionKey string `json:"positionKey"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV1Schema1Workspace2CandidatesViewOrder    `json:"order,omitempty"`
-			Page     *int                                                   `json:"page,omitempty"`
-			PageSize *SharePayloadV1Schema1Workspace2CandidatesViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                                `json:"search,omitempty"`
-			Sort     *SharePayloadV1Schema1Workspace2CandidatesViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"candidates"`
-	CoStar struct {
-		Input struct {
-			Participants []struct {
-				PersonId     int      `json:"personId"`
-				PositionKeys []string `json:"positionKeys"`
-			} `json:"participants"`
-		} `json:"input"`
-		View struct {
-			Order    *SharePayloadV1Schema1Workspace2CoStarViewOrder    `json:"order,omitempty"`
-			Page     *int                                               `json:"page,omitempty"`
-			PageSize *SharePayloadV1Schema1Workspace2CoStarViewPageSize `json:"pageSize,omitempty"`
-			Search   *string                                            `json:"search,omitempty"`
-			Sort     *SharePayloadV1Schema1Workspace2CoStarViewSort     `json:"sort,omitempty"`
-		} `json:"view"`
-	} `json:"coStar"`
-	Kind  interface{} `json:"kind"`
-	State interface{} `json:"state"`
-}
-
-// SharePayloadV1Schema1Workspace2CandidatesViewOrder defines model for SharePayloadV1Schema.1.Workspace.2.Candidates.View.Order.
-type SharePayloadV1Schema1Workspace2CandidatesViewOrder string
-
-// SharePayloadV1Schema1Workspace2CandidatesViewPageSize defines model for SharePayloadV1Schema.1.Workspace.2.Candidates.View.PageSize.
-type SharePayloadV1Schema1Workspace2CandidatesViewPageSize int
-
-// SharePayloadV1Schema1Workspace2CandidatesViewSort defines model for SharePayloadV1Schema.1.Workspace.2.Candidates.View.Sort.
-type SharePayloadV1Schema1Workspace2CandidatesViewSort string
-
-// SharePayloadV1Schema1Workspace2CoStarViewOrder defines model for SharePayloadV1Schema.1.Workspace.2.CoStar.View.Order.
-type SharePayloadV1Schema1Workspace2CoStarViewOrder string
-
-// SharePayloadV1Schema1Workspace2CoStarViewPageSize defines model for SharePayloadV1Schema.1.Workspace.2.CoStar.View.PageSize.
-type SharePayloadV1Schema1Workspace2CoStarViewPageSize int
-
-// SharePayloadV1Schema1Workspace2CoStarViewSort defines model for SharePayloadV1Schema.1.Workspace.2.CoStar.View.Sort.
-type SharePayloadV1Schema1Workspace2CoStarViewSort string
-
-// SharePayloadV1Schema_1_Workspace defines model for SharePayloadV1Schema.1.Workspace.
-type SharePayloadV1Schema_1_Workspace struct {
-	union json.RawMessage
-}
 
 // SharedQueryV1Schema defines model for shared-query-v1.schema.
 type SharedQueryV1Schema struct {
@@ -9341,7 +4869,7 @@ type SharedQueryV1Schema0 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                           `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                           `json:"mergeSeries,omitempty"`
-	PositionKeys []string                        `json:"positionKeys"`
+	PositionKeys []interface{}                   `json:"positionKeys"`
 	Scope        interface{}                     `json:"scope"`
 	SubjectType  SharedQueryV1Schema0SubjectType `json:"subjectType"`
 	Uid          string                          `json:"uid"`
@@ -9379,7 +4907,7 @@ type SharedQueryV1Schema1 struct {
 	} `json:"filters,omitempty"`
 	IncludeNSFW  *bool                           `json:"includeNSFW,omitempty"`
 	MergeSeries  *bool                           `json:"mergeSeries,omitempty"`
-	PositionKeys []string                        `json:"positionKeys"`
+	PositionKeys []interface{}                   `json:"positionKeys"`
 	Scope        interface{}                     `json:"scope"`
 	SubjectType  SharedQueryV1Schema1SubjectType `json:"subjectType"`
 }
@@ -9567,332 +5095,6 @@ type UnsupportedMediaTypeErrorV1ErrorCode string
 // UnsupportedMediaTypeErrorV1ErrorFieldErrors defines model for UnsupportedMediaTypeErrorV1.Error.FieldErrors.
 type UnsupportedMediaTypeErrorV1ErrorFieldErrors string
 
-// AsCoStarSharePayloadV1Query0 returns the union data inside the CoStarSharePayloadV1_Query as a CoStarSharePayloadV1Query0
-func (t CoStarSharePayloadV1_Query) AsCoStarSharePayloadV1Query0() (CoStarSharePayloadV1Query0, error) {
-	var body CoStarSharePayloadV1Query0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarSharePayloadV1Query0 overwrites any union data inside the CoStarSharePayloadV1_Query as the provided CoStarSharePayloadV1Query0
-func (t *CoStarSharePayloadV1_Query) FromCoStarSharePayloadV1Query0(v CoStarSharePayloadV1Query0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarSharePayloadV1Query0 performs a merge with any union data inside the CoStarSharePayloadV1_Query, using the provided CoStarSharePayloadV1Query0
-func (t *CoStarSharePayloadV1_Query) MergeCoStarSharePayloadV1Query0(v CoStarSharePayloadV1Query0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCoStarSharePayloadV1Query1 returns the union data inside the CoStarSharePayloadV1_Query as a CoStarSharePayloadV1Query1
-func (t CoStarSharePayloadV1_Query) AsCoStarSharePayloadV1Query1() (CoStarSharePayloadV1Query1, error) {
-	var body CoStarSharePayloadV1Query1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarSharePayloadV1Query1 overwrites any union data inside the CoStarSharePayloadV1_Query as the provided CoStarSharePayloadV1Query1
-func (t *CoStarSharePayloadV1_Query) FromCoStarSharePayloadV1Query1(v CoStarSharePayloadV1Query1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarSharePayloadV1Query1 performs a merge with any union data inside the CoStarSharePayloadV1_Query, using the provided CoStarSharePayloadV1Query1
-func (t *CoStarSharePayloadV1_Query) MergeCoStarSharePayloadV1Query1(v CoStarSharePayloadV1Query1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t CoStarSharePayloadV1_Query) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *CoStarSharePayloadV1_Query) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsCoStarSharePayloadV1Workspace0 returns the union data inside the CoStarSharePayloadV1_Workspace as a CoStarSharePayloadV1Workspace0
-func (t CoStarSharePayloadV1_Workspace) AsCoStarSharePayloadV1Workspace0() (CoStarSharePayloadV1Workspace0, error) {
-	var body CoStarSharePayloadV1Workspace0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarSharePayloadV1Workspace0 overwrites any union data inside the CoStarSharePayloadV1_Workspace as the provided CoStarSharePayloadV1Workspace0
-func (t *CoStarSharePayloadV1_Workspace) FromCoStarSharePayloadV1Workspace0(v CoStarSharePayloadV1Workspace0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarSharePayloadV1Workspace0 performs a merge with any union data inside the CoStarSharePayloadV1_Workspace, using the provided CoStarSharePayloadV1Workspace0
-func (t *CoStarSharePayloadV1_Workspace) MergeCoStarSharePayloadV1Workspace0(v CoStarSharePayloadV1Workspace0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCoStarSharePayloadV1Workspace1 returns the union data inside the CoStarSharePayloadV1_Workspace as a CoStarSharePayloadV1Workspace1
-func (t CoStarSharePayloadV1_Workspace) AsCoStarSharePayloadV1Workspace1() (CoStarSharePayloadV1Workspace1, error) {
-	var body CoStarSharePayloadV1Workspace1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarSharePayloadV1Workspace1 overwrites any union data inside the CoStarSharePayloadV1_Workspace as the provided CoStarSharePayloadV1Workspace1
-func (t *CoStarSharePayloadV1_Workspace) FromCoStarSharePayloadV1Workspace1(v CoStarSharePayloadV1Workspace1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarSharePayloadV1Workspace1 performs a merge with any union data inside the CoStarSharePayloadV1_Workspace, using the provided CoStarSharePayloadV1Workspace1
-func (t *CoStarSharePayloadV1_Workspace) MergeCoStarSharePayloadV1Workspace1(v CoStarSharePayloadV1Workspace1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCoStarSharePayloadV1Workspace2 returns the union data inside the CoStarSharePayloadV1_Workspace as a CoStarSharePayloadV1Workspace2
-func (t CoStarSharePayloadV1_Workspace) AsCoStarSharePayloadV1Workspace2() (CoStarSharePayloadV1Workspace2, error) {
-	var body CoStarSharePayloadV1Workspace2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarSharePayloadV1Workspace2 overwrites any union data inside the CoStarSharePayloadV1_Workspace as the provided CoStarSharePayloadV1Workspace2
-func (t *CoStarSharePayloadV1_Workspace) FromCoStarSharePayloadV1Workspace2(v CoStarSharePayloadV1Workspace2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarSharePayloadV1Workspace2 performs a merge with any union data inside the CoStarSharePayloadV1_Workspace, using the provided CoStarSharePayloadV1Workspace2
-func (t *CoStarSharePayloadV1_Workspace) MergeCoStarSharePayloadV1Workspace2(v CoStarSharePayloadV1Workspace2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t CoStarSharePayloadV1_Workspace) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *CoStarSharePayloadV1_Workspace) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsCoStarShareWorkspaceV10 returns the union data inside the CoStarShareWorkspaceV1 as a CoStarShareWorkspaceV10
-func (t CoStarShareWorkspaceV1) AsCoStarShareWorkspaceV10() (CoStarShareWorkspaceV10, error) {
-	var body CoStarShareWorkspaceV10
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarShareWorkspaceV10 overwrites any union data inside the CoStarShareWorkspaceV1 as the provided CoStarShareWorkspaceV10
-func (t *CoStarShareWorkspaceV1) FromCoStarShareWorkspaceV10(v CoStarShareWorkspaceV10) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarShareWorkspaceV10 performs a merge with any union data inside the CoStarShareWorkspaceV1, using the provided CoStarShareWorkspaceV10
-func (t *CoStarShareWorkspaceV1) MergeCoStarShareWorkspaceV10(v CoStarShareWorkspaceV10) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCoStarShareWorkspaceV11 returns the union data inside the CoStarShareWorkspaceV1 as a CoStarShareWorkspaceV11
-func (t CoStarShareWorkspaceV1) AsCoStarShareWorkspaceV11() (CoStarShareWorkspaceV11, error) {
-	var body CoStarShareWorkspaceV11
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarShareWorkspaceV11 overwrites any union data inside the CoStarShareWorkspaceV1 as the provided CoStarShareWorkspaceV11
-func (t *CoStarShareWorkspaceV1) FromCoStarShareWorkspaceV11(v CoStarShareWorkspaceV11) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarShareWorkspaceV11 performs a merge with any union data inside the CoStarShareWorkspaceV1, using the provided CoStarShareWorkspaceV11
-func (t *CoStarShareWorkspaceV1) MergeCoStarShareWorkspaceV11(v CoStarShareWorkspaceV11) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCoStarShareWorkspaceV12 returns the union data inside the CoStarShareWorkspaceV1 as a CoStarShareWorkspaceV12
-func (t CoStarShareWorkspaceV1) AsCoStarShareWorkspaceV12() (CoStarShareWorkspaceV12, error) {
-	var body CoStarShareWorkspaceV12
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarShareWorkspaceV12 overwrites any union data inside the CoStarShareWorkspaceV1 as the provided CoStarShareWorkspaceV12
-func (t *CoStarShareWorkspaceV1) FromCoStarShareWorkspaceV12(v CoStarShareWorkspaceV12) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarShareWorkspaceV12 performs a merge with any union data inside the CoStarShareWorkspaceV1, using the provided CoStarShareWorkspaceV12
-func (t *CoStarShareWorkspaceV1) MergeCoStarShareWorkspaceV12(v CoStarShareWorkspaceV12) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t CoStarShareWorkspaceV1) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *CoStarShareWorkspaceV1) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsCoStarWorkspaceV10 returns the union data inside the CoStarWorkspaceV1 as a CoStarWorkspaceV10
-func (t CoStarWorkspaceV1) AsCoStarWorkspaceV10() (CoStarWorkspaceV10, error) {
-	var body CoStarWorkspaceV10
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarWorkspaceV10 overwrites any union data inside the CoStarWorkspaceV1 as the provided CoStarWorkspaceV10
-func (t *CoStarWorkspaceV1) FromCoStarWorkspaceV10(v CoStarWorkspaceV10) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarWorkspaceV10 performs a merge with any union data inside the CoStarWorkspaceV1, using the provided CoStarWorkspaceV10
-func (t *CoStarWorkspaceV1) MergeCoStarWorkspaceV10(v CoStarWorkspaceV10) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCoStarWorkspaceV11 returns the union data inside the CoStarWorkspaceV1 as a CoStarWorkspaceV11
-func (t CoStarWorkspaceV1) AsCoStarWorkspaceV11() (CoStarWorkspaceV11, error) {
-	var body CoStarWorkspaceV11
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarWorkspaceV11 overwrites any union data inside the CoStarWorkspaceV1 as the provided CoStarWorkspaceV11
-func (t *CoStarWorkspaceV1) FromCoStarWorkspaceV11(v CoStarWorkspaceV11) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarWorkspaceV11 performs a merge with any union data inside the CoStarWorkspaceV1, using the provided CoStarWorkspaceV11
-func (t *CoStarWorkspaceV1) MergeCoStarWorkspaceV11(v CoStarWorkspaceV11) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCoStarWorkspaceV12 returns the union data inside the CoStarWorkspaceV1 as a CoStarWorkspaceV12
-func (t CoStarWorkspaceV1) AsCoStarWorkspaceV12() (CoStarWorkspaceV12, error) {
-	var body CoStarWorkspaceV12
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCoStarWorkspaceV12 overwrites any union data inside the CoStarWorkspaceV1 as the provided CoStarWorkspaceV12
-func (t *CoStarWorkspaceV1) FromCoStarWorkspaceV12(v CoStarWorkspaceV12) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCoStarWorkspaceV12 performs a merge with any union data inside the CoStarWorkspaceV1, using the provided CoStarWorkspaceV12
-func (t *CoStarWorkspaceV1) MergeCoStarWorkspaceV12(v CoStarWorkspaceV12) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t CoStarWorkspaceV1) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *CoStarWorkspaceV1) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
 // AsEffectiveQueryV10 returns the union data inside the EffectiveQueryV1 as a EffectiveQueryV10
 func (t EffectiveQueryV1) AsEffectiveQueryV10() (EffectiveQueryV10, error) {
 	var body EffectiveQueryV10
@@ -10013,342 +5215,6 @@ func (t QueryDigestProjectionV1) MarshalJSON() ([]byte, error) {
 }
 
 func (t *QueryDigestProjectionV1) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsRankingSharePayloadV1Query0 returns the union data inside the RankingSharePayloadV1_Query as a RankingSharePayloadV1Query0
-func (t RankingSharePayloadV1_Query) AsRankingSharePayloadV1Query0() (RankingSharePayloadV1Query0, error) {
-	var body RankingSharePayloadV1Query0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRankingSharePayloadV1Query0 overwrites any union data inside the RankingSharePayloadV1_Query as the provided RankingSharePayloadV1Query0
-func (t *RankingSharePayloadV1_Query) FromRankingSharePayloadV1Query0(v RankingSharePayloadV1Query0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRankingSharePayloadV1Query0 performs a merge with any union data inside the RankingSharePayloadV1_Query, using the provided RankingSharePayloadV1Query0
-func (t *RankingSharePayloadV1_Query) MergeRankingSharePayloadV1Query0(v RankingSharePayloadV1Query0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsRankingSharePayloadV1Query1 returns the union data inside the RankingSharePayloadV1_Query as a RankingSharePayloadV1Query1
-func (t RankingSharePayloadV1_Query) AsRankingSharePayloadV1Query1() (RankingSharePayloadV1Query1, error) {
-	var body RankingSharePayloadV1Query1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRankingSharePayloadV1Query1 overwrites any union data inside the RankingSharePayloadV1_Query as the provided RankingSharePayloadV1Query1
-func (t *RankingSharePayloadV1_Query) FromRankingSharePayloadV1Query1(v RankingSharePayloadV1Query1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRankingSharePayloadV1Query1 performs a merge with any union data inside the RankingSharePayloadV1_Query, using the provided RankingSharePayloadV1Query1
-func (t *RankingSharePayloadV1_Query) MergeRankingSharePayloadV1Query1(v RankingSharePayloadV1Query1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t RankingSharePayloadV1_Query) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *RankingSharePayloadV1_Query) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV10 returns the union data inside the SharePayloadV1 as a SharePayloadV10
-func (t SharePayloadV1) AsSharePayloadV10() (SharePayloadV10, error) {
-	var body SharePayloadV10
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV10 overwrites any union data inside the SharePayloadV1 as the provided SharePayloadV10
-func (t *SharePayloadV1) FromSharePayloadV10(v SharePayloadV10) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV10 performs a merge with any union data inside the SharePayloadV1, using the provided SharePayloadV10
-func (t *SharePayloadV1) MergeSharePayloadV10(v SharePayloadV10) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV11 returns the union data inside the SharePayloadV1 as a SharePayloadV11
-func (t SharePayloadV1) AsSharePayloadV11() (SharePayloadV11, error) {
-	var body SharePayloadV11
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV11 overwrites any union data inside the SharePayloadV1 as the provided SharePayloadV11
-func (t *SharePayloadV1) FromSharePayloadV11(v SharePayloadV11) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV11 performs a merge with any union data inside the SharePayloadV1, using the provided SharePayloadV11
-func (t *SharePayloadV1) MergeSharePayloadV11(v SharePayloadV11) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV10Query0 returns the union data inside the SharePayloadV1_0_Query as a SharePayloadV10Query0
-func (t SharePayloadV1_0_Query) AsSharePayloadV10Query0() (SharePayloadV10Query0, error) {
-	var body SharePayloadV10Query0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV10Query0 overwrites any union data inside the SharePayloadV1_0_Query as the provided SharePayloadV10Query0
-func (t *SharePayloadV1_0_Query) FromSharePayloadV10Query0(v SharePayloadV10Query0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV10Query0 performs a merge with any union data inside the SharePayloadV1_0_Query, using the provided SharePayloadV10Query0
-func (t *SharePayloadV1_0_Query) MergeSharePayloadV10Query0(v SharePayloadV10Query0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV10Query1 returns the union data inside the SharePayloadV1_0_Query as a SharePayloadV10Query1
-func (t SharePayloadV1_0_Query) AsSharePayloadV10Query1() (SharePayloadV10Query1, error) {
-	var body SharePayloadV10Query1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV10Query1 overwrites any union data inside the SharePayloadV1_0_Query as the provided SharePayloadV10Query1
-func (t *SharePayloadV1_0_Query) FromSharePayloadV10Query1(v SharePayloadV10Query1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV10Query1 performs a merge with any union data inside the SharePayloadV1_0_Query, using the provided SharePayloadV10Query1
-func (t *SharePayloadV1_0_Query) MergeSharePayloadV10Query1(v SharePayloadV10Query1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1_0_Query) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1_0_Query) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV11Query0 returns the union data inside the SharePayloadV1_1_Query as a SharePayloadV11Query0
-func (t SharePayloadV1_1_Query) AsSharePayloadV11Query0() (SharePayloadV11Query0, error) {
-	var body SharePayloadV11Query0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV11Query0 overwrites any union data inside the SharePayloadV1_1_Query as the provided SharePayloadV11Query0
-func (t *SharePayloadV1_1_Query) FromSharePayloadV11Query0(v SharePayloadV11Query0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV11Query0 performs a merge with any union data inside the SharePayloadV1_1_Query, using the provided SharePayloadV11Query0
-func (t *SharePayloadV1_1_Query) MergeSharePayloadV11Query0(v SharePayloadV11Query0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV11Query1 returns the union data inside the SharePayloadV1_1_Query as a SharePayloadV11Query1
-func (t SharePayloadV1_1_Query) AsSharePayloadV11Query1() (SharePayloadV11Query1, error) {
-	var body SharePayloadV11Query1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV11Query1 overwrites any union data inside the SharePayloadV1_1_Query as the provided SharePayloadV11Query1
-func (t *SharePayloadV1_1_Query) FromSharePayloadV11Query1(v SharePayloadV11Query1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV11Query1 performs a merge with any union data inside the SharePayloadV1_1_Query, using the provided SharePayloadV11Query1
-func (t *SharePayloadV1_1_Query) MergeSharePayloadV11Query1(v SharePayloadV11Query1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1_1_Query) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1_1_Query) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV11Workspace0 returns the union data inside the SharePayloadV1_1_Workspace as a SharePayloadV11Workspace0
-func (t SharePayloadV1_1_Workspace) AsSharePayloadV11Workspace0() (SharePayloadV11Workspace0, error) {
-	var body SharePayloadV11Workspace0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV11Workspace0 overwrites any union data inside the SharePayloadV1_1_Workspace as the provided SharePayloadV11Workspace0
-func (t *SharePayloadV1_1_Workspace) FromSharePayloadV11Workspace0(v SharePayloadV11Workspace0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV11Workspace0 performs a merge with any union data inside the SharePayloadV1_1_Workspace, using the provided SharePayloadV11Workspace0
-func (t *SharePayloadV1_1_Workspace) MergeSharePayloadV11Workspace0(v SharePayloadV11Workspace0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV11Workspace1 returns the union data inside the SharePayloadV1_1_Workspace as a SharePayloadV11Workspace1
-func (t SharePayloadV1_1_Workspace) AsSharePayloadV11Workspace1() (SharePayloadV11Workspace1, error) {
-	var body SharePayloadV11Workspace1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV11Workspace1 overwrites any union data inside the SharePayloadV1_1_Workspace as the provided SharePayloadV11Workspace1
-func (t *SharePayloadV1_1_Workspace) FromSharePayloadV11Workspace1(v SharePayloadV11Workspace1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV11Workspace1 performs a merge with any union data inside the SharePayloadV1_1_Workspace, using the provided SharePayloadV11Workspace1
-func (t *SharePayloadV1_1_Workspace) MergeSharePayloadV11Workspace1(v SharePayloadV11Workspace1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV11Workspace2 returns the union data inside the SharePayloadV1_1_Workspace as a SharePayloadV11Workspace2
-func (t SharePayloadV1_1_Workspace) AsSharePayloadV11Workspace2() (SharePayloadV11Workspace2, error) {
-	var body SharePayloadV11Workspace2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV11Workspace2 overwrites any union data inside the SharePayloadV1_1_Workspace as the provided SharePayloadV11Workspace2
-func (t *SharePayloadV1_1_Workspace) FromSharePayloadV11Workspace2(v SharePayloadV11Workspace2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV11Workspace2 performs a merge with any union data inside the SharePayloadV1_1_Workspace, using the provided SharePayloadV11Workspace2
-func (t *SharePayloadV1_1_Workspace) MergeSharePayloadV11Workspace2(v SharePayloadV11Workspace2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1_1_Workspace) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1_1_Workspace) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -10535,280 +5401,6 @@ func (t QueryDigestProjectionV1Schema) MarshalJSON() ([]byte, error) {
 }
 
 func (t *QueryDigestProjectionV1Schema) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV1Schema0 returns the union data inside the SharePayloadV1Schema as a SharePayloadV1Schema0
-func (t SharePayloadV1Schema) AsSharePayloadV1Schema0() (SharePayloadV1Schema0, error) {
-	var body SharePayloadV1Schema0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema0 overwrites any union data inside the SharePayloadV1Schema as the provided SharePayloadV1Schema0
-func (t *SharePayloadV1Schema) FromSharePayloadV1Schema0(v SharePayloadV1Schema0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema0 performs a merge with any union data inside the SharePayloadV1Schema, using the provided SharePayloadV1Schema0
-func (t *SharePayloadV1Schema) MergeSharePayloadV1Schema0(v SharePayloadV1Schema0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV1Schema1 returns the union data inside the SharePayloadV1Schema as a SharePayloadV1Schema1
-func (t SharePayloadV1Schema) AsSharePayloadV1Schema1() (SharePayloadV1Schema1, error) {
-	var body SharePayloadV1Schema1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema1 overwrites any union data inside the SharePayloadV1Schema as the provided SharePayloadV1Schema1
-func (t *SharePayloadV1Schema) FromSharePayloadV1Schema1(v SharePayloadV1Schema1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema1 performs a merge with any union data inside the SharePayloadV1Schema, using the provided SharePayloadV1Schema1
-func (t *SharePayloadV1Schema) MergeSharePayloadV1Schema1(v SharePayloadV1Schema1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1Schema) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1Schema) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV1Schema0Query0 returns the union data inside the SharePayloadV1Schema_0_Query as a SharePayloadV1Schema0Query0
-func (t SharePayloadV1Schema_0_Query) AsSharePayloadV1Schema0Query0() (SharePayloadV1Schema0Query0, error) {
-	var body SharePayloadV1Schema0Query0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema0Query0 overwrites any union data inside the SharePayloadV1Schema_0_Query as the provided SharePayloadV1Schema0Query0
-func (t *SharePayloadV1Schema_0_Query) FromSharePayloadV1Schema0Query0(v SharePayloadV1Schema0Query0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema0Query0 performs a merge with any union data inside the SharePayloadV1Schema_0_Query, using the provided SharePayloadV1Schema0Query0
-func (t *SharePayloadV1Schema_0_Query) MergeSharePayloadV1Schema0Query0(v SharePayloadV1Schema0Query0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV1Schema0Query1 returns the union data inside the SharePayloadV1Schema_0_Query as a SharePayloadV1Schema0Query1
-func (t SharePayloadV1Schema_0_Query) AsSharePayloadV1Schema0Query1() (SharePayloadV1Schema0Query1, error) {
-	var body SharePayloadV1Schema0Query1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema0Query1 overwrites any union data inside the SharePayloadV1Schema_0_Query as the provided SharePayloadV1Schema0Query1
-func (t *SharePayloadV1Schema_0_Query) FromSharePayloadV1Schema0Query1(v SharePayloadV1Schema0Query1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema0Query1 performs a merge with any union data inside the SharePayloadV1Schema_0_Query, using the provided SharePayloadV1Schema0Query1
-func (t *SharePayloadV1Schema_0_Query) MergeSharePayloadV1Schema0Query1(v SharePayloadV1Schema0Query1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1Schema_0_Query) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1Schema_0_Query) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV1Schema1Query0 returns the union data inside the SharePayloadV1Schema_1_Query as a SharePayloadV1Schema1Query0
-func (t SharePayloadV1Schema_1_Query) AsSharePayloadV1Schema1Query0() (SharePayloadV1Schema1Query0, error) {
-	var body SharePayloadV1Schema1Query0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema1Query0 overwrites any union data inside the SharePayloadV1Schema_1_Query as the provided SharePayloadV1Schema1Query0
-func (t *SharePayloadV1Schema_1_Query) FromSharePayloadV1Schema1Query0(v SharePayloadV1Schema1Query0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema1Query0 performs a merge with any union data inside the SharePayloadV1Schema_1_Query, using the provided SharePayloadV1Schema1Query0
-func (t *SharePayloadV1Schema_1_Query) MergeSharePayloadV1Schema1Query0(v SharePayloadV1Schema1Query0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV1Schema1Query1 returns the union data inside the SharePayloadV1Schema_1_Query as a SharePayloadV1Schema1Query1
-func (t SharePayloadV1Schema_1_Query) AsSharePayloadV1Schema1Query1() (SharePayloadV1Schema1Query1, error) {
-	var body SharePayloadV1Schema1Query1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema1Query1 overwrites any union data inside the SharePayloadV1Schema_1_Query as the provided SharePayloadV1Schema1Query1
-func (t *SharePayloadV1Schema_1_Query) FromSharePayloadV1Schema1Query1(v SharePayloadV1Schema1Query1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema1Query1 performs a merge with any union data inside the SharePayloadV1Schema_1_Query, using the provided SharePayloadV1Schema1Query1
-func (t *SharePayloadV1Schema_1_Query) MergeSharePayloadV1Schema1Query1(v SharePayloadV1Schema1Query1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1Schema_1_Query) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1Schema_1_Query) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsSharePayloadV1Schema1Workspace0 returns the union data inside the SharePayloadV1Schema_1_Workspace as a SharePayloadV1Schema1Workspace0
-func (t SharePayloadV1Schema_1_Workspace) AsSharePayloadV1Schema1Workspace0() (SharePayloadV1Schema1Workspace0, error) {
-	var body SharePayloadV1Schema1Workspace0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema1Workspace0 overwrites any union data inside the SharePayloadV1Schema_1_Workspace as the provided SharePayloadV1Schema1Workspace0
-func (t *SharePayloadV1Schema_1_Workspace) FromSharePayloadV1Schema1Workspace0(v SharePayloadV1Schema1Workspace0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema1Workspace0 performs a merge with any union data inside the SharePayloadV1Schema_1_Workspace, using the provided SharePayloadV1Schema1Workspace0
-func (t *SharePayloadV1Schema_1_Workspace) MergeSharePayloadV1Schema1Workspace0(v SharePayloadV1Schema1Workspace0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV1Schema1Workspace1 returns the union data inside the SharePayloadV1Schema_1_Workspace as a SharePayloadV1Schema1Workspace1
-func (t SharePayloadV1Schema_1_Workspace) AsSharePayloadV1Schema1Workspace1() (SharePayloadV1Schema1Workspace1, error) {
-	var body SharePayloadV1Schema1Workspace1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema1Workspace1 overwrites any union data inside the SharePayloadV1Schema_1_Workspace as the provided SharePayloadV1Schema1Workspace1
-func (t *SharePayloadV1Schema_1_Workspace) FromSharePayloadV1Schema1Workspace1(v SharePayloadV1Schema1Workspace1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema1Workspace1 performs a merge with any union data inside the SharePayloadV1Schema_1_Workspace, using the provided SharePayloadV1Schema1Workspace1
-func (t *SharePayloadV1Schema_1_Workspace) MergeSharePayloadV1Schema1Workspace1(v SharePayloadV1Schema1Workspace1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSharePayloadV1Schema1Workspace2 returns the union data inside the SharePayloadV1Schema_1_Workspace as a SharePayloadV1Schema1Workspace2
-func (t SharePayloadV1Schema_1_Workspace) AsSharePayloadV1Schema1Workspace2() (SharePayloadV1Schema1Workspace2, error) {
-	var body SharePayloadV1Schema1Workspace2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSharePayloadV1Schema1Workspace2 overwrites any union data inside the SharePayloadV1Schema_1_Workspace as the provided SharePayloadV1Schema1Workspace2
-func (t *SharePayloadV1Schema_1_Workspace) FromSharePayloadV1Schema1Workspace2(v SharePayloadV1Schema1Workspace2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSharePayloadV1Schema1Workspace2 performs a merge with any union data inside the SharePayloadV1Schema_1_Workspace, using the provided SharePayloadV1Schema1Workspace2
-func (t *SharePayloadV1Schema_1_Workspace) MergeSharePayloadV1Schema1Workspace2(v SharePayloadV1Schema1Workspace2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t SharePayloadV1Schema_1_Workspace) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *SharePayloadV1Schema_1_Workspace) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

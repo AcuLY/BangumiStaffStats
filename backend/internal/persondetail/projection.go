@@ -89,6 +89,7 @@ type globalSeriesWorkEnvelope struct {
 	Key              string           `json:"key"`
 	SeriesID         int64            `json:"seriesId"`
 	Representative   SubjectReference `json:"representative"`
+	MetaTags         []string         `json:"metaTags"`
 	MatchedWorkCount int              `json:"matchedWorkCount"`
 	MemberCount      int              `json:"memberCount"`
 	Members          []SeriesMember   `json:"members"`
@@ -101,6 +102,7 @@ type personalSeriesWorkEnvelope struct {
 	Key                       string           `json:"key"`
 	SeriesID                  int64            `json:"seriesId"`
 	Representative            SubjectReference `json:"representative"`
+	MetaTags                  []string         `json:"metaTags"`
 	MatchedWorkCount          int              `json:"matchedWorkCount"`
 	MemberCount               int              `json:"memberCount"`
 	Members                   []SeriesMember   `json:"members"`
@@ -279,6 +281,7 @@ func projectWorkEnvelopes(values []WorkItem, scope string) ([]any, error) {
 					Key:              series.Key,
 					SeriesID:         series.SeriesID,
 					Representative:   cloneSubjectReference(series.Representative),
+					MetaTags:         cloneSlice(series.MetaTags),
 					MatchedWorkCount: series.MatchedWorkCount,
 					MemberCount:      series.MemberCount,
 					Members:          members,
@@ -291,6 +294,7 @@ func projectWorkEnvelopes(values []WorkItem, scope string) ([]any, error) {
 					Key:                       series.Key,
 					SeriesID:                  series.SeriesID,
 					Representative:            cloneSubjectReference(series.Representative),
+					MetaTags:                  cloneSlice(series.MetaTags),
 					MatchedWorkCount:          series.MatchedWorkCount,
 					MemberCount:               series.MemberCount,
 					Members:                   members,

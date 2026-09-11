@@ -31,7 +31,7 @@ function usage() {
     'usage: artifacts.mjs verify-component <root> [component] | ' +
       'verify-manifest <manifest.json> | ' +
       'verify-producer-runtime-inputs [repository-root] | ' +
-      'assemble --output <contracts/artifacts/.tmp/path.json> <backend> <updater> <frontend>',
+      'assemble --output <contracts/artifacts/.tmp/path.json> <backend> <frontend>',
   );
 }
 
@@ -110,7 +110,7 @@ function main(argv) {
     return;
   }
   if (command === 'assemble') {
-    if (rest[0] !== '--output' || rest.length !== 5) usage();
+    if (rest[0] !== '--output' || rest.length !== 4) usage();
     const output = rest[1];
     const roots = rest.slice(2);
     const assembled = assembleCompatibilityManifest(roots);

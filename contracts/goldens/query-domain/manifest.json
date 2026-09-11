@@ -4,9 +4,9 @@
   "algorithm": "bgmss-query-domain-golden-index-v1",
   "authorities": [
     {
-      "id": "archive-schema-v1",
+      "id": "archive-schema-v2",
       "path": "contracts/schemas/archive/schema.sql",
-      "sha256": "3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0"
+      "sha256": "04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255"
     },
     {
       "id": "catalog-complete-derivation",
@@ -80,7 +80,7 @@
     "path": "verify.mjs",
     "runtime": "node",
     "dependencies": [],
-    "sha256": "089df242add9aa697e6829d5751c5ec6454b0831e2ecc58517ba4a4099fc81a7"
+    "sha256": "dd8f9a2afa689c677801a038624897d3fdc2df18979bccbe3c637ed861537508"
   },
   "caseIds": [
     "actual-participation-442-not-candidate-449",

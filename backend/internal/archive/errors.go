@@ -2,22 +2,10 @@ package archive
 
 import "errors"
 
-// Code is a stable Archive validation outcome.
+// Code is a stable Archive direct-open outcome.
 type Code string
 
 const (
-	CodeValid                       Code = "VALID"
-	CodeManifestSchemaInvalid       Code = "MANIFEST_SCHEMA_INVALID"
-	CodePointerSchemaInvalid        Code = "POINTER_SCHEMA_INVALID"
-	CodeManifestAccountingInvalid   Code = "MANIFEST_ACCOUNTING_INVALID"
-	CodeArchiveVersionUnsupported   Code = "ARCHIVE_VERSION_UNSUPPORTED"
-	CodeDataVersionMismatch         Code = "DATA_VERSION_MISMATCH"
-	CodeSQLiteDataVersionMismatch   Code = "SQLITE_DATA_VERSION_MISMATCH"
-	CodeSQLiteFormatInvalid         Code = "SQLITE_FORMAT_INVALID"
-	CodeSQLiteDigestMismatch        Code = "SQLITE_DIGEST_MISMATCH"
-	CodeSQLiteRequiredObjectMissing Code = "SQLITE_REQUIRED_OBJECT_MISSING"
-	CodeSQLiteTableCountMismatch    Code = "SQLITE_TABLE_COUNT_MISMATCH"
-
 	CodeArchiveRootInvalid            Code = "ARCHIVE_ROOT_INVALID"
 	CodeArchiveFileInvalid            Code = "ARCHIVE_FILE_INVALID"
 	CodeArchiveImmutableLayoutInvalid Code = "ARCHIVE_IMMUTABLE_LAYOUT_INVALID"
@@ -36,7 +24,7 @@ func (e *Error) Error() string {
 	return string(e.code)
 }
 
-// Code returns the stable validation outcome.
+// Code returns the stable direct-open outcome.
 func (e *Error) Code() Code {
 	return e.code
 }

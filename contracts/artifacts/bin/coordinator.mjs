@@ -44,9 +44,6 @@ const DIRECT_CONTROL_PLANE_PATHS = Object.freeze([
   'contracts/artifacts/lib/validation.mjs',
   'frontend/build/artifact.mjs',
   'frontend/build/smoke.mjs',
-  'updater/build/artifact.py',
-  'updater/build/runtime_prune.py',
-  'updater/build/smoke.py',
 ]);
 const RECURSIVE_CONTROL_PLANE_ROOTS = Object.freeze([
   'contracts/goldens',
@@ -126,31 +123,23 @@ function writeImmutableManifest(canonical) {
   return { digest, manifestPath };
 }
 
-export function controlPlaneEnvironment(pycache) {
+export function controlPlaneEnvironment() {
   const environment = { ...process.env };
   for (const name of [
     'BASH_ENV',
     'ENV',
     'NODE_OPTIONS',
     'NODE_PATH',
-    'PYTHONHOME',
-    'PYTHONINSPECT',
-    'PYTHONPATH',
-    'PYTHONSTARTUP',
   ]) {
     delete environment[name];
   }
-  environment.PYTHONDONTWRITEBYTECODE = '1';
-  environment.PYTHONNOUSERSITE = '1';
-  environment.PYTHONPYCACHEPREFIX = pycache;
-  environment.PYTHONSAFEPATH = '1';
   return environment;
 }
 
-function run(command, arguments_, { cwd, timeout, pycache }) {
+function run(command, arguments_, { cwd, timeout }) {
   const result = spawnSync(command, arguments_, {
     cwd,
-    env: controlPlaneEnvironment(pycache),
+    env: controlPlaneEnvironment(),
     encoding: 'utf8',
     timeout,
     killSignal: 'SIGTERM',
@@ -167,7 +156,7 @@ function run(command, arguments_, { cwd, timeout, pycache }) {
 
 function sourceIdentityFromStatements(roots) {
   const sources = [];
-  for (const component of ['backend', 'frontend', 'updater']) {
+  for (const component of ['backend', 'frontend']) {
     const statementPath = path.join(roots[component], 'component-statement.json');
     let information;
     try {
@@ -262,21 +251,19 @@ export function attestSmokeControlPlane({
   });
 }
 
-function resolvedComponentRoots({ backend, frontend, updater }) {
+function resolvedComponentRoots({ backend, frontend }) {
   return {
     backend: requireDirectory(backend, 'Backend root'),
     frontend: requireDirectory(frontend, 'Frontend root'),
-    updater: requireDirectory(updater, 'Updater root'),
   };
 }
 
-export function assembleArtifactSet({ backend, frontend, updater }) {
-  const roots = resolvedComponentRoots({ backend, frontend, updater });
-  for (const component of ['backend', 'frontend', 'updater']) {
+export function assembleArtifactSet({ backend, frontend }) {
+  const roots = resolvedComponentRoots({ backend, frontend });
+  for (const component of ['backend', 'frontend']) {
     verifyComponentDirectory(roots[component], component);
   }
   const assembled = assembleCompatibilityManifest([
-    roots.updater,
     roots.backend,
     roots.frontend,
   ]);
@@ -290,16 +277,13 @@ export function assembleArtifactSet({ backend, frontend, updater }) {
 export function smokeArtifactSet({
   backend,
   frontend,
-  updater,
-  docker = 'docker',
-  python = path.join(REPOSITORY_ROOT, 'updater', '.venv', 'bin', 'python'),
 }, {
   repositoryRoot = REPOSITORY_ROOT,
   fixtureRoot = FIXTURE_ROOT,
   controlPlanePaths = defaultSmokeControlPlanePaths(repositoryRoot),
   runCommand = run,
 } = {}) {
-  const roots = resolvedComponentRoots({ backend, frontend, updater });
+  const roots = resolvedComponentRoots({ backend, frontend });
   const source = sourceIdentityFromStatements(roots);
   attestSmokeControlPlane({ repositoryRoot, source, controlPlanePaths });
   const accepted = assembleArtifactSet(roots);
@@ -307,40 +291,19 @@ export function smokeArtifactSet({
   const before = new Map([
     ['backend', snapshot(accepted.roots.backend)],
     ['frontend', snapshot(accepted.roots.frontend)],
-    ['updater', snapshot(accepted.roots.updater)],
     ['fixture', snapshot(fixture)],
   ]);
-  const target = accepted.manifest.target;
-  const targetValue = `${target.os}/${target.architecture}`;
   ensureGeneratedDirectory(
     SMOKE_RUNS_ROOT,
     generatedPathOptions('coordinator smoke runs root'),
   );
   const runRoot = fs.mkdtempSync(path.join(SMOKE_RUNS_ROOT, 'run-'));
   requireGeneratedPath(runRoot, generatedPathOptions('coordinator smoke run'));
-  const pycache = ensureGeneratedDirectory(
-    path.join(runRoot, 'pycache'),
-    generatedPathOptions('coordinator Python cache'),
-  );
   try {
     runCommand(
       path.join(repositoryRoot, 'backend', 'build', 'smoke.sh'),
       ['--artifact-root', accepted.roots.backend],
-      { cwd: runRoot, timeout: 180_000, pycache },
-    );
-    runCommand(
-      python,
-      [
-        path.join(repositoryRoot, 'updater', 'build', 'smoke.py'),
-        accepted.roots.updater,
-        '--contracts-root',
-        path.join(repositoryRoot, 'contracts'),
-        '--docker',
-        docker,
-        '--target',
-        targetValue,
-      ],
-      { cwd: runRoot, timeout: 300_000, pycache },
+      { cwd: runRoot, timeout: 180_000 },
     );
     runCommand(
       process.execPath,
@@ -349,12 +312,11 @@ export function smokeArtifactSet({
         'smoke',
         accepted.roots.frontend,
       ],
-      { cwd: runRoot, timeout: 60_000, pycache },
+      { cwd: runRoot, timeout: 60_000 },
     );
     const after = new Map([
       ['backend', snapshot(accepted.roots.backend)],
       ['frontend', snapshot(accepted.roots.frontend)],
-      ['updater', snapshot(accepted.roots.updater)],
       ['fixture', snapshot(fixture)],
     ]);
     for (const [name, value] of before) {
@@ -391,20 +353,14 @@ function required(values, key) {
 function main(argv) {
   const [command, ...optionValues] = argv;
   if (!['assemble', 'smoke'].includes(command)) {
-    fail(
-      'usage: coordinator.mjs assemble|smoke --backend ROOT --frontend ROOT ' +
-        '--updater ROOT [--docker PATH --python PATH]',
-    );
+    fail('usage: coordinator.mjs assemble|smoke --backend ROOT --frontend ROOT');
   }
   const values = options(optionValues);
-  const allowed = new Set(['--backend', '--frontend', '--updater', '--docker', '--python']);
+  const allowed = new Set(['--backend', '--frontend']);
   for (const key of values.keys()) if (!allowed.has(key)) fail(`unknown option ${key}`);
   const input = {
     backend: required(values, '--backend'),
     frontend: required(values, '--frontend'),
-    updater: required(values, '--updater'),
-    docker: values.get('--docker'),
-    python: values.get('--python'),
   };
   const accepted =
     command === 'assemble' ? assembleArtifactSet(input) : smokeArtifactSet(input);

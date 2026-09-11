@@ -89,7 +89,7 @@ SUBJECT_TYPE_DOMAIN_SEAL = "5a78c4f014c3f76d16b2d902afb0e5f0ae25540fce9485c6a908
 CAST_ROLE_DOMAIN_SEAL = "c5d161527c5f9d09a2ed9cd76c4063481472f14da4dda40d19468bbfab4421a7"
 RELATION_TYPE_DOMAIN_SEAL = "a12d764c98b4064df39a139914790aade8b6e887ca3d50e7b4c6a955ea4cd9ca"
 APPLICATION_ID = 1_111_969_107
-SQLITE_SCHEMA_VERSION = 1
+SQLITE_SCHEMA_VERSION = 2
 MANIFEST_SCHEMA_VERSION = 1
 POINTER_SCHEMA_VERSION = 1
 ALGORITHM = "bgmss-archive-data-version-v1"
@@ -158,10 +158,10 @@ GENERATED_AT = re.compile(
 MANIFEST_STRING_VECTOR = "vectors/manifest-string-semantics.json"
 PRODUCER_SUBTREE = "producer"
 CANONICAL_INDEX_SHA256 = (
-    "963b64564135fe33b708326a503d9945c0326d818070286a0ac597e2a6c6f964"
+    "a8ba8ea4a5582aa15bf4a8ee52df481a6553e6440cfe04706452afa9b11e6ca8"
 )
 CANONICAL_INDEX_TABLE_SHA256 = (
-    "8886be697cfaad7b59b1f3a40922626bdda7d01f5270fd2985a3a8b2cf311ff9"
+    "86298002866497472dec40fa32c3b1dd1e1034eb742848f64b00932e225a9082"
 )
 CANONICAL_INDEXED_FILES = 32
 MANIFEST_STRING_CASE_IDS = (
@@ -440,7 +440,7 @@ def raw_domain_self_test() -> dict[str, Any]:
             ),
         )
         connection.execute(
-            "INSERT INTO person VALUES (1, 'raw-domain-person', NULL, NULL)"
+            "INSERT INTO person VALUES (1, 'raw-domain-person', NULL, NULL, NULL)"
         )
         connection.execute(
             "INSERT INTO character VALUES (1, 'raw-domain-character', NULL)"
@@ -766,11 +766,11 @@ def file_digest(file_path: Path) -> str:
     return sha256_bytes(file_path.read_bytes())
 
 
-def canonical_index_evidence(root: Path) -> dict[str, Any]:
+def canonical_index_evidence(root: Path, *, verify_seal: bool = True) -> dict[str, Any]:
     index_path = root / "index.json"
     index_bytes = index_path.read_bytes()
     index_sha256 = hashlib.sha256(index_bytes).hexdigest()
-    if index_sha256 != CANONICAL_INDEX_SHA256:
+    if verify_seal and index_sha256 != CANONICAL_INDEX_SHA256:
         fail(f"canonical root index digest drifted: {index_sha256}")
     try:
         index = json.loads(index_bytes.decode("utf-8", errors="strict"))
@@ -803,7 +803,7 @@ def canonical_index_evidence(root: Path) -> dict[str, Any]:
     if len(set(paths)) != CANONICAL_INDEXED_FILES:
         fail("canonical root index path set is not unique")
     table_sha256 = hashlib.sha256(bytes(table)).hexdigest()
-    if table_sha256 != CANONICAL_INDEX_TABLE_SHA256:
+    if verify_seal and table_sha256 != CANONICAL_INDEX_TABLE_SHA256:
         fail(f"canonical root index table seal drifted: {table_sha256}")
     return {
         "indexSha256": index_sha256,
@@ -969,7 +969,7 @@ def data_version(inputs: dict[str, Any]) -> str:
     return "dv1-" + hashlib.sha256(canonical_preimage(inputs)).hexdigest()
 
 
-def semantic_inputs(sql_digest: str, sqlite_version: int = 1) -> dict[str, Any]:
+def semantic_inputs(sql_digest: str, sqlite_version: int = SQLITE_SCHEMA_VERSION) -> dict[str, Any]:
     archive_bytes = b"bangumi-archive-golden-release-v1\n"
     common_bytes = b"bangumi-common-subject-staffs-golden-v1\n"
     catalog_bytes = (
@@ -1026,7 +1026,7 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
           singleton, data_version, manifest_schema_version, sqlite_schema_version,
           data_version_algorithm, domain_rules_version, cast_rules_version,
           catalog_config_digest
-        ) VALUES (1, ?, 1, 1, ?, ?, ?, ?)
+        ) VALUES (1, ?, 1, 2, ?, ?, ?, ?)
         """,
         (
             version,
@@ -1130,15 +1130,15 @@ def insert_minimal_rows(connection: sqlite3.Connection, version: str, inputs: di
         ),
     )
     connection.executemany(
-        "INSERT INTO person VALUES (?, ?, ?, ?)",
+        "INSERT INTO person VALUES (?, ?, ?, ?, ?)",
         (
-            (100, "Golden Director", "金标导演", None),
-            (101, "Golden Voice", "金标声优", None),
-            (102, "Golden Voice 2", "金标声优二", None),
-            (103, "Golden Voice 3", "金标声优三", None),
-            (104, "Golden Voice 4", "金标声优四", None),
-            (105, "Golden Voice 5", "金标声优五", None),
-            (106, "Golden Voice 6", "金标声优六", None),
+            (100, "Golden Director", "金标导演", None, None),
+            (101, "Golden Voice", "金标声优", None, "金标简介。\nLiteral <b>text</b> [b]text[/b] 😀"),
+            (102, "Golden Voice 2", "金标声优二", None, None),
+            (103, "Golden Voice 3", "金标声优三", None, None),
+            (104, "Golden Voice 4", "金标声优四", None, None),
+            (105, "Golden Voice 5", "金标声优五", None, None),
+            (106, "Golden Voice 6", "金标声优六", None, None),
         ),
     )
     connection.execute("INSERT INTO person_career VALUES (?, ?)", (101, "seiyu"))
@@ -1409,7 +1409,7 @@ def inspect_valid_database(
         fail(f"missing tables: {sorted(set(TABLE_NAMES) - tables)}")
     if set(REQUIRED_INDEXES) - indexes:
         fail(f"missing indexes: {sorted(set(REQUIRED_INDEXES) - indexes)}")
-    if embedded != (expected_version, 1, 1, ALGORITHM):
+    if embedded != (expected_version, MANIFEST_SCHEMA_VERSION, SQLITE_SCHEMA_VERSION, ALGORITHM):
         fail(f"unexpected embedded metadata: {embedded!r}")
     expected_sentinels = {
         sentinel_id: expected
@@ -1795,7 +1795,7 @@ def manifest_string_vector_document() -> dict[str, Any]:
     }
 
 
-def generate(root: Path) -> dict[str, Any]:
+def generate(root: Path, *, verify_seal: bool = True) -> dict[str, Any]:
     if root.exists() and root.is_symlink():
         fail(f"golden root is a symlink: {root}")
     root.mkdir(parents=True, exist_ok=True)
@@ -1880,7 +1880,7 @@ def generate(root: Path) -> dict[str, Any]:
             corrupt_db,
         )
 
-        unsupported_inputs = semantic_inputs(sql_digest, sqlite_version=2)
+        unsupported_inputs = semantic_inputs(sql_digest, sqlite_version=1)
         unsupported_manifest = base_manifest(
             unsupported_inputs,
             data_version(unsupported_inputs),
@@ -2018,7 +2018,7 @@ def generate(root: Path) -> dict[str, Any]:
         )
     index = {"indexSchemaVersion": 1, "files": entries}
     write_bytes(root / "index.json", json_bytes(index))
-    canonical_index = canonical_index_evidence(root)
+    canonical_index = canonical_index_evidence(root, verify_seal=verify_seal)
     inspection = inspect_valid_database(valid_db, version, canonical_schema)
     return {
         "dataVersion": version,

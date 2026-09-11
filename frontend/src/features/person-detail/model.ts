@@ -2,6 +2,7 @@ import type {
   PersonDetailPayload,
   PersonDetailRational,
 } from '../../api/adapters/personDetail';
+import { resolveBilingualName } from '../../shared/names/bilingualName';
 import type { PersonDetailViewState } from '../query/coordinator';
 
 export type {
@@ -65,27 +66,27 @@ export function updatePersonDetailView(
 export function primaryPersonName(
   person: PersonDetailPayload['person'],
 ): string {
-  return person.nameCN ?? person.name;
+  return resolveBilingualName(person).primary;
 }
 
 export function secondaryPersonName(
   person: PersonDetailPayload['person'],
-): string | null {
-  return person.nameCN && person.nameCN !== person.name ? person.name : null;
+): string {
+  return resolveBilingualName(person).secondary;
 }
 
 export function primaryEntityName(entity: {
   readonly name: string;
   readonly nameCN: string | null;
 }): string {
-  return entity.nameCN ?? entity.name;
+  return resolveBilingualName(entity).primary;
 }
 
 export function secondaryEntityName(entity: {
   readonly name: string;
   readonly nameCN: string | null;
-}): string | null {
-  return entity.nameCN && entity.nameCN !== entity.name ? entity.name : null;
+}): string {
+  return resolveBilingualName(entity).secondary;
 }
 
 export function formatHundredths(value: number | null | undefined): string {

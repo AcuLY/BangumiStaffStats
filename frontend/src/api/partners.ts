@@ -13,6 +13,10 @@ import type {
 } from './client';
 import { ApiDecodeError } from './errors';
 import {
+  decodePartnersInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
+import {
   decodePartnersError,
   decodePartnersPayload,
   type PartnersPayload,
@@ -123,8 +127,10 @@ export function partnersErrorMessage(code: ErrorCodeV1): string {
   if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
     return '合作人物服务正在准备，请稍后重试';
   }
+  if (code === 'UPSTREAM_TIMEOUT') {
+    return '合作人物查询超时，请重试';
+  }
   if (
-    code === 'UPSTREAM_TIMEOUT' ||
     code === 'UPSTREAM_UNAVAILABLE' ||
     code === 'UPSTREAM_PROTOCOL_ERROR'
   ) {
@@ -174,7 +180,6 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
 export interface PartnersDriverRequest {
   readonly input: DeepReadonly<PartnersInputV1>;
   readonly query: DeepReadonly<SharedQueryV1Schema>;
-  readonly refreshCollection: false;
   readonly signal: AbortSignal;
   readonly transactionId: string;
   readonly view: DeepReadonly<PartnersViewV1>;
@@ -273,6 +278,8 @@ export function createPartnersDriver(
   const wait = runtime.wait ?? waitForRetry;
   return {
     async execute(request): Promise<PartnersDriverResponse> {
+      const input = decodePartnersInput(request.input);
+      decodeSharedQueryForOperation(request.query, input.positionScope);
       const body: PartnersRequestV1 = {
         input: structuredClone(request.input) as PartnersInputV1,
         query: structuredClone(request.query) as SharedQueryV1Schema,
@@ -328,6 +335,7 @@ export function createPartnersDriver(
       const expectedSourceKeys = request.input.source.positionKeys.map(String);
       if (
         payload.scope !== request.query.scope ||
+        payload.metricScale.metric !== (request.view.sort ?? 'count') ||
         payload.source.person.id !== request.input.source.personId ||
         payload.source.positionKeys.length !== expectedSourceKeys.length ||
         payload.source.positionKeys.some(

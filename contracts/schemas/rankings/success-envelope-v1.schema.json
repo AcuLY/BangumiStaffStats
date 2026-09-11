@@ -395,6 +395,9 @@
           "items": {
             "$ref": "#/$defs/GlobalRankingItemV1"
           }
+        },
+        "location": {
+          "$ref": "#/$defs/RankingLocationV1"
         }
       }
     },
@@ -419,6 +422,9 @@
           "items": {
             "$ref": "#/$defs/PersonalRankingItemV1"
           }
+        },
+        "location": {
+          "$ref": "#/$defs/RankingLocationV1"
         }
       }
     },
@@ -580,6 +586,36 @@
         },
         "meta": {
           "$ref": "#/$defs/PersonalRankingsMetaV1"
+        }
+      }
+    },
+    "RankingLocationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personId",
+        "rank",
+        "page"
+      ],
+      "properties": {
+        "personId": {
+          "$ref": "#/$defs/JsonSafePositiveIntegerV1"
+        },
+        "rank": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "page": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 9007199254740991
         }
       }
     }

@@ -52,18 +52,18 @@ func (function CollectionProviderFunc) Fetch(
 // Request contains exact preserved operation documents. Query is normalized by
 // the accepted query authority; View is decoded by the rankings projection.
 type Request struct {
-	Query             json.RawMessage
-	View              json.RawMessage
-	RefreshCollection bool
+	Query json.RawMessage
+	View  json.RawMessage
 }
 
 // View is the closed normalized projection input.
 type View struct {
-	Search   string
-	Sort     string
-	Order    statistics.Direction
-	Page     int64
-	PageSize int
+	Search         string
+	Sort           string
+	Order          statistics.Direction
+	Page           int64
+	PageSize       int
+	LocatePersonID *int64
 }
 
 // PersonReference is the complete person shape permitted in a ranking row.
@@ -112,11 +112,7 @@ type core struct {
 
 // MetricScale describes the selected primary metric over the complete
 // pre-search population. Max is nil, int64, or statistics.Rational.
-type MetricScale struct {
-	Metric string `json:"metric"`
-	Kind   string `json:"kind"`
-	Max    any    `json:"max"`
-}
+type MetricScale = statistics.MetricScale
 
 // GlobalItem deliberately has no preference field.
 type GlobalItem struct {
@@ -151,13 +147,22 @@ type CollectionFreshness struct {
 	WarningCodes []string  `json:"warningCodes"`
 }
 
+// Location describes full-set rank and searched page, independent of the page returned.
+type Location struct {
+	PersonID int64  `json:"personId"`
+	Rank     *int   `json:"rank"`
+	Page     *int64 `json:"page"`
+}
+
 type globalData struct {
+	Location    *Location    `json:"location,omitempty"`
 	Summary     Summary      `json:"summary"`
 	MetricScale MetricScale  `json:"metricScale"`
 	Items       []GlobalItem `json:"items"`
 }
 
 type personalData struct {
+	Location    *Location      `json:"location,omitempty"`
 	Summary     Summary        `json:"summary"`
 	MetricScale MetricScale    `json:"metricScale"`
 	Items       []PersonalItem `json:"items"`
@@ -188,6 +193,7 @@ type personalEnvelope struct {
 
 // Projection is an immutable scope-aware rankings page.
 type Projection struct {
+	location      *Location
 	scope         string
 	dataVersion   string
 	summary       Summary
@@ -216,6 +222,7 @@ func (projection Projection) MarshalEnvelope(requestID string) ([]byte, error) {
 		}
 		return json.Marshal(personalEnvelope{
 			Data: personalData{
+				Location:    projection.location,
 				Summary:     cloneSummary(projection.summary),
 				MetricScale: cloneMetricScale(projection.metricScale),
 				Items:       clonePersonalItems(projection.personalItems),
@@ -230,6 +237,7 @@ func (projection Projection) MarshalEnvelope(requestID string) ([]byte, error) {
 	}
 	return json.Marshal(globalEnvelope{
 		Data: globalData{
+			Location:    projection.location,
 			Summary:     cloneSummary(projection.summary),
 			MetricScale: cloneMetricScale(projection.metricScale),
 			Items:       cloneGlobalItems(projection.globalItems),

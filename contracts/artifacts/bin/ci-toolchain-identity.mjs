@@ -15,7 +15,6 @@ export const EXPECTED_TOOLCHAIN = Object.freeze({
   goVersion: '1.26.5',
   nodeVersion: '24.18.0',
   npmVersion: '11.16.0',
-  uvVersion: '0.11.32',
 });
 
 const MAX_COMMAND_OUTPUT_BYTES = 4 * 1024 * 1024;
@@ -100,55 +99,6 @@ function record(value, label) {
     fail(`${label} must be one JSON object`);
   }
   return value;
-}
-
-export function parseUvVersionJson(source) {
-  if (
-    typeof source !== 'string' ||
-    source.length === 0 ||
-    source.length > MAX_COMMAND_OUTPUT_BYTES ||
-    source.includes('\0')
-  ) {
-    fail('uv version JSON must be bounded text');
-  }
-  let value;
-  try {
-    value = parseJsonStrict(source, 'uv version JSON');
-  } catch (error) {
-    fail(`uv version JSON is malformed: ${error.message}`);
-  }
-  record(value, 'uv version JSON');
-  if (value.package_name !== 'uv') {
-    fail(`uv package_name must equal uv, received ${String(value.package_name)}`);
-  }
-  if (typeof value.version !== 'string') {
-    fail('uv version must be one semantic version string');
-  }
-  exactSemanticVersion(
-    value.version,
-    EXPECTED_TOOLCHAIN.uvVersion,
-    'uv version',
-  );
-  if (
-    Object.hasOwn(value, 'target_triple') &&
-    (typeof value.target_triple !== 'string' || value.target_triple === '')
-  ) {
-    fail('uv target_triple must be informational text when present');
-  }
-  if (
-    Object.hasOwn(value, 'commit_info') &&
-    value.commit_info !== null &&
-    (!value.commit_info ||
-      typeof value.commit_info !== 'object' ||
-      Array.isArray(value.commit_info))
-  ) {
-    fail('uv commit_info must be an informational object or null');
-  }
-  return Object.freeze({
-    packageName: value.package_name,
-    targetTriple: value.target_triple ?? null,
-    version: value.version,
-  });
 }
 
 export function parseBuildxVersion(source) {
@@ -335,9 +285,6 @@ export function collectToolchainIdentity({
   const node = parseNodeVersion(nodeVersion);
   const npm = parseNpmVersion(execute('npm', ['--version']));
   const go = parseGoVersion(execute('go', ['version']));
-  const uv = parseUvVersionJson(
-    execute('uv', ['self', 'version', '--output-format', 'json']),
-  );
   const buildx = parseBuildxVersion(
     execute('docker', ['buildx', 'version']),
   );
@@ -350,7 +297,6 @@ export function collectToolchainIdentity({
     go,
     node,
     npm,
-    uv,
   });
 }
 

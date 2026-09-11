@@ -197,7 +197,8 @@ cp "$fixture_source/current-pointer.json" "$archive_root/current.json"
 cp "$fixture_source/archive-manifest.json" "$version_root/manifest.json"
 cp "$fixture_source/bangumi.sqlite" "$version_root/bangumi.sqlite"
 chmod 0444 "$archive_root/current.json" "$version_root/manifest.json" "$version_root/bangumi.sqlite"
-chmod 0555 "$archive_root" "$archive_root/versions" "$version_root"
+chmod 0777 "$archive_root" "$archive_root/versions"
+chmod 0555 "$version_root"
 archive_before="$work_root/archive.before"
 snapshot_directory "$archive_root" >"$archive_before"
 
@@ -248,8 +249,9 @@ if ! grep -Fxq 'usr/local/bin/bgmss-api' "$rootfs_inventory"; then
   echo 'runtime image omits the API executable' >&2
   exit 1
 fi
-if grep -E '(^|/)archive-smoke$' "$rootfs_inventory" >/dev/null; then
-  echo 'runtime image contains the bundle-only Archive smoke executable' >&2
+if grep -E '^usr/local/bin/.+' "$rootfs_inventory" |
+  grep -Fvx 'usr/local/bin/bgmss-api' >/dev/null; then
+  echo 'runtime image contains an unexpected Backend executable' >&2
   exit 1
 fi
 if grep -Ev '/$' "$rootfs_inventory" |
@@ -293,7 +295,7 @@ if ! api_container_id="$(
     --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16m \
     --cap-drop ALL \
     --security-opt no-new-privileges \
-    --mount "type=bind,src=$archive_root,dst=/archive,readonly" \
+    --mount "type=bind,src=$archive_root,dst=/archive" \
     "$image_id" \
     -listen-address 0.0.0.0:8080 \
     -archive-root /archive

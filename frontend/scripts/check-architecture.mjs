@@ -69,6 +69,7 @@ const expectedInventory = [
   'src/api/rankings.ts',
   'src/app/App.vue',
   'src/app/AppProviders.vue',
+  'src/app/AppViewport.vue',
   'src/app/main.ts',
   'src/app/routes.ts',
   'src/app/store/runtime.ts',
@@ -80,6 +81,10 @@ const expectedInventory = [
   'src/features/co-star/co-star.css',
   'src/features/co-star/co-star-oracle.css',
   'src/features/co-star/coStar.ts',
+  'src/features/co-star/components/CandidateRowsSkeleton.vue',
+  'src/features/co-star/components/CandidateWorkspaceSkeleton.vue',
+  'src/features/co-star/components/PartnersSkeleton.vue',
+  'src/features/co-star/components/CoStarAnalysisSkeleton.vue',
   'src/features/co-star/components/CandidatePicker.vue',
   'src/features/co-star/components/CoStarEmptyState.vue',
   'src/features/co-star/components/CoStarIcon.vue',
@@ -95,7 +100,10 @@ const expectedInventory = [
   'src/features/co-star/partners.ts',
   'src/features/co-star/selection.ts',
   'src/features/person-detail/adaptiveAppearanceLayout.ts',
+  'src/features/co-star/components/AdaptiveCreditList.vue',
   'src/features/person-detail/components/AdaptiveAppearanceList.vue',
+  'src/features/person-detail/components/AdaptiveRoleList.vue',
+  'src/features/person-detail/components/PersonDetailSkeleton.vue',
   'src/features/person-detail/components/PersonDetailSurface.vue',
   'src/features/person-detail/components/PersonInspector.vue',
   'src/features/person-detail/components/PersonItemBrowser.vue',
@@ -103,9 +111,11 @@ const expectedInventory = [
   'src/features/person-detail/components/RatingEvidence.vue',
   'src/features/person-detail/components/StatEvidencePopover.vue',
   'src/features/person-detail/model.ts',
+  'src/features/person-detail/workspaceLinks.ts',
   'src/features/person-detail/person-detail.css',
   'src/features/person-detail/ratingTimelineGeometry.ts',
   'src/features/query/components/AppHeader.vue',
+  'src/features/query/components/PositionCatalogBrowser.vue',
   'src/features/query/components/PositionSelector.vue',
   'src/features/query/components/QueryDateRange.vue',
   'src/features/query/components/QueryEditor.vue',
@@ -113,26 +123,37 @@ const expectedInventory = [
   'src/features/query/components/QueryNumericRange.vue',
   'src/features/query/components/QueryWorkspace.vue',
   'src/features/query/components/controlTheme.ts',
-  'src/features/query/composables/useCompactLayout.ts',
+  'src/shared/composables/useCompactLayout.ts',
+  'src/shared/composables/useTruncatedTooltip.ts',
+  'src/shared/components/ContentDivider.vue',
   'src/features/query/coordinator.ts',
   'src/features/query/model.ts',
-  'src/features/query/share.ts',
+  'src/features/query/session.ts',
+  'src/features/query/recovery.ts',
   'src/features/query/store.ts',
   'src/features/query/unicode15_1.generated.ts',
   'src/features/ranking/components/AdaptivePagination.vue',
   'src/features/ranking/components/RankedPersonList.vue',
+  'src/features/ranking/components/RankingColumns.vue',
+  'src/features/ranking/components/RankingListSkeleton.vue',
+  'src/features/ranking/components/RankingResultsSkeleton.vue',
   'src/features/ranking/components/RankingResults.vue',
   'src/features/ranking/components/RankingSummary.vue',
   'src/features/ranking/components/RankingToolbar.vue',
-  'src/features/ranking/components/SortDirectionButton.vue',
+  'src/shared/components/SortDirectionButton.vue',
   'src/features/ranking/format.ts',
   'src/features/ranking/model.ts',
   'src/shared/components/AppIcon.vue',
+  'src/shared/components/SearchSortToolbar.vue',
+  'src/shared/components/WorkCardsSkeleton.vue',
   'src/shared/components/DeferredSurfaceState.vue',
+  'src/shared/components/InfoIcon.vue',
   'src/shared/components/SafeImage.vue',
+  'src/shared/composables/useResultReveal.ts',
   'src/shared/charts/categoricalPalette.ts',
   'src/shared/charts/timelineGeometry.ts',
   'src/shared/media/bangumiImage.ts',
+  'src/shared/names/bilingualName.ts',
   'src/shared/navigation/basePath.ts',
   'src/shared/styles/base.css',
   'src/vite-env.d.ts',
@@ -145,11 +166,17 @@ const expectedInventory = [
   'tests/api/query-wire.contract.test.ts',
   'tests/api/rankings.test.ts',
   'tests/app/app.mount.test.ts',
+  'tests/shared/search-sort-toolbar.test.ts',
   'tests/app/co-star.integration.test.ts',
+  'tests/app/person-workspace-links.test.ts',
+  'tests/app/viewport.test.ts',
   'tests/app/rankings.integration.test.ts',
+  'tests/app/reveal-selection-bounds.test.ts',
   'tests/app/theme-overrides.test.ts',
   'tests/app/theme.test.ts',
   'tests/features/person-detail/components.test.ts',
+  'tests/features/person-detail/workspace-links.test.ts',
+  'tests/features/person-detail/adaptive-role-list.test.ts',
   'tests/features/person-detail/coordinator.test.ts',
   'tests/features/person-detail/model.test.ts',
   'tests/features/co-star/co-star-components.test.ts',
@@ -163,13 +190,22 @@ const expectedInventory = [
   'tests/features/query/components.test.ts',
   'tests/features/query/fixtures.ts',
   'tests/features/query/model.test.ts',
-  'tests/features/query/share-routes.test.ts',
+  'tests/features/query/position-selector-reveal.test.ts',
+  'tests/features/query/session.test.ts',
+  'tests/features/query/recovery.test.ts',
+  'tests/features/query/routes.test.ts',
   'tests/features/ranking/components.test.ts',
   'tests/features/ranking/model.test.ts',
   'tests/setup.ts',
   'tests/shared/SafeImage.test.ts',
   'tests/shared/base-path.test.ts',
+  'tests/shared/bilingual-name.test.ts',
+  'tests/shared/info-trigger.test.ts',
+  'tests/shared/ranking-layout.test.ts',
+  'tests/shared/result-reveal.test.ts',
   'tests/shared/scrollbar-system.test.ts',
+  'tests/shared/shell-layout.test.ts',
+  'tests/shared/skeleton-system.test.ts',
   'tsconfig.app.json',
   'tsconfig.json',
   'tsconfig.node.json',
@@ -183,6 +219,7 @@ const disposableRoots = new Set([
   'node_modules',
 ]);
 const expectedDependencies = {
+  '@vicons/ionicons5': '0.13.0',
   ajv: '8.20.0',
   'ajv-formats': '3.0.1',
   'naive-ui': '2.44.1',
@@ -312,12 +349,12 @@ const appSource = sourceByFile.get(
 );
 if (
   !appSource ||
-  count(appSource, /:\s*recoverDeferredSurface\b/g) !== 4 ||
-  !/\bcreateShareUrl\s*\(/.test(appSource) ||
+  count(appSource, /:\s*recoverDeferredSurface\b/g) !== 5 ||
+  !/\bquerySession\.write\s*\(/.test(appSource) ||
   !/\blocation\.reload\s*\(/.test(appSource) ||
   !/deferred-surface-reload-v1/.test(appSource)
 ) {
-  fail('all four deferred surfaces must retain production reload recovery');
+  fail('all five deferred surfaces must retain production reload recovery');
 }
 
 if (
@@ -340,7 +377,10 @@ const requestCallers = [];
 const providerOwners = [];
 const brandImporters = [];
 for (const [file, source] of sourceByFile) {
-  const relative = path.relative(frontendRoot, file);
+  const relative = path
+    .relative(frontendRoot, file)
+    .split(path.sep)
+    .join(path.posix.sep);
   if (/generated\/query-wire/.test(source)) {
     queryWireImporters.push(relative);
   }
@@ -409,7 +449,7 @@ assertExactFiles('query wire ownership', queryWireImporters, [
   'src/api/adapters/queryWire.ts',
   'src/features/query/coordinator.ts',
   'src/features/query/model.ts',
-  'src/features/query/share.ts',
+  'src/features/query/recovery.ts',
 ]);
 assertExactFiles('catalog wire ownership', catalogWireImporters, [
   'src/api/adapters/catalog.ts',

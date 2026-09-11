@@ -9,8 +9,7 @@ Define the isolated closed `POST /co-star` wire for bounded ordered pair and gro
 with positive JSON-safe person IDs and ordered-unique non-empty opaque query
 PositionKeys, and optional view. Total identities SHALL not exceed 20.
 The endpoint SHALL reject zero/one participant, duplicates, excessive people,
-excessive identities, unknown members, and `refreshCollection` with stable
-field/error codes.
+excessive identities, and unknown members with stable field/error codes.
 
 Success SHALL be a closed scope-specific pair/group union with workUnit,
 ordered participants, summary, tags, rating datasets, optional personal
@@ -35,3 +34,14 @@ affect generated co-star bytes.
 #### Scenario: An unrelated operation changes
 - **WHEN** another OpenAPI path or the shared top-level description changes
 - **THEN** co-star projection hash and generated files SHALL remain unchanged
+
+### Requirement: Co-star series work SHALL expose representative metadata
+GlobalSeriesWorkV1 and PersonalSeriesWorkV1 SHALL contain required metaTags using the existing subject-work field constraints. The array SHALL contain at most 16 unique nonempty strings of at most 255 characters; when the representative has no tags, metaTags SHALL be []. Go and TypeScript producers/consumers SHALL agree through operation goldens and generated types.
+
+#### Scenario: Invalid metadata is rejected
+- **WHEN** a series work omits metaTags or contains null, duplicate, empty or oversized values
+- **THEN** the closed co-star schema SHALL reject it
+
+#### Scenario: Empty representative metadata
+- **WHEN** the representative has no meta tags
+- **THEN** the response SHALL contain an empty array

@@ -2,7 +2,6 @@ package partners
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -344,6 +343,20 @@ func TestServicePersonalCachesCollectionAndCoreAcrossViews(t *testing.T) {
 		!strings.Contains(string(secondBytes), `"items":[]`) {
 		t.Fatalf("personal projections first=%s second=%s", firstBytes, secondBytes)
 	}
+	var firstWire, secondWire struct {
+		Data struct {
+			MetricScale json.RawMessage `json:"metricScale"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(firstBytes, &firstWire); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(secondBytes, &secondWire); err != nil {
+		t.Fatal(err)
+	}
+	if len(firstWire.Data.MetricScale) == 0 || string(firstWire.Data.MetricScale) != string(secondWire.Data.MetricScale) {
+		t.Fatalf("cached core view changed scale: %s / %s", firstWire.Data.MetricScale, secondWire.Data.MetricScale)
+	}
 }
 
 func newPartnerService(
@@ -390,25 +403,20 @@ func loadPartnerArchiveWithExtraPeople(
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for source, destination := range map[string]string{
-		"archive-manifest.json": "manifest.json",
-		"bangumi.sqlite":        "bangumi.sqlite",
-	} {
-		data, readErr := os.ReadFile(filepath.Join(bundle, source))
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		if writeErr := os.WriteFile(filepath.Join(versionRoot, destination), data, 0o644); writeErr != nil {
-			t.Fatal(writeErr)
-		}
+	sqliteData, err := os.ReadFile(filepath.Join(bundle, "bangumi.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlitePath := filepath.Join(versionRoot, "bangumi.sqlite")
+	if err := os.WriteFile(sqlitePath, sqliteData, 0o644); err != nil {
+		t.Fatal(err)
 	}
 	rewritePartnerFixture(
 		t,
-		filepath.Join(versionRoot, "bangumi.sqlite"),
-		filepath.Join(versionRoot, "manifest.json"),
+		sqlitePath,
 		extraPeople,
 	)
-	store, err := archive.LoadCandidate(context.Background(), root, pointer.DataVersion)
+	store, err := archive.OpenVersion(context.Background(), root, pointer.DataVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,7 +431,6 @@ func loadPartnerArchiveWithExtraPeople(
 func rewritePartnerFixture(
 	t *testing.T,
 	sqlitePath string,
-	manifestPath string,
 	extraPeople int,
 ) {
 	t.Helper()
@@ -492,45 +499,64 @@ func rewritePartnerFixture(
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
-	sqliteBytes, err := os.ReadFile(sqlitePath)
+}
+
+func TestAllPositionPartnersIncludeCastUnderDirectorQuery(t *testing.T) {
+	service := newPartnerService(t, loadPartnerArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]},"positionScope":"all"}`)}
+	result, err := service.Execute(context.Background(), request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifestBytes, err := os.ReadFile(manifestPath)
+	data, err := result.MarshalEnvelope("cross-role")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var manifest map[string]any
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatal(err)
+	if !strings.Contains(string(data), `"cast:anime:all"`) {
+		t.Fatal(string(data))
 	}
-	tableCounts, ok := manifest["tableCounts"].(map[string]any)
-	if !ok {
-		t.Fatal("manifest tableCounts missing")
-	}
-	capabilityCount, ok := tableCounts["catalog_capability"].(float64)
-	if !ok {
-		t.Fatal("manifest catalog_capability count missing")
-	}
-	if capabilityCount < 1 {
-		t.Fatal("manifest catalog_capability count is invalid")
-	}
-	tableCounts["catalog_capability"] = capabilityCount - 1
-	if extraPeople > 0 {
-		personCount, ok := tableCounts["person"].(float64)
-		if !ok {
-			t.Fatal("manifest person count missing")
-		}
-		tableCounts["person"] = personCount + float64(extraPeople)
-	}
-	digest := sha256.Sum256(sqliteBytes)
-	manifest["sqliteSize"] = len(sqliteBytes)
-	manifest["sqliteDigest"] = fmt.Sprintf("sha256:%x", digest)
-	updated, err := json.MarshalIndent(manifest, "", "  ")
+	request.Input = json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]}}`)
+	legacy, err := service.Execute(context.Background(), request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(manifestPath, append(updated, '\n'), 0o644); err != nil {
+	data, err = legacy.MarshalEnvelope("query-role")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if strings.Contains(string(data), `"cast:anime:all"`) {
+		t.Fatal("query scope reused all cache")
+	}
+	if service.results.Stats().Items != 2 {
+		t.Fatal("scope cache collision")
+	}
+}
+
+func TestAllPositionPartnersAcceptsEmptyQuerySelection(t *testing.T) {
+	service := newPartnerService(t, loadPartnerArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]},"positionScope":"all"}`)}
+	prior, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := prior.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Query = json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":[]}`)
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := result.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("empty all query changed operation result:\n%s\nwant:\n%s", got, want)
+	}
+	request.Input = json.RawMessage(`{"source":{"personId":100,"positionKeys":["staff:anime:2"]}}`)
+	if _, err := service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted empty positions")
 	}
 }

@@ -16,14 +16,70 @@ type State struct {
 	closeErr error
 }
 
-// LoadCurrent reads current.json once, validates the selected candidate, and
-// publishes it only after every gate succeeds.
+// LoadCurrent reads current.json once, directly opens the selected snapshot,
+// and atomically publishes the resulting read-only Store.
 func (s *State) LoadCurrent(ctx context.Context, rootPath string) error {
-	candidate, err := loadCurrentCandidate(ctx, rootPath, loadHooks{})
+	candidate, err := openCurrentStore(ctx, rootPath, loadHooks{})
 	if err != nil {
 		return err
 	}
 	return s.publishCurrent(ctx, candidate)
+}
+
+// OpenCurrent is the application-facing name for the same minimal current
+// snapshot open. It does not add a second validation or admission path.
+func (s *State) OpenCurrent(ctx context.Context, rootPath string) error {
+	return s.LoadCurrent(ctx, rootPath)
+}
+
+// Replace atomically installs one already-open candidate and returns the old
+// Store without closing it. The caller owns the returned Store.
+func (s *State) Replace(ctx context.Context, candidate *Store) (*Store, error) {
+	if candidate == nil {
+		return nil, outcome(CodeArchiveFileInvalid)
+	}
+	if s == nil {
+		_ = candidate.Close()
+		return nil, outcome(CodeArchiveAlreadyPublished)
+	}
+
+	s.mu.Lock()
+	err := contextOutcome(ctx)
+	current := s.current.Load()
+	if err == nil && (s.closed || current == candidate) {
+		err = outcome(CodeArchiveAlreadyPublished)
+	}
+	var previous *Store
+	if err == nil {
+		previous = s.current.Swap(candidate)
+	}
+	s.mu.Unlock()
+
+	if err != nil && current != candidate {
+		_ = candidate.Close()
+	}
+	return previous, err
+}
+
+// Restore rolls back one exact replacement, including restoration to an empty
+// State. It never closes either Store.
+func (s *State) Restore(
+	ctx context.Context,
+	expected *Store,
+	previous *Store,
+) error {
+	if s == nil || expected == nil {
+		return outcome(CodeArchiveFileInvalid)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := contextOutcome(ctx); err != nil {
+		return err
+	}
+	if s.closed || !s.current.CompareAndSwap(expected, previous) {
+		return outcome(CodeArchiveAlreadyPublished)
+	}
+	return nil
 }
 
 func (s *State) publishCurrent(ctx context.Context, candidate *Store) error {

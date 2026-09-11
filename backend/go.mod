@@ -7,9 +7,10 @@ toolchain go1.26.5
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
-	github.com/AcuLY/bangumi-collection-go v0.1.1
+	github.com/AcuLY/bangumi-collection-go v0.1.2
 	github.com/gowebpki/jcs v1.0.1
 	github.com/oapi-codegen/runtime v1.1.2
+	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/sync v0.22.0
 	golang.org/x/text v0.40.0
 	modernc.org/sqlite v1.54.0
@@ -33,7 +34,6 @@ require (
 	github.com/speakeasy-api/jsonpath v0.6.3 // indirect
 	github.com/speakeasy-api/openapi v1.24.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/time v0.15.0 // indirect

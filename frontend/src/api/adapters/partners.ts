@@ -6,6 +6,7 @@ import addFormats from 'ajv-formats';
 
 import errorEnvelopeSchema from '../../../../contracts/schemas/rankings/result-error-envelope-v1.schema.json';
 import partnersSuccessSchema from '../../../../contracts/schemas/partners/success-envelope-v1.schema.json';
+import rankingsSuccessSchema from '../../../../contracts/schemas/rankings/success-envelope-v1.schema.json';
 import sharedQuerySchema from '../../../../contracts/schemas/query/shared-query-v1.schema.json';
 import type {
   GlobalPartnerCoreV1,
@@ -18,6 +19,7 @@ import type {
   RationalV1,
 } from '../generated/partners/types.gen';
 import { ApiDecodeError, type DecodeIssue } from '../errors';
+import type { RankingMetricScale } from './rankings';
 
 export interface PartnerPerson {
   readonly id: number;
@@ -60,6 +62,7 @@ export interface PartnerLeader {
 }
 
 export interface PartnersPayload {
+  readonly metricScale: RankingMetricScale;
   readonly collection?: Readonly<{
     fetchedAt: string;
     stale: boolean;
@@ -100,6 +103,7 @@ const ajv = new Ajv2020({
 });
 addFormats(ajv);
 ajv.addSchema(sharedQuerySchema);
+ajv.addSchema(rankingsSuccessSchema);
 
 const validateSuccess = ajv.compile(
   partnersSuccessSchema,
@@ -239,6 +243,12 @@ export function adaptPartnersSuccess(
   return Object.freeze({
     ...(collection ? { collection } : {}),
     dataVersion: envelope.meta.dataVersion,
+    metricScale: Object.freeze({
+      ...envelope.data.metricScale,
+      max: typeof envelope.data.metricScale.max === 'object' && envelope.data.metricScale.max !== null
+        ? Object.freeze({ ...envelope.data.metricScale.max })
+        : envelope.data.metricScale.max,
+    }) as RankingMetricScale,
     items: Object.freeze(envelope.data.items.map(adaptItem)),
     pagination: Object.freeze({
       page: envelope.meta.pagination.page,

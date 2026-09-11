@@ -20,35 +20,35 @@ const ARCHIVE_COMPATIBILITY_MATRIX_PATH = path.join(
   'compatibility-matrix.json',
 );
 
-export const COMPONENTS = Object.freeze(['backend', 'frontend', 'updater']);
+export const COMPONENTS = Object.freeze(['backend', 'frontend']);
 export const APPLICATION_VERSION = 'v0.1.0';
 export const APPLICATION_VERSION_DIGEST =
   'sha256:d0b4f9120ba026c00fa23cb84b4e1620a2e6436592e58155a5151653179572c0';
 export const ARCHIVE_DOMAIN_RULES_VERSION = 'domain-raw-v1';
 export const ARCHIVE_CAST_RULES_VERSION = 'cast-exact-v1';
 export const ARCHIVE_COMPATIBILITY_MATRIX_DIGEST =
-  'sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac';
+  'sha256:7677bf83d62f38e9ac9d7af5eab2e37342a110533b63ce6f6a940d8607b84bd9';
 export const OPENAPI_DIGEST =
-  'sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11';
+  'sha256:999272f4fcd204c1dfecbe1948c77abcf29230dc1e8a76eb7549c386cab09260';
 export const ARCHIVE_MANIFEST_SCHEMA_DIGEST =
   'sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73';
 export const ARCHIVE_SCHEMA_SQL_DIGEST =
-  'sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0';
+  'sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255';
 export const BUILDKIT_VERSION = '0.27.1';
 export const DOCKER_BUILDX_VERSION = '0.34.1';
 export const BUILDKIT_IMAGE_DIGEST =
   'sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368';
 export const PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST =
-  'sha256:56adbccc4c83432ae02d9bf985ea1b9281d2836e96e389e84dae97bd8cacac52';
+  'sha256:aaffa81b36992189c991f2de2158d2baa45335b11d679e087f1c82567889993d';
 export const SUPPORTED_ARCHIVE_MANIFEST_SCHEMA = 1;
-export const SUPPORTED_ARCHIVE_SQLITE_SCHEMA = 1;
+export const SUPPORTED_ARCHIVE_SQLITE_SCHEMA = 2;
 
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
 const GIT_OBJECT_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const TOKEN_RE = /^[a-z0-9][a-z0-9._-]*$/;
 const BASE_IMAGE_RE = /^[A-Za-z0-9._/:+-]+@sha256:[0-9a-f]{64}$/;
 const SPDX_NAMESPACE_RE =
-  /^https:\/\/spdx\.bangumi-staff-stats\.invalid\/(backend|updater|frontend)\/sha256-([0-9a-f]{64})$/;
+  /^https:\/\/spdx\.bangumi-staff-stats\.invalid\/(backend|frontend)\/sha256-([0-9a-f]{64})$/;
 const SPDX_ID_RE = /^SPDXRef-(?:DOCUMENT|Package-[A-Za-z0-9.-]+)$/;
 const SPDX_PACKAGE_ID_RE = /^SPDXRef-Package-[A-Za-z0-9.-]+$/;
 const ISO_TIMESTAMP_RE =
@@ -61,8 +61,28 @@ const HOST_PATH_RE =
 const TOOLCHAIN_REQUIREMENTS = Object.freeze({
   backend: Object.freeze(['buildkit', 'docker-buildx', 'go']),
   frontend: Object.freeze(['node', 'npm', 'vite']),
-  updater: Object.freeze(['buildkit', 'docker-buildx', 'python', 'uv']),
 });
+
+const BACKEND_PRODUCER_INPUTS = Object.freeze(
+  new Map([
+    [
+      'backend/internal/archivebuild/assets/display-v1.yaml',
+      'sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8',
+    ],
+    [
+      'backend/internal/archivebuild/assets/schema.sql',
+      ARCHIVE_SCHEMA_SQL_DIGEST,
+    ],
+    [
+      'backend/internal/archivebuild/assets/staff-sets-v1.yaml',
+      'sha256:df2ad5c80add8898ebf61a0eced86f608374e528b34b881c3fe741b177be8dae',
+    ],
+    [
+      'contracts/producer-runtime-inputs-v1',
+      PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
+    ],
+  ]),
+);
 
 export class ArtifactValidationError extends Error {}
 
@@ -310,22 +330,15 @@ function validateInputs(value, component, label) {
   } else if (buildkitImage.sha256 !== BUILDKIT_IMAGE_DIGEST) {
     fail(label, `BuildKit image must equal ${BUILDKIT_IMAGE_DIGEST}`);
   }
-  if (component === 'updater') {
-    const producerRuntimeInputs = value.filter(
-      (input) => input.path === 'contracts/producer-runtime-inputs-v1',
-    );
-    if (producerRuntimeInputs.length !== 1) {
-      fail(label, 'updater must declare exactly one producer-runtime manifest input');
-    }
-    if (
-      producerRuntimeInputs[0].sha256 !==
-      PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST
-    ) {
-      fail(
-        label,
-        'producer-runtime manifest input must equal ' +
-          PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
-      );
+  if (component === 'backend') {
+    for (const [requiredPath, requiredDigest] of BACKEND_PRODUCER_INPUTS) {
+      const matches = value.filter((input) => input.path === requiredPath);
+      if (matches.length !== 1) {
+        fail(label, `backend must declare exactly one ${requiredPath} input`);
+      }
+      if (matches[0].sha256 !== requiredDigest) {
+        fail(label, `${requiredPath} must equal ${requiredDigest}`);
+      }
     }
   }
 }
@@ -373,13 +386,9 @@ function validateArchiveCompatibility(value, label) {
 function validateCompatibility(value, component, label) {
   exactKeys(value, ['archive', 'openapiDigest'], [], label);
   validateArchiveCompatibility(value.archive, `${label}.archive`);
-  if (component === 'updater') {
-    if (value.openapiDigest !== null) fail(`${label}.openapiDigest`, 'must be null for updater');
-  } else {
-    assertDigest(value.openapiDigest, `${label}.openapiDigest`);
-    if (value.openapiDigest !== OPENAPI_DIGEST) {
-      fail(`${label}.openapiDigest`, `must equal accepted OpenAPI digest ${OPENAPI_DIGEST}`);
-    }
+  assertDigest(value.openapiDigest, `${label}.openapiDigest`);
+  if (value.openapiDigest !== OPENAPI_DIGEST) {
+    fail(`${label}.openapiDigest`, `must equal accepted OpenAPI digest ${OPENAPI_DIGEST}`);
   }
 }
 
@@ -1083,8 +1092,8 @@ function assertSupportedArchiveCompatibility(archive, label) {
 }
 
 export function assembleCompatibilityManifest(componentRoots) {
-  if (!Array.isArray(componentRoots) || componentRoots.length !== 3) {
-    fail('assembly', 'requires exactly three component directories');
+  if (!Array.isArray(componentRoots) || componentRoots.length !== 2) {
+    fail('assembly', 'requires exactly two component directories');
   }
   const validated = componentRoots.map((root) => verifyComponentDirectory(root));
   validated.sort((left, right) => left.statement.component.localeCompare(right.statement.component));
@@ -1111,7 +1120,6 @@ export function assembleCompatibilityManifest(componentRoots) {
   assertSupportedArchiveCompatibility(first.compatibility.archive, 'assembly.archive');
   const backend = validated.find((entry) => entry.statement.component === 'backend').statement;
   const frontend = validated.find((entry) => entry.statement.component === 'frontend').statement;
-  const updater = validated.find((entry) => entry.statement.component === 'updater').statement;
   if (
     backend.compatibility.openapiDigest !== OPENAPI_DIGEST ||
     frontend.compatibility.openapiDigest !== OPENAPI_DIGEST ||
@@ -1119,10 +1127,6 @@ export function assembleCompatibilityManifest(componentRoots) {
   ) {
     fail('assembly', 'Backend/Frontend OpenAPI digests disagree or drift from accepted OpenAPI');
   }
-  if (updater.compatibility.openapiDigest !== null) {
-    fail('assembly', 'Updater must not claim an OpenAPI dependency');
-  }
-
   const manifest = {
     schemaVersion: 1,
     applicationVersion: first.applicationVersion,
@@ -1175,8 +1179,8 @@ export function validateCompatibilityManifest(value, label = 'compatibility mani
   if (value.compatibility.openapiDigest !== OPENAPI_DIGEST) {
     fail(`${label}.compatibility.openapiDigest`, 'does not match accepted OpenAPI');
   }
-  assertArray(value.components, `${label}.components`, 3);
-  if (value.components.length !== 3) fail(`${label}.components`, 'must contain exactly three items');
+  assertArray(value.components, `${label}.components`, 2);
+  if (value.components.length !== 2) fail(`${label}.components`, 'must contain exactly two items');
   for (const [index, component] of value.components.entries()) {
     const itemLabel = `${label}.components[${index}]`;
     exactKeys(

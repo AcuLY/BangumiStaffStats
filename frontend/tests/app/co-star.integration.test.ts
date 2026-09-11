@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../../src/app/App.vue';
 import type { CandidatePayload } from '../../src/api/adapters/candidates';
+import type { RankingPayload } from '../../src/api/adapters/rankings';
 import {
   decodeCoStarPayload,
   type CoStarPayload,
@@ -23,10 +24,8 @@ import type {
   QueryDrivers,
 } from '../../src/features/query/coordinator';
 import type { AppliedQuery } from '../../src/features/query/model';
-import {
-  createShareUrl,
-  type ShareWorkspace,
-} from '../../src/features/query/share';
+import { createQuerySessionOwner, QUERY_SESSION_STORAGE_KEY } from '../../src/features/query/session';
+import type { RecoveryWorkspace } from '../../src/features/query/recovery';
 import { useQueryStore } from '../../src/features/query/store';
 import { catalogFixture } from '../features/query/fixtures';
 
@@ -34,13 +33,8 @@ const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../..',
 );
-const originalClipboard = Object.getOwnPropertyDescriptor(
-  window.navigator,
-  'clipboard',
-);
-
 type CoStarDrivers = QueryDrivers<
-  never,
+  RankingPayload,
   CandidatePayload,
   never,
   PartnersPayload,
@@ -48,6 +42,9 @@ type CoStarDrivers = QueryDrivers<
 >;
 type CandidateRequest = Parameters<
   CoStarDrivers['candidates']['execute']
+>[0];
+type RankingRequest = Parameters<
+  CoStarDrivers['rankings']['execute']
 >[0];
 type CoStarRequest = Parameters<
   NonNullable<CoStarDrivers['coStar']>['execute']
@@ -58,6 +55,23 @@ type PartnersRequest = Parameters<
 
 const primaryDataVersion = `dv1-${'a'.repeat(64)}`;
 const primaryFetchedAt = '2026-07-25T00:00:00Z';
+
+function emptyRankingPayload(requestId: string): RankingPayload {
+  return Object.freeze({
+    collection: Object.freeze({
+      fetchedAt: primaryFetchedAt,
+      stale: false,
+      warningCodes: Object.freeze([]),
+    }),
+    dataVersion: primaryDataVersion,
+    items: Object.freeze([]),
+    metricScale: Object.freeze({ kind: 'linear', max: null, metric: 'count' }),
+    pagination: Object.freeze({ page: 1, pageSize: 10, total: 0 }),
+    requestId,
+    scope: 'personal',
+    summary: Object.freeze({ personCount: 0, workCount: 0, workUnit: 'subject' }),
+  });
+}
 
 function readGoldenBody(relativePath: string): unknown {
   const golden = JSON.parse(
@@ -164,11 +178,12 @@ function coStarPayloadWithWork(
 }
 
 function candidatePayload(
-  positionKey: string,
+  positionKey: string | null,
   requestId: string,
   dataVersion = primaryDataVersion,
   fetchedAt = primaryFetchedAt,
 ): CandidatePayload {
+  const itemPositionKeys = Object.freeze([positionKey ?? 'staff:anime:2']);
   return Object.freeze({
     collection: Object.freeze({
       fetchedAt,
@@ -184,6 +199,7 @@ function candidatePayload(
           nameCN: '候选一',
         }),
         rank: 1,
+        positionKeys: itemPositionKeys,
         workCount: 12,
       }),
       Object.freeze({
@@ -193,6 +209,7 @@ function candidatePayload(
           nameCN: '候选二',
         }),
         rank: 2,
+        positionKeys: itemPositionKeys,
         workCount: 8,
       }),
     ]),
@@ -202,7 +219,7 @@ function candidatePayload(
       total: 2,
     }),
     positionCounts: Object.freeze([
-      Object.freeze({ count: 2, positionKey }),
+      Object.freeze({ count: 2, positionKey: 'staff:anime:2' }),
     ]),
     positionKey,
     requestId,
@@ -228,7 +245,7 @@ function defaultDrivers(
         const requestId = `server-${request.transactionId}`;
         return {
           payload: candidatePayload(
-            String(request.input.positionKey),
+            request.input.positionKey,
             requestId,
           ),
           requestId,
@@ -238,8 +255,14 @@ function defaultDrivers(
     },
     coStar: {
       async execute(request) {
+        const payload = coStarPayload();
         return {
-          payload: coStarPayload(),
+          payload: {
+            ...payload,
+            data: { ...payload.data, participants: payload.data.participants.map((participant, index) => ({
+              ...participant, positionKeys: request.input.participants[index]!.positionKeys,
+            })) },
+          },
           requestId: 'server-co-star',
           transactionId: request.transactionId,
         };
@@ -287,6 +310,54 @@ function installCompactLayout(): void {
   );
 }
 
+function installResponsiveLayout(
+  initialCompact: boolean,
+): (compact: boolean) => void {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  let compact = initialCompact;
+  const compactMedia = {
+    addEventListener: vi.fn(
+      (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.add(listener);
+      },
+    ),
+    dispatchEvent: vi.fn(() => true),
+    get matches() {
+      return compact;
+    },
+    media: '(width < 780px)',
+    onchange: null,
+    removeEventListener: vi.fn(
+      (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.delete(listener);
+      },
+    ),
+  } as unknown as MediaQueryList;
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) =>
+      query === '(width < 780px)'
+        ? compactMedia
+        : ({
+            addEventListener: vi.fn(),
+            dispatchEvent: vi.fn(() => true),
+            matches: false,
+            media: query,
+            onchange: null,
+            removeEventListener: vi.fn(),
+          } as unknown as MediaQueryList),
+    ),
+  );
+  return (nextCompact: boolean) => {
+    compact = nextCompact;
+    const event = Object.assign(new Event('change'), {
+      matches: compact,
+      media: compactMedia.media,
+    }) as MediaQueryListEvent;
+    listeners.forEach((listener) => listener(event));
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -297,58 +368,160 @@ function deferred<T>() {
   return { promise, reject, resolve };
 }
 
-function canonicalJson(value: unknown): string {
-  if (
-    value === null ||
-    typeof value === 'boolean' ||
-    typeof value === 'number' ||
-    typeof value === 'string'
-  ) {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJson).join(',')}]`;
-  }
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
-    .join(',')}}`;
-}
-
-function uncheckedFragment(payload: unknown): string {
-  const bytes = new TextEncoder().encode(canonicalJson(payload));
-  let binary = '';
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return `#q=v1.${btoa(binary)
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/u, '')}`;
-}
-
 afterEach(() => {
   vi.unstubAllGlobals();
-  if (originalClipboard) {
-    Object.defineProperty(
-      window.navigator,
-      'clipboard',
-      originalClipboard,
-    );
-  } else {
-    Reflect.deleteProperty(window.navigator, 'clipboard');
-  }
 });
 
 describe('App co-star production slice', () => {
+  it.each([false, true])('keeps the analysis placeholder through candidate and analysis loading (compact=%s)', async (compact) => {
+    installResponsiveLayout(compact);
+    window.history.replaceState({}, '', '/co-star?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = seedPersonalQuery();
+    let candidateGate = deferred<OperationResponse<CandidatePayload>>();
+    let analysisGate = deferred<OperationResponse<PartnersPayload>>();
+    const candidates = vi.fn((request: CandidateRequest) => defaultDrivers().candidates.execute(request))
+      .mockImplementationOnce(() => candidateGate.promise);
+    const analysis = vi.fn((_request: PartnersRequest) => analysisGate.promise);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: {
+        catalogApi: catalogApi(),
+        drivers: defaultDrivers({ candidates: { execute: candidates }, partners: { execute: analysis } }),
+        targetWindow: window,
+      } },
+    });
+    const resolveCandidates = async () => {
+      const request = candidates.mock.calls.at(-1)![0];
+      candidateGate.resolve(await defaultDrivers().candidates.execute(request));
+    };
+    const resolveAnalysis = async () => {
+      const request = analysis.mock.calls.at(-1)![0];
+      analysisGate.resolve(await defaultDrivers().partners!.execute(request));
+      await vi.waitFor(() => expect(wrapper.find('.partners-summary-skeleton').exists()).toBe(false));
+    };
+    try {
+      await flushPromises();
+      await wrapper.get('#query-editor').trigger('submit');
+      await vi.waitFor(() => expect(candidates).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(wrapper.find('.co-star-analysis-main .co-star-full-skeleton').exists()).toBe(true));
+      expect(wrapper.find('.co-star-full-skeleton [data-selected-person-id]').exists()).toBe(false);
+      expect(wrapper.get('.co-star-full-skeleton').text()).not.toContain('0 人共演');
+      expect(analysis).not.toHaveBeenCalled();
+      await resolveCandidates();
+      await vi.waitFor(() => expect(analysis).toHaveBeenCalledOnce(), { timeout: 10000 });
+      expect(wrapper.find('.co-star-analysis-main .partners-summary-skeleton').exists()).toBe(true);
+      await resolveAnalysis();
+
+      candidateGate = deferred<OperationResponse<CandidatePayload>>();
+      analysisGate = deferred<OperationResponse<PartnersPayload>>();
+      candidates.mockImplementationOnce(() => candidateGate.promise);
+      await wrapper.get('.query-summary').trigger('click');
+      await nextTick();
+      store.draft.includeNSFW = !store.draft.includeNSFW;
+      await wrapper.get('#query-editor').trigger('submit');
+      await vi.waitFor(() => expect(candidates).toHaveBeenCalledTimes(3));
+      expect(wrapper.find('.co-star-analysis-main .partners-summary-skeleton').exists()).toBe(true);
+      expect(analysis).toHaveBeenCalledOnce();
+      await resolveCandidates();
+      await vi.waitFor(() => expect(analysis).toHaveBeenCalledTimes(2));
+      await resolveAnalysis();
+
+      const filteredCandidates = deferred<OperationResponse<CandidatePayload>>();
+      candidates.mockImplementationOnce(() => filteredCandidates.promise);
+      await wrapper.get('input[name="candidateSearch"]').setValue('One');
+      await vi.waitFor(() => expect(candidates).toHaveBeenCalledTimes(4));
+      expect(wrapper.find('.candidate-row-skeletons').exists()).toBe(true);
+      expect(wrapper.find('.co-star-full-skeleton').exists()).toBe(false);
+      expect(analysis).toHaveBeenCalledTimes(2);
+      filteredCandidates.resolve(await defaultDrivers().candidates.execute(candidates.mock.calls.at(-1)![0]));
+      await flushPromises();
+      expect(analysis).toHaveBeenCalledTimes(2);
+    } finally { wrapper.unmount(); }
+  }, 15000);
+
+  it('loads the other mode from Applied Query and reuses current mode resources', async () => {
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = seedPersonalQuery();
+    const ranking = vi.fn(async (request: RankingRequest) => ({
+      payload: emptyRankingPayload('server-ranking'),
+      requestId: 'server-ranking',
+      transactionId: request.transactionId,
+    }));
+    const candidates = vi.fn(defaultDrivers().candidates.execute);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: defaultDrivers({
+            candidates: { execute: candidates },
+            rankings: { execute: ranking },
+          }),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    expect(ranking).toHaveBeenCalledOnce();
+
+    store.draft.includeNSFW = true;
+    await wrapper.get('#mode-tab-co-star').trigger('click');
+    await flushPromises();
+
+    expect(candidates).toHaveBeenCalledTimes(2);
+    expect(candidates.mock.calls[0]![0].query.includeNSFW).toBe(false);
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    expect(wrapper.text()).not.toContain('查询条件已应用');
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(1);
+    });
+
+    await wrapper.get('#mode-tab-ranking').trigger('click');
+    await flushPromises();
+    expect(ranking).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
   it('runs candidates, partners, and analysis through one persistent topology owner', async () => {
     window.history.replaceState({}, '', '/co-star?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = seedPersonalQuery();
-    const candidates = vi.fn(defaultDrivers().candidates.execute);
-    const partners = vi.fn(defaultDrivers().partners!.execute);
+    const candidates = vi.fn(async (request: CandidateRequest) => {
+      const result = await defaultDrivers().candidates.execute(request);
+      return request.input.positionScope === 'all' ? {
+        ...result,
+        payload: { ...result.payload, items: [...result.payload.items].reverse().map((item) => ({
+          ...item, positionKeys: ['cast:anime:all'],
+        })) },
+      } : result;
+    });
+    const partners = vi.fn(async (request: PartnersRequest) => {
+      const result = await defaultDrivers().partners!.execute(request);
+      return {
+        ...result,
+        payload: Object.freeze({
+          ...result.payload,
+          items: Object.freeze(
+            result.payload.items.map((item) =>
+              Object.freeze({
+                ...item,
+                positionKeys: Object.freeze(['staff:anime:2']),
+              }),
+            ),
+          ),
+        }),
+      };
+    });
     const coStar = vi.fn(defaultDrivers().coStar!.execute);
     const wrapper = mount(App, {
       attachTo: document.body,
@@ -369,7 +542,9 @@ describe('App co-star production slice', () => {
 
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
-    expect(candidates).toHaveBeenCalledOnce();
+    expect(candidates).toHaveBeenCalledTimes(2);
+    expect(candidates.mock.calls.map(([request]) => request.input.positionScope ?? 'query')).toEqual(['query', 'all']);
+    expect(candidates.mock.calls.every(([request]) => request.query.positionKeys.join() === 'staff:anime:2')).toBe(true);
     expect(wrapper.findAll('[role="tabpanel"]')).toHaveLength(2);
     expect(wrapper.get('#mode-panel-ranking').attributes()).toMatchObject({
       hidden: '',
@@ -384,14 +559,16 @@ describe('App co-star production slice', () => {
         wrapper.findAll('button.candidate-row'),
       ).toHaveLength(2);
     });
-    const rows = wrapper.findAll<HTMLButtonElement>('button.candidate-row');
-    await rows[0]!.trigger('click');
-    await flushPromises();
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(1);
+    expect(wrapper.get('.candidate-selected-person').attributes('data-selected-person-id')).toBe('1');
+    expect(wrapper.text()).toContain('可继续选择人物，进行多人共演分析');
+    expect(coStar).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(partners).toHaveBeenCalledOnce();
     });
     expect(partners).toHaveBeenCalledOnce();
     expect(partners.mock.calls[0]![0].input).toEqual({
+      positionScope: 'all',
       source: {
         personId: 1,
         positionKeys: ['staff:anime:2'],
@@ -401,19 +578,25 @@ describe('App co-star production slice', () => {
       expect(wrapper.find('.partners-surface').exists()).toBe(true);
     });
     expect(wrapper.find('.partners-surface').exists()).toBe(true);
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
+    await vi.waitFor(() => {
+      expect(createQuerySessionOwner(window).read('/co-star')?.workspace).toMatchObject({ state: 'partners' });
+    });
 
-    await rows[1]!.trigger('click');
+    const analysisRegion = wrapper.get('.co-star-analysis-main');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(analysisRegion.element, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    await wrapper.get('.partners-results-boundary .ranked-person-row').trigger('click');
     await flushPromises();
     await vi.waitFor(() => {
       expect(coStar).toHaveBeenCalledOnce();
+      expect(wrapper.find('.co-star-surface:not([aria-busy="true"])').exists()).toBe(true);
     });
     expect(coStar).toHaveBeenCalledOnce();
     expect(coStar.mock.calls[0]![0].input).toEqual({
+      positionScope: 'all',
       participants: [
         { personId: 1, positionKeys: ['staff:anime:2'] },
         { personId: 2, positionKeys: ['staff:anime:2'] },
@@ -423,11 +606,13 @@ describe('App co-star production slice', () => {
       expect(wrapper.find('.co-star-surface').exists()).toBe(true);
     });
     expect(wrapper.find('.co-star-surface').exists()).toBe(true);
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
+    expect(wrapper.text()).not.toContain('可继续选择人物，进行多人共演分析');
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(analysisRegion.element);
+    expect(analysisRegion.classes()).toContain('is-reveal-attention');
+    await vi.waitFor(() => {
+      expect(createQuerySessionOwner(window).read('/co-star')?.workspace).toMatchObject({ state: 'analysis' });
+    });
 
     await wrapper.get('#mode-tab-ranking').trigger('click');
     await nextTick();
@@ -447,12 +632,13 @@ describe('App co-star production slice', () => {
     store.draft.includeNSFW = true;
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
-    expect(candidates).toHaveBeenCalledTimes(2);
-    expect(wrapper.find('.co-star-empty').exists()).toBe(true);
+    expect(candidates).toHaveBeenCalledTimes(3);
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(1);
+    expect(wrapper.find('.co-star-empty').exists()).toBe(false);
     wrapper.unmount();
   });
 
-  it('keeps sharing disabled until the visible child topology has an authoritative response', async () => {
+  it('keeps pending and failed child operations retryable after selection changes', async () => {
     window.history.replaceState({}, '', '/co-star?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -488,29 +674,26 @@ describe('App co-star production slice', () => {
         wrapper.findAll('button.candidate-row'),
       ).toHaveLength(2);
     });
-    const rows = wrapper.findAll<HTMLButtonElement>('button.candidate-row');
-    await rows[0]!.trigger('click');
-    await nextTick();
     await vi.waitFor(() => {
       expect(partners).toHaveBeenCalledOnce();
     });
-    expect(partners).toHaveBeenCalledOnce();
-    const share = wrapper.get(
-      'button[aria-label="复制当前查询链接"]',
-    );
-    expect(share.attributes('disabled')).toBeDefined();
-
-    rejectPartners(new Error('offline'));
-    await flushPromises();
-    expect(share.attributes('disabled')).toBeDefined();
-
+    const rows = wrapper.findAll<HTMLButtonElement>('button.candidate-row');
     await rows[1]!.trigger('click');
     await nextTick();
     await vi.waitFor(() => {
       expect(coStar).toHaveBeenCalledOnce();
     });
-    expect(coStar).toHaveBeenCalledOnce();
-    expect(share.attributes('disabled')).toBeDefined();
+    await rows[1]!.trigger('click');
+    await vi.waitFor(() => expect(partners).toHaveBeenCalledTimes(2));
+    rejectPartners(new Error('offline'));
+    await flushPromises();
+
+    await rows[1]!.trigger('click');
+    await nextTick();
+    await vi.waitFor(() => {
+      expect(coStar).toHaveBeenCalledTimes(2);
+    });
+    expect(coStar).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
 
@@ -526,7 +709,7 @@ describe('App co-star production slice', () => {
       const requestId = `server-${request.transactionId}`;
       return {
         payload: candidatePayload(
-          String(request.input.positionKey),
+          request.input.positionKey,
           requestId,
           reproducedPrimaryDataVersion,
           reproducedPrimaryFetchedAt,
@@ -573,21 +756,13 @@ describe('App co-star production slice', () => {
     await vi.waitFor(() => {
       expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
     });
-    const rows = wrapper.findAll('button.candidate-row');
-    await rows[0]!.trigger('click');
+    await wrapper.findAll('button.candidate-row')[1]!.trigger('click');
     await flushPromises();
-    await rows[1]!.trigger('click');
-    await flushPromises();
-
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
     expect(coStar).toHaveBeenCalledOnce();
     expect(wrapper.get('.co-star-initial-error').text()).toContain(
       '结果数据版本已变化，请重新查询后重试',
     );
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeDefined();
 
     await wrapper
       .get('.co-star-initial-error__actions button')
@@ -596,501 +771,8 @@ describe('App co-star production slice', () => {
 
     expect(coStar).toHaveBeenCalledTimes(2);
     expect(wrapper.find('.co-star-initial-error').exists()).toBe(false);
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
     wrapper.unmount();
   });
-
-  it('keeps the selected topology and replays its completion-time view after a collection refresh', async () => {
-    window.history.replaceState({}, '', '/co-star?user=luca');
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    seedPersonalQuery();
-    const refreshedDataVersion = `dv1-${'b'.repeat(64)}`;
-    const refreshedFetchedAt = '2026-07-25T00:05:00Z';
-    const candidateRefresh =
-      deferred<OperationResponse<CandidatePayload>>();
-    const partnersRefresh =
-      deferred<OperationResponse<PartnersPayload>>();
-    const base = defaultDrivers();
-    const candidates = vi.fn((request: CandidateRequest) =>
-      request.refreshCollection
-        ? candidateRefresh.promise
-        : base.candidates.execute(request),
-    );
-    const partners = vi.fn((request: PartnersRequest) =>
-      partners.mock.calls.length === 1
-        ? base.partners!.execute(request)
-        : partnersRefresh.promise,
-    );
-    const coStar = vi.fn(base.coStar!.execute);
-    const wrapper = mount(App, {
-      attachTo: document.body,
-      global: { plugins: [pinia], stubs: { teleport: true } },
-      props: {
-        services: {
-          catalogApi: catalogApi(),
-          drivers: defaultDrivers({
-            candidates: { execute: candidates },
-            coStar: { execute: coStar },
-            partners: { execute: partners },
-          }),
-          targetWindow: window,
-        },
-      },
-    });
-    await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
-    await flushPromises();
-    await vi.waitFor(() => {
-      expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
-    });
-    const rows = wrapper.findAll('button.candidate-row');
-    await rows[0]!.trigger('click');
-    await flushPromises();
-    await rows[1]!.trigger('click');
-    await flushPromises();
-    expect(partners).toHaveBeenCalledOnce();
-    expect(coStar).toHaveBeenCalledOnce();
-
-    await wrapper.get('.query-summary').trigger('click');
-    await nextTick();
-    const refresh = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('刷新收藏并查询'));
-    expect(refresh).toBeDefined();
-    await refresh!.trigger('click');
-    await nextTick();
-    expect(candidates).toHaveBeenCalledTimes(2);
-
-    await wrapper
-      .get(
-        'button[aria-label="移除候选二的全部身份"]',
-      )
-      .trigger('click');
-    await flushPromises();
-    expect(
-      wrapper.findAll('button.candidate-selected-person__remove'),
-    ).toHaveLength(1);
-    await vi.waitFor(() => {
-      expect(wrapper.find('.partners-surface').exists()).toBe(true);
-    });
-    const search = wrapper.get<HTMLInputElement>(
-      'input[aria-label="搜索合作人物"]',
-    );
-    await search.setValue('刷新后视图');
-    await wrapper.get('form.partners-toolbar').trigger('submit');
-    await flushPromises();
-    await wrapper
-      .get('.partners-toolbar .ranking-order-button')
-      .trigger('click');
-    await flushPromises();
-    expect(partners).toHaveBeenCalledOnce();
-
-    const candidateRequest = candidates.mock.calls[1]![0]!;
-    candidateRefresh.resolve({
-      payload: candidatePayload(
-        String(candidateRequest.input.positionKey),
-        'server-candidates-refreshed',
-        refreshedDataVersion,
-        refreshedFetchedAt,
-      ),
-      requestId: 'server-candidates-refreshed',
-      transactionId: candidateRequest.transactionId,
-    });
-    await flushPromises();
-    await vi.waitFor(() => {
-      expect(partners).toHaveBeenCalledTimes(2);
-    });
-    expect(partners.mock.calls[1]![0]).toMatchObject({
-      input: {
-        source: {
-          personId: 1,
-          positionKeys: ['staff:anime:2'],
-        },
-      },
-      view: {
-        order: 'asc',
-        search: '刷新后视图',
-      },
-    });
-    expect(wrapper.find('.partners-surface').exists()).toBe(true);
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeDefined();
-
-    const partnersRequest = partners.mock.calls[1]![0]!;
-    partnersRefresh.resolve({
-      payload: partnersPayload(
-        refreshedDataVersion,
-        refreshedFetchedAt,
-      ),
-      requestId: 'server-partners-refreshed',
-      transactionId: partnersRequest.transactionId,
-    });
-    await flushPromises();
-
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
-    expect(
-      wrapper.findAll('.candidate-selected-person'),
-    ).toHaveLength(1);
-    wrapper.unmount();
-  });
-
-  it('queues compound co-star work controls during refresh and replays only the completed view', async () => {
-    window.history.replaceState({}, '', '/co-star?user=luca');
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    seedPersonalQuery();
-    const refreshedDataVersion = `dv1-${'b'.repeat(64)}`;
-    const refreshedFetchedAt = '2026-07-25T00:05:00Z';
-    const candidateRefresh =
-      deferred<OperationResponse<CandidatePayload>>();
-    const coStarRefresh =
-      deferred<OperationResponse<CoStarPayload>>();
-    const base = defaultDrivers();
-    const candidates = vi.fn((request: CandidateRequest) =>
-      request.refreshCollection
-        ? candidateRefresh.promise
-        : base.candidates.execute(request),
-    );
-    const coStar = vi.fn((request: CoStarRequest) =>
-      coStar.mock.calls.length === 1
-        ? Promise.resolve({
-            payload: coStarPayloadWithWork(),
-            requestId: 'server-co-star',
-            transactionId: request.transactionId,
-          })
-        : coStarRefresh.promise,
-    );
-    const wrapper = mount(App, {
-      attachTo: document.body,
-      global: { plugins: [pinia], stubs: { teleport: true } },
-      props: {
-        services: {
-          catalogApi: catalogApi(),
-          drivers: defaultDrivers({
-            candidates: { execute: candidates },
-            coStar: { execute: coStar },
-          }),
-          targetWindow: window,
-        },
-      },
-    });
-    await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
-    await flushPromises();
-    await vi.waitFor(() => {
-      expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
-    });
-    const rows = wrapper.findAll('button.candidate-row');
-    await rows[0]!.trigger('click');
-    await flushPromises();
-    await rows[1]!.trigger('click');
-    await flushPromises();
-    expect(coStar).toHaveBeenCalledOnce();
-
-    await wrapper.get('.query-summary').trigger('click');
-    await nextTick();
-    const refresh = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('刷新收藏并查询'));
-    expect(refresh).toBeDefined();
-    await refresh!.trigger('click');
-    await nextTick();
-    expect(candidates).toHaveBeenCalledTimes(2);
-
-    const search = wrapper.get<HTMLInputElement>(
-      'input[name="sharedWorkSearch"]',
-    );
-    await search.setValue('刷新后共同作品');
-    await wrapper.get('form.co-star-work-toolbar').trigger('submit');
-    await flushPromises();
-    await wrapper
-      .get('.co-star-work-toolbar .ranking-order-button')
-      .trigger('click');
-    await flushPromises();
-
-    expect(coStar).toHaveBeenCalledOnce();
-    expect(wrapper.text()).not.toContain('请先选择至少两位人物');
-    expect(wrapper.text()).not.toContain('请先完成一次共演分析查询');
-
-    const candidateRequest = candidates.mock.calls[1]![0];
-    candidateRefresh.resolve({
-      payload: candidatePayload(
-        String(candidateRequest.input.positionKey),
-        'server-candidates-refreshed',
-        refreshedDataVersion,
-        refreshedFetchedAt,
-      ),
-      requestId: 'server-candidates-refreshed',
-      transactionId: candidateRequest.transactionId,
-    });
-    await flushPromises();
-    await vi.waitFor(() => {
-      expect(coStar).toHaveBeenCalledTimes(2);
-    });
-
-    expect(coStar.mock.calls[1]![0].view).toMatchObject({
-      order: 'asc',
-      search: '刷新后共同作品',
-    });
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeDefined();
-
-    const coStarRequest = coStar.mock.calls[1]![0];
-    coStarRefresh.resolve({
-      payload: coStarPayloadWithWork(
-        refreshedDataVersion,
-        refreshedFetchedAt,
-      ),
-      requestId: 'server-co-star-refreshed',
-      transactionId: coStarRequest.transactionId,
-    });
-    await flushPromises();
-
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
-    expect(wrapper.find('.co-star-initial-error').exists()).toBe(
-      false,
-    );
-    wrapper.unmount();
-  });
-
-  it('keeps only the latest candidate controls intent while a collection refresh is pending', async () => {
-    window.history.replaceState({}, '', '/co-star?user=luca');
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    seedPersonalQuery();
-    const refreshedDataVersion = `dv1-${'b'.repeat(64)}`;
-    const refreshedFetchedAt = '2026-07-25T00:05:00Z';
-    const candidateRefresh =
-      deferred<OperationResponse<CandidatePayload>>();
-    const candidateReplay =
-      deferred<OperationResponse<CandidatePayload>>();
-    const base = defaultDrivers();
-    const candidates = vi
-      .fn<(request: CandidateRequest) => Promise<OperationResponse<CandidatePayload>>>()
-      .mockImplementationOnce(base.candidates.execute)
-      .mockImplementationOnce(() => candidateRefresh.promise)
-      .mockImplementationOnce(() => candidateReplay.promise);
-    const wrapper = mount(App, {
-      attachTo: document.body,
-      global: { plugins: [pinia], stubs: { teleport: true } },
-      props: {
-        services: {
-          catalogApi: catalogApi(),
-          drivers: defaultDrivers({
-            candidates: { execute: candidates },
-          }),
-          targetWindow: window,
-        },
-      },
-    });
-    await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
-    await flushPromises();
-    await vi.waitFor(() => {
-      expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
-    });
-
-    await wrapper.get('.query-summary').trigger('click');
-    await nextTick();
-    const refresh = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('刷新收藏并查询'));
-    expect(refresh).toBeDefined();
-    await refresh!.trigger('click');
-    await nextTick();
-    expect(candidates).toHaveBeenCalledTimes(2);
-
-    const search = wrapper.get<HTMLInputElement>(
-      'input[name="candidateSearch"]',
-    );
-    await search.setValue('中间意图');
-    await new Promise((resolve) => window.setTimeout(resolve, 280));
-    await search.setValue('最终意图');
-    await new Promise((resolve) => window.setTimeout(resolve, 280));
-    await flushPromises();
-
-    expect(candidates).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).not.toContain('请先完成一次共演分析查询');
-
-    const refreshRequest = candidates.mock.calls[1]![0];
-    candidateRefresh.resolve({
-      payload: candidatePayload(
-        String(refreshRequest.input.positionKey),
-        'server-candidates-refreshed',
-        refreshedDataVersion,
-        refreshedFetchedAt,
-      ),
-      requestId: 'server-candidates-refreshed',
-      transactionId: refreshRequest.transactionId,
-    });
-    await vi.waitFor(() => {
-      expect(candidates).toHaveBeenCalledTimes(3);
-    });
-
-    const replayRequest = candidates.mock.calls[2]![0];
-    expect(replayRequest).toMatchObject({
-      refreshCollection: false,
-      view: { search: '最终意图' },
-    });
-    candidateReplay.resolve({
-      payload: candidatePayload(
-        String(replayRequest.input.positionKey),
-        'server-candidates-final-view',
-        refreshedDataVersion,
-        refreshedFetchedAt,
-      ),
-      requestId: 'server-candidates-final-view',
-      transactionId: replayRequest.transactionId,
-    });
-    await flushPromises();
-
-    expect(
-      wrapper.get<HTMLInputElement>('input[name="candidateSearch"]')
-        .element.value,
-    ).toBe('最终意图');
-    expect(wrapper.text()).not.toContain('请先完成一次共演分析查询');
-    expect(wrapper.find('.candidate-inline-error').exists()).toBe(false);
-    wrapper.unmount();
-  });
-
-  it.each([
-    { child: 'partners', selectedCount: 1 },
-    { child: 'co-star', selectedCount: 2 },
-  ] as const)(
-    'replays an unchanged $child view exactly once after primary refresh and restores share ownership',
-    async ({ child, selectedCount }) => {
-      window.history.replaceState({}, '', '/co-star?user=luca');
-      const pinia = createPinia();
-      setActivePinia(pinia);
-      seedPersonalQuery();
-      const refreshedDataVersion = `dv1-${'b'.repeat(64)}`;
-      const refreshedFetchedAt = '2026-07-25T00:05:00Z';
-      const candidateRefresh =
-        deferred<OperationResponse<CandidatePayload>>();
-      const base = defaultDrivers();
-      const candidates = vi.fn((request: CandidateRequest) =>
-        request.refreshCollection
-          ? candidateRefresh.promise
-          : base.candidates.execute(request),
-      );
-      const partners = vi.fn(
-        async (request: PartnersRequest) => ({
-          payload: partnersPayload(
-            partners.mock.calls.length === 1
-              ? primaryDataVersion
-              : refreshedDataVersion,
-            partners.mock.calls.length === 1
-              ? primaryFetchedAt
-              : refreshedFetchedAt,
-          ),
-          requestId: `server-partners-${partners.mock.calls.length}`,
-          transactionId: request.transactionId,
-        }),
-      );
-      const coStar = vi.fn(
-        async (request: CoStarRequest) => ({
-          payload: coStarPayload(
-            coStar.mock.calls.length === 1
-              ? primaryDataVersion
-              : refreshedDataVersion,
-            coStar.mock.calls.length === 1
-              ? primaryFetchedAt
-              : refreshedFetchedAt,
-          ),
-          requestId: `server-co-star-${coStar.mock.calls.length}`,
-          transactionId: request.transactionId,
-        }),
-      );
-      const wrapper = mount(App, {
-        attachTo: document.body,
-        global: { plugins: [pinia], stubs: { teleport: true } },
-        props: {
-          services: {
-            catalogApi: catalogApi(),
-            drivers: defaultDrivers({
-              candidates: { execute: candidates },
-              coStar: { execute: coStar },
-              partners: { execute: partners },
-            }),
-            targetWindow: window,
-          },
-        },
-      });
-      await flushPromises();
-      await wrapper.get('#query-editor').trigger('submit');
-      await flushPromises();
-      await vi.waitFor(() => {
-        expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
-      });
-      const rows = wrapper.findAll('button.candidate-row');
-      for (let index = 0; index < selectedCount; index += 1) {
-        await rows[index]!.trigger('click');
-        await flushPromises();
-      }
-      const operation = child === 'partners' ? partners : coStar;
-      await vi.waitFor(() => {
-        expect(operation).toHaveBeenCalledOnce();
-      });
-      const acceptedView = structuredClone(
-        operation.mock.calls[0]![0].view,
-      );
-
-      await wrapper.get('.query-summary').trigger('click');
-      await nextTick();
-      const refresh = wrapper
-        .findAll('button')
-        .find((button) => button.text().includes('刷新收藏并查询'));
-      expect(refresh).toBeDefined();
-      await refresh!.trigger('click');
-      await nextTick();
-
-      const refreshRequest = candidates.mock.calls[1]![0];
-      candidateRefresh.resolve({
-        payload: candidatePayload(
-          String(refreshRequest.input.positionKey),
-          'server-candidates-refreshed',
-          refreshedDataVersion,
-          refreshedFetchedAt,
-        ),
-        requestId: 'server-candidates-refreshed',
-        transactionId: refreshRequest.transactionId,
-      });
-      await flushPromises();
-      await vi.waitFor(() => {
-        expect(operation).toHaveBeenCalledTimes(2);
-      });
-
-      expect(operation).toHaveBeenCalledTimes(2);
-      expect(operation.mock.calls[1]![0].view).toEqual(acceptedView);
-      expect(wrapper.text()).not.toContain('请先选择');
-      expect(wrapper.text()).not.toContain('请先完成一次共演分析查询');
-      expect(
-        wrapper
-          .get('button[aria-label="复制当前查询链接"]')
-          .attributes('disabled'),
-      ).toBeUndefined();
-      wrapper.unmount();
-    },
-  );
 
   it.each([
     {
@@ -1132,7 +814,7 @@ describe('App co-star production slice', () => {
       state: 'analysis' as const,
       workspace: {
         candidates: {
-          input: { positionKey: 'staff:anime:2' },
+          input: { positionKey: 'cast:anime:all', positionScope: 'all' as const },
           view: {
             order: 'asc' as const,
             page: 3,
@@ -1143,9 +825,10 @@ describe('App co-star production slice', () => {
         },
         coStar: {
           input: {
+            positionScope: 'all' as const,
             participants: [
               { personId: 1, positionKeys: ['staff:anime:2'] },
-              { personId: 2, positionKeys: ['staff:anime:2'] },
+              { personId: 2, positionKeys: ['cast:anime:all'] },
             ],
           },
           view: {
@@ -1161,7 +844,7 @@ describe('App co-star production slice', () => {
       },
     },
   ])(
-    'replays the exact $state views once and hydrates names from the authoritative response',
+    'replays the exact saved $state views once and hydrates names from the authoritative response',
     async ({ expectedName, state, workspace }) => {
       const query: AppliedQuery = {
         scope: 'personal',
@@ -1172,13 +855,8 @@ describe('App co-star production slice', () => {
         includeNSFW: false,
         mergeSeries: false,
       };
-      const sharedUrl = createShareUrl(
-        new URL(`${window.location.origin}/co-star`),
-        '/co-star',
-        query,
-        workspace as ShareWorkspace,
-      );
-      window.history.replaceState({}, '', sharedUrl);
+      window.history.replaceState({}, '', '/co-star');
+      expect(createQuerySessionOwner(window).write('/co-star', query, workspace as RecoveryWorkspace)).toBe(true);
       const pinia = createPinia();
       setActivePinia(pinia);
       const candidates = vi.fn(defaultDrivers().candidates.execute);
@@ -1206,11 +884,13 @@ describe('App co-star production slice', () => {
       expect(candidates.mock.calls[0]![0].view).toEqual(
         workspace.candidates.view,
       );
+      expect(candidates.mock.calls[0]![0].input).toMatchObject(workspace.candidates.input);
       const child = state === 'partners' ? partners : coStar;
       const expectedChild =
         state === 'partners' ? workspace.partners : workspace.coStar;
       expect(child).toHaveBeenCalledOnce();
       expect(child.mock.calls[0]![0].view).toEqual(expectedChild.view);
+      expect(child.mock.calls[0]![0].input).toMatchObject(expectedChild.input);
       expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
       await vi.waitFor(() => {
         expect(wrapper.text()).toContain(expectedName);
@@ -1221,7 +901,7 @@ describe('App co-star production slice', () => {
     },
   );
 
-  it('keeps the Header opener authoritative and isolates the app while its Drawer is open', async () => {
+  it('keeps the content opener authoritative while its in-flow accordion is open', async () => {
     installCompactLayout();
     window.history.replaceState({}, '', '/co-star?user=luca');
     const pinia = createPinia();
@@ -1244,56 +924,98 @@ describe('App co-star production slice', () => {
 
     await vi.waitFor(() => {
       expect(
-        wrapper.find(
-          '.app-header__mobile-context .co-star-mobile-entry',
-        ).exists(),
+        wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
       ).toBe(true);
     });
     let opener = wrapper.get<HTMLButtonElement>(
-      '.app-header__mobile-context .co-star-mobile-entry',
+      '#mode-panel-co-star > .co-star-mobile-entry',
     );
     await wrapper.get('.query-summary').trigger('click');
     await nextTick();
     expect(
-      wrapper.find('.app-header__mobile-context').exists(),
-    ).toBe(false);
+      wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
+    ).toBe(true);
     await wrapper.get('#query-editor').trigger('keydown', { key: 'Escape' });
     await nextTick();
 
     opener = wrapper.get(
-      '.app-header__mobile-context .co-star-mobile-entry',
+      '#mode-panel-co-star > .co-star-mobile-entry',
     );
     opener.element.focus();
     await opener.trigger('click');
     await flushPromises();
     const appRoot = wrapper.get('[data-app-root]');
-    expect(appRoot.attributes()).toMatchObject({
-      'aria-hidden': 'true',
-      inert: 'true',
-    });
-    const drawer = document.body.querySelector<HTMLElement>(
-      '#co-star-mobile-picker',
+    expect(appRoot.attributes('inert')).toBeUndefined();
+    expect(appRoot.attributes('aria-hidden')).toBeUndefined();
+    expect(opener.attributes('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(opener.element);
+    expect(document.body.querySelector('.n-drawer-container')).toBeNull();
+    const panel = wrapper.get<HTMLElement>(
+      '#co-star-mobile-picker-panel',
     );
-    expect(drawer).not.toBeNull();
-    expect(drawer!.closest('[inert]')).toBeNull();
-
-    const drawerClose = document.body.querySelector<HTMLButtonElement>(
-      'button[aria-label="关闭人物选择"]',
+    expect(wrapper.get('#mode-panel-co-star').element.contains(panel.element)).toBe(
+      true,
     );
-    expect(drawerClose).not.toBeNull();
-    drawerClose!.focus();
-    drawerClose!.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        bubbles: true,
-        code: 'Escape',
-        key: 'Escape',
-      }),
+    expect(panel.attributes('aria-hidden')).toBeUndefined();
+    const search = panel.get<HTMLInputElement>(
+      'input[name="candidateSearch"]',
     );
-    await new Promise((resolve) => window.setTimeout(resolve, 400));
+    search.element.focus();
+    await search.trigger('keydown', { key: 'Escape' });
     await nextTick();
     expect(appRoot.attributes('inert')).toBeUndefined();
     expect(appRoot.attributes('aria-hidden')).toBeUndefined();
+    expect(opener.attributes('aria-expanded')).toBe('false');
+    expect(panel.attributes()).toMatchObject({
+      'aria-hidden': 'true',
+      inert: 'true',
+    });
     expect(document.activeElement).toBe(opener.element);
+    wrapper.unmount();
+  });
+
+  it('keeps the external entry mounted and transfers rail focus while editing across 779px', async () => {
+    const setCompact = installResponsiveLayout(false);
+    window.history.replaceState({}, '', '/co-star?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    seedPersonalQuery();
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia] },
+      props: {
+        services: {
+          catalogApi: catalogApi(),
+          drivers: defaultDrivers(),
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await flushPromises();
+    await vi.waitFor(() => {
+      expect(wrapper.find('.co-star-candidate-rail').exists()).toBe(true);
+    });
+
+    await wrapper.get('.query-summary').trigger('click');
+    await nextTick();
+    expect(wrapper.find('#query-editor').exists()).toBe(true);
+    const entry = wrapper.get<HTMLButtonElement>(
+      '#mode-panel-co-star > .co-star-mobile-entry',
+    );
+    const search = wrapper.get<HTMLInputElement>(
+      '.co-star-candidate-rail input[name="candidateSearch"]',
+    );
+    search.element.focus();
+
+    setCompact(true);
+    await nextTick();
+
+    expect(entry.element.isConnected).toBe(true);
+    expect(entry.attributes('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(entry.element);
+    expect(document.activeElement).not.toBe(document.body);
     wrapper.unmount();
   });
 
@@ -1334,13 +1056,14 @@ describe('App co-star production slice', () => {
     await flushPromises();
 
     expect(workspaceLoader).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(wrapper.find('.candidate-workspace-skeleton .co-star-analysis-main .partners-surface[aria-busy="true"]').exists()).toBe(true);
+    });
     expect(wrapper.get('#mode-panel-co-star').text()).toContain(
       '正在加载候选人物',
     );
     expect(
-      wrapper.find(
-        '.app-header__mobile-context .co-star-mobile-entry',
-      ).exists(),
+      wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
     ).toBe(true);
 
     firstLoad.reject(new Error('chunk unavailable'));
@@ -1349,9 +1072,7 @@ describe('App co-star production slice', () => {
       '候选人物加载失败',
     );
     expect(
-      wrapper.find(
-        '.app-header__mobile-context .co-star-mobile-entry',
-      ).exists(),
+      wrapper.find('#mode-panel-co-star > .co-star-mobile-entry').exists(),
     ).toBe(true);
 
     await wrapper
@@ -1565,14 +1286,10 @@ describe('App co-star production slice', () => {
       },
     },
   ])(
-    'rejects $label before any business request and consumes the fragment',
+    'rejects $label before any business request and discards invalid session data',
     async ({ payload }) => {
-      const fragment = uncheckedFragment(payload);
-      window.history.replaceState(
-        {},
-        '',
-        `${window.location.origin}/co-star${fragment}`,
-      );
+      window.sessionStorage.setItem(QUERY_SESSION_STORAGE_KEY, JSON.stringify({version: 2, coStar: payload}));
+      window.history.replaceState({}, '', '/co-star');
       const pinia = createPinia();
       setActivePinia(pinia);
       const candidates = vi.fn(defaultDrivers().candidates.execute);
@@ -1599,9 +1316,8 @@ describe('App co-star production slice', () => {
       expect(partners).not.toHaveBeenCalled();
       expect(coStar).not.toHaveBeenCalled();
       expect(window.location.hash).toBe('');
-      expect(wrapper.get('.app-local-error').text()).toContain(
-        '分享查询无效',
-      );
+      expect(wrapper.find('.app-local-error').exists()).toBe(false);
+      expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();
       wrapper.unmount();
     },
   );

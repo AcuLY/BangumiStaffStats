@@ -40,8 +40,8 @@
     },
     "components": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 2,
+      "maxItems": 2,
       "items": {
         "$ref": "#/$defs/component"
       }
@@ -61,7 +61,7 @@
       ],
       "properties": {
         "component": {
-          "enum": ["backend", "frontend", "updater"]
+          "enum": ["backend", "frontend"]
         },
         "statement": {
           "$ref": "component-statement-v1.schema.json#/$defs/evidence"

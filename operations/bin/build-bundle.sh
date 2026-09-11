@@ -30,8 +30,6 @@ repository_root="$(
 )"
 # shellcheck source=../lib/common.sh
 source "$repository_root/operations/lib/common.sh"
-accepted_product_revision='20dbccba899accdce0248c599416161204497f39e'
-accepted_ci_policy_sha256='0260babc76f71b1fb0730bb84894ce0f3c41c9df93591910f05ac9352ee98176'
 data_version='dv1-0a1fa3e9acdb06be34e3535b3c68e322e7d3f4cd87ac30cd4b608b2276ba3ca1'
 
 [[ -n "${GITHUB_SHA:-}" ]] || fail 'GITHUB_SHA is required'
@@ -51,35 +49,6 @@ git -C "$repository_root" diff --cached --quiet --ignore-submodules -- ||
   fail 'index is dirty'
 [[ -z "$(git -C "$repository_root" ls-files --others --exclude-standard)" ]] ||
   fail 'checkout has unexpected untracked files'
-git -C "$repository_root" merge-base --is-ancestor \
-  "$accepted_product_revision" "$source_revision" ||
-  fail 'accepted Product revision is not an ancestor of HEAD'
-git -C "$repository_root" diff --quiet \
-  "$accepted_product_revision" "$source_revision" -- \
-  VERSION backend contracts frontend updater \
-  ':(top,exclude)contracts/artifacts/test/ci-policy.test.mjs' ||
-  fail 'accepted Product inputs differ from the reviewed revision'
-
-ci_policy="$repository_root/contracts/artifacts/test/ci-policy.test.mjs"
-ci_policy_sha256="$(sha256sum -- "$ci_policy" | awk '{print $1}')"
-[[ "$ci_policy_sha256" == "$accepted_ci_policy_sha256" ]] ||
-  fail 'CI action-reference policy differs from the exact reviewed bytes'
-
-current_ci="$repository_root/.github/workflows/ci.yml"
-accepted_ci="$(mktemp "$RUNNER_TEMP/bgmss-accepted-development-workflow.XXXXXX")"
-git -C "$repository_root" show \
-  "${accepted_product_revision}:.github/workflows/ci.yml" >"$accepted_ci"
-workflow_prefix_lines=$(
-  development_workflow_prefix_lines "$accepted_ci" "$current_ci"
-)
-IFS='|' read -r accepted_prefix_line current_prefix_line <<<"$workflow_prefix_lines"
-if ! cmp -s \
-  <(_development_workflow_product_prefix "$accepted_ci" "$accepted_prefix_line") \
-  <(_development_workflow_product_prefix "$current_ci" "$current_prefix_line"); then
-  fail 'Development workflow product prefix differs from the accepted Product'
-fi
-rm -f -- "$accepted_ci"
-
 application_version="$(sed -n '1p' "$repository_root/VERSION")"
 [[ "$application_version" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
   fail 'VERSION is not one normalized application version'
@@ -103,44 +72,17 @@ require_exact_inventory \
   $'backend-api-linux-amd64.oci.tar\nbackend-api-linux-amd64.tar.gz\nbackend.spdx.json\nchecksums.sha256\ncomponent-statement.json'
 require_regular_file "$backend_root/backend-api-linux-amd64.oci.tar"
 require_regular_file "$backend_root/backend-api-linux-amd64.tar.gz"
-
-(
-  cd "$repository_root/updater"
-  export UV_CACHE_DIR="$PWD/.cache/uv"
-  export UV_PYTHON_INSTALL_DIR="$PWD/.tmp/python"
-  export PYTHONDONTWRITEBYTECODE=1
-  export PYTHONPYCACHEPREFIX="$PWD/build/.tmp/pycache"
-  uv python install 3.14.6
-  uv sync --frozen --python 3.14.6
-)
-updater_log="$RUNNER_TEMP/bgmss-operations-updater-build.log"
-"$repository_root/updater/.venv/bin/python" \
-  "$repository_root/updater/build/artifact.py" build \
-  --work-root "$repository_root/updater/build/.tmp/operations-bundle-work" \
-  --target linux/amd64 \
-  --source-revision "$source_revision" \
-  --source-tree "$source_tree" \
-  --uv "$(command -v uv)" \
-  --python "$repository_root/updater/.venv/bin/python" \
-  --docker "$(command -v docker)" \
-  --contracts-root "$repository_root/contracts" \
-  --publish-root "$repository_root/updater/build/.tmp/operations-bundle-output" |
-  tee "$updater_log"
-updater_root="$(tail -n 1 "$updater_log")"
-updater_output="$repository_root/updater/build/.tmp/operations-bundle-output"
-[[ "$updater_root" == "$updater_output"/sha256-* ]] ||
-  fail 'Updater build did not return one content-addressed root'
-updater_address="${updater_root#"$updater_output"/sha256-}"
-[[ "$updater_address" =~ ^[0-9a-f]{64}$ ]] ||
-  fail 'Updater content address is not one SHA-256 value'
-[[ "$(grep -Fxc "$updater_root" "$updater_log")" == '1' ]] ||
-  fail 'Updater build emitted an ambiguous content-addressed root'
-require_regular_file "$updater_root/artifacts/updater-image-linux-amd64.oci.tar"
-[[ "$(
-  find "$updater_root/artifacts" -maxdepth 1 -type f \
-    -name 'updater-image-*.oci.tar' -printf '%f\n'
-)" == 'updater-image-linux-amd64.oci.tar' ]] ||
-  fail 'Updater output does not contain one uniquely named AMD64 OCI archive'
+producer_runtime_input='contracts/producer-runtime-inputs-v1'
+BACKEND_STATEMENT="$backend_root/component-statement.json" \
+PRODUCER_RUNTIME_INPUT="$producer_runtime_input" \
+node <<'NODE'
+const fs = require('node:fs');
+const statement = JSON.parse(fs.readFileSync(process.env.BACKEND_STATEMENT, 'utf8'));
+const matches = statement.inputs.filter(
+  (input) => input.path === process.env.PRODUCER_RUNTIME_INPUT,
+);
+if (matches.length !== 1) throw new Error('Backend statement lacks producer input');
+NODE
 
 (
   cd "$repository_root/frontend"
@@ -180,12 +122,6 @@ install -m 0444 -- \
   "$backend_root/backend-api-linux-amd64.oci.tar" \
   "$bundle_root/api.oci.tar"
 install -m 0444 -- \
-  "$updater_root/artifacts/updater-image-linux-amd64.oci.tar" \
-  "$bundle_root/updater.oci.tar"
-install -m 0444 -- \
-  "$backend_root/backend-api-linux-amd64.tar.gz" \
-  "$bundle_root/backend-tools.tar.gz"
-install -m 0444 -- \
   "$frontend_root/artifacts/frontend-static-linux-amd64.tar" \
   "$bundle_root/frontend.tar"
 install -m 0444 -- \
@@ -212,7 +148,7 @@ const document = {
   applicationVersion: process.env.APPLICATION_VERSION,
   platform: 'linux/amd64',
   apiImage: `localhost/bgmss-backend-api:${revision}-amd64`,
-  updaterImage: `localhost/bgmss-updater-artifact:${revision}-amd64`,
+  components: ['backend', 'frontend'],
 };
 fs.writeFileSync(
   process.env.BUNDLE_BUILD_JSON,
@@ -221,15 +157,35 @@ fs.writeFileSync(
 );
 NODE
 
+BACKEND_ROOT="$backend_root" \
+FRONTEND_ROOT="$frontend_root" \
+COMPATIBILITY_MANIFEST="$bundle_root/compatibility-manifest.json" \
+CONTRACTS_ARTIFACTS="$repository_root/contracts/artifacts" \
+node --input-type=module <<'NODE'
+import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
+
+const validator = await import(
+  pathToFileURL(`${process.env.CONTRACTS_ARTIFACTS}/lib/validation.mjs`).href
+);
+const assembled = validator.assembleCompatibilityManifest([
+  process.env.BACKEND_ROOT,
+  process.env.FRONTEND_ROOT,
+]);
+fs.writeFileSync(process.env.COMPATIBILITY_MANIFEST, assembled.canonical, {
+  flag: 'wx',
+  mode: 0o444,
+});
+NODE
+
 payload_paths=(
   'api.oci.tar'
-  'backend-tools.tar.gz'
   'build.json'
+  'compatibility-manifest.json'
   'frontend.tar'
   'minimal-archive/current.json'
   "minimal-archive/versions/$data_version/bangumi.sqlite"
   "minimal-archive/versions/$data_version/manifest.json"
-  'updater.oci.tar'
 )
 (
   cd "$bundle_root"

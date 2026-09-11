@@ -8,8 +8,6 @@ services:
       - /var/lib/bgmss/archive
       - -listen-address
       - 0.0.0.0:8080
-      - -update-status
-      - /var/lib/bgmss/archive/update-status.json
     user: "65532:65532"
     init: true
     read_only: true
@@ -23,7 +21,6 @@ services:
       - type: bind
         source: ${BGMSS_ROOT}/data
         target: /var/lib/bgmss/archive
-        read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
     cpus: ${BGMSS_API_CPUS:-1.50}
@@ -31,52 +28,6 @@ services:
     pids_limit: ${BGMSS_API_PIDS_LIMIT:-256}
     environment:
       GOMEMLIMIT: ${BGMSS_API_GOMEMLIMIT:-1024MiB}
-    logging:
-      driver: journald
-      options:
-        tag: "bgmss/{{.Name}}"
-    networks: [backend]
-
-  updater:
-    image: ${BGMSS_UPDATER_IMAGE}
-    command:
-      - produce
-      - --output-root
-      - /var/lib/bgmss/archive
-      - --contracts-root
-      - /opt/bgmss/producer/contracts
-      - --catalog-config
-      - /opt/bgmss/producer/catalog/display-v1.yaml
-      - --common-commit
-      - 6a8442c17143a870357a5ff812362e8b5cfe9f9d
-      - --archive-smoke
-      - /opt/bgmss/bin/archive-smoke
-      - --status-file
-      - /var/lib/bgmss/archive/update-status.json
-    user: "65532:65532"
-    init: true
-    read_only: true
-    cap_drop: [ALL]
-    security_opt:
-      - no-new-privileges:true
-    restart: "no"
-    volumes:
-      # The host root is root:65532 mode 1770 with sticky protection:
-      # updater may stage/publish, but cannot replace root-owned pointers/lock.
-      - type: bind
-        source: ${BGMSS_ROOT}/data
-        target: /var/lib/bgmss/archive
-      - type: bind
-        source: ${BGMSS_ROOT}/current-tools/archive-smoke
-        target: /opt/bgmss/bin/archive-smoke
-        read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
-    cpus: ${BGMSS_UPDATER_CPUS:-1.00}
-    mem_limit: ${BGMSS_UPDATER_MEM_LIMIT:-1024m}
-    pids_limit: ${BGMSS_UPDATER_PIDS_LIMIT:-256}
-    environment:
-      SQLITE_TMPDIR: /var/lib/bgmss/archive
     logging:
       driver: journald
       options:

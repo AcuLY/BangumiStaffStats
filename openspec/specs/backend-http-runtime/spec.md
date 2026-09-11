@@ -7,8 +7,8 @@ boundary on which separately owned exact business routes are composed.
 ## Requirements
 ### Requirement: The HTTP lifecycle SHALL be bounded and cancellation-safe
 
-The standard-library server SHALL enforce 5s read-header, 10s read, 35s write,
-60s idle, 64 KiB header, 30s request, and existing 5s graceful-shutdown
+The standard-library server SHALL enforce 5s read-header, 10s read, 125s write,
+60s idle, 64 KiB header, 120s request, and existing 5s graceful-shutdown
 bounds. It SHALL propagate client/process cancellation and the derived
 deadline to downstream work. If the deadline wins before response commit, it
 SHALL emit 504 `UPSTREAM_TIMEOUT`, `retryable=true`, initialized empty
@@ -84,26 +84,34 @@ The infrastructure routes SHALL remain exact `GET /livez`, `GET /readyz`, and
 Health responses SHALL be parameter-free `application/json` and `no-store`.
 `/livez` SHALL return 200 from process state without Archive access as exactly
 `{"data":{"status":"live"},"meta":{"requestId":"..."}}`. `/readyz` SHALL return
-200 only after an injected one-second fixed read succeeds, as exactly
+200 only after direct snapshot open/publication and an injected one-second
+fixed read succeed, as exactly
 `{"data":{"status":"ready"},"meta":{"requestId":"...","dataVersion":"..."}}`;
-nil, closed, mismatched, canceled, failing, or startup-load-failed state SHALL
+nil, closed, mismatched, canceled, failing, or startup-open-failed state SHALL
 return the generated 503 `NOT_READY` envelope without a dataVersion.
 `/metrics` behavior belongs to `backend-observability`. The separately owned
-exact image route SHALL remain independent of Archive publication and SHALL
-not change any health response or readiness transition. The separately owned
-exact catalog route SHALL depend on the same published Store but SHALL not
-change readiness semantics, initiate loading, or select another snapshot.
+image route SHALL remain independent of Archive publication. The catalog route
+SHALL depend on the same published Store but SHALL not change readiness,
+initiate loading, select another snapshot, or perform Archive admission.
 
-#### Scenario: Archive publication changes
-- **WHEN** the accepted state is absent, successfully published, its fixed probe fails, or shutdown clears it
-- **THEN** liveness stays 200 while readiness transitions `503 -> 200 -> 503` without reading pointer/manifest files or choosing another snapshot
-- **AND** image-route availability and catalog requests do not make readiness true
+#### Scenario: Direct-open publication changes
 
-#### Scenario: Archive startup loading fails
+- **WHEN** direct-open state is absent, successfully published, its fixed probe
+  fails, or shutdown clears it
+- **THEN** liveness SHALL stay 200 while readiness transitions
+  `503 -> 200 -> 503` without reading manifest files, scanning Archive,
+  choosing another snapshot, or running admission
+- **AND** image/catalog requests SHALL not make readiness true
 
-- **WHEN** one accepted Archive load attempt returns a non-cancellation failure
-- **THEN** `/livez`, `/readyz`, `/metrics`, the exact Archive-independent image route, and the exact catalog route SHALL begin serving; readiness and catalog SHALL remain 503 for that process lifetime
-- **AND** no retry, fallback, reload, successful Archive-dependent business response, or Store selection SHALL occur
+#### Scenario: Archive startup open fails
+
+- **WHEN** the one direct Archive open attempt returns a non-cancellation
+  failure
+- **THEN** `/livez`, `/readyz`, `/metrics`, the Archive-independent image route,
+  and catalog route SHALL begin serving; readiness and catalog SHALL remain 503
+  for that process lifetime
+- **AND** no retry, fallback, reload, successful Archive-dependent business
+  response, Store selection, or admission SHALL occur
 
 ### Requirement: Runtime scope SHALL remain infrastructure-only
 

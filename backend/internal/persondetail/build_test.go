@@ -2,7 +2,9 @@ package persondetail
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -312,6 +314,7 @@ func TestRatingDistributionCountsEveryHiddenExampleExactlyOnce(t *testing.T) {
 		units,
 		statistics.RatingSummary{RatedUnitCount: len(units)},
 		references,
+		nil,
 		func(unit statistics.Unit) *float64 { return unit.GlobalScore },
 	)
 	if err != nil {
@@ -320,6 +323,57 @@ func TestRatingDistributionCountsEveryHiddenExampleExactlyOnce(t *testing.T) {
 	bucket := distribution.Buckets[7]
 	if bucket.Count != 10 || len(bucket.Examples) != 8 || bucket.HiddenCount != 2 {
 		t.Fatalf("rating bucket = %+v", bucket)
+	}
+}
+
+func TestSeriesMetaTagsUseOnlyRepresentativeAcrossScopeProjection(t *testing.T) {
+	for _, personal := range []bool{false, true} {
+		for _, empty := range []bool{false, true} {
+			request := detailBuildRequest(t, personal, true)
+			for index := range request.Facts.Subjects {
+				fact := &request.Facts.Subjects[index]
+				fact.Tags = []query.SubjectTag{{Scope: "meta", Name: "member-only"}}
+				if fact.SubjectID == 102 {
+					fact.Tags = []query.SubjectTag{{Scope: "community", Name: "community-only"}}
+					if !empty {
+						fact.Tags = append(fact.Tags,
+							query.SubjectTag{Scope: "meta", Name: "Z"},
+							query.SubjectTag{Scope: "meta", Name: "A"},
+							query.SubjectTag{Scope: "meta", Name: "A"},
+						)
+					}
+				}
+			}
+			core, err := Build(context.Background(), request)
+			if err != nil {
+				t.Fatalf("Build personal=%t empty=%t: %v", personal, empty, err)
+			}
+			want := []string{}
+			if !empty {
+				want = []string{"A", "Z"}
+			}
+			series := core.Works[0].Series
+			if series.Representative.ID != 102 || series.MetaTags == nil || !slices.Equal(series.MetaTags, want) {
+				t.Fatalf("representative metadata personal=%t empty=%t: %+v", personal, empty, series)
+			}
+			projected, err := projectWorkEnvelopes(CloneCore(core).Works, core.Scope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(projected)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var works []struct {
+				MetaTags []string `json:"metaTags"`
+			}
+			if err := json.Unmarshal(body, &works); err != nil {
+				t.Fatal(err)
+			}
+			if len(works) != 1 || works[0].MetaTags == nil || !slices.Equal(works[0].MetaTags, want) {
+				t.Fatalf("wire metadata personal=%t empty=%t: %s", personal, empty, body)
+			}
+		}
 	}
 }
 
@@ -573,5 +627,108 @@ func TestInputDigestDoesNotContainRawPersonID(t *testing.T) {
 	}
 	if !strings.HasPrefix(digest, "i1:") || strings.Contains(digest, "10") {
 		t.Fatalf("digest = %q", digest)
+	}
+}
+
+func TestRatingTimelineRetainsEveryWorkAndCanonicalQuarterMean(t *testing.T) {
+	score := func(value float64) *float64 { return &value }
+	units := []statistics.Unit{
+		{UnitID: 3, AirDate: stringPointer("2024-03-01"), GlobalScore: score(7), PersonalScore: score(0)},
+		{UnitID: 2, AirDate: stringPointer("2024-01"), GlobalScore: score(7), PersonalScore: score(8)},
+		{UnitID: 1, AirDate: stringPointer("2024-01"), GlobalScore: score(6), PersonalScore: score(9)},
+		{UnitID: 4, AirDate: stringPointer("2024"), GlobalScore: score(8.2), PersonalScore: score(6)},
+		{UnitID: 5, GlobalScore: score(9)},
+		{UnitID: 6, AirDate: stringPointer("2024-02"), GlobalScore: score(0)},
+		{UnitID: 7, AirDate: stringPointer("2024-04-01"), GlobalScore: score(8.2), PersonalScore: score(6)},
+	}
+	works := make([]WorkItem, len(units))
+	globalInputs := make([]statistics.RatingInput, len(units))
+	personalInputs := make([]statistics.RatingInput, len(units))
+	for index := range units {
+		unit := &units[index]
+		unit.Kind = statistics.UnitSubject
+		works[index] = WorkItem{Kind: "subject", Subject: &SubjectWork{
+			Key:     subjectKey(unit.UnitID),
+			Subject: SubjectReference{ID: unit.UnitID, Name: "Work", NameCN: stringPointer("作品"), Date: cloneString(unit.AirDate)},
+		}}
+		globalInputs[index] = statistics.RatingInput{UnitID: unit.UnitID, Date: unit.AirDate, Score: unit.GlobalScore}
+		personalInputs[index] = statistics.RatingInput{UnitID: unit.UnitID, Date: unit.AirDate, Score: unit.PersonalScore}
+	}
+	global, err := statistics.EvaluateRatings(context.Background(), statistics.UnitSubject, globalInputs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	personal, err := statistics.EvaluateRatings(context.Background(), statistics.UnitSubject, personalInputs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evaluated := statistics.PersonEvaluation{Units: units, Global: *global, Personal: personal}
+	ratings, err := buildRatings(evaluated, works)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := ratings.Global.Timeline[0]
+	if len(ratings.Global.Timeline) != 2 || first.Count != 3 || first.Average != 666 || len(first.Works) != 3 {
+		t.Fatalf("global timeline = %+v", ratings.Global.Timeline)
+	}
+	for index, id := range []int64{1, 2, 3} {
+		if first.Works[index].Subject.ID != id || *first.Works[index].Subject.NameCN != "作品" {
+			t.Fatalf("stable work order/reference = %+v", first.Works)
+		}
+	}
+	if *first.Works[0].Subject.Date != "2024-01" || first.Works[1].Score != 700 || first.Works[2].Score != 700 || ratings.Global.Timeline[1].Works[0].Score != 820 {
+		t.Fatalf("date precision or independent score lost: %+v", ratings.Global.Timeline)
+	}
+	if got := ratings.Personal.Timeline[0]; got.Count != 2 || got.Average != 850 || got.Works[0].Score != 900 || got.Works[1].Score != 800 {
+		t.Fatalf("personal points = %+v", got)
+	}
+	for left, right := 0, len(units)-1; left < right; left, right = left+1, right-1 {
+		units[left], units[right] = units[right], units[left]
+	}
+	again, err := buildRatings(evaluated, works)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ratings.Global.Timeline, again.Global.Timeline) || !reflect.DeepEqual(ratings.Personal.Timeline, again.Personal.Timeline) {
+		t.Fatal("timeline changed with incoming work order")
+	}
+}
+
+func TestRatingTimelineSurvivesViewProjectionAndDeepClone(t *testing.T) {
+	core, err := Build(context.Background(), detailBuildRequest(t, true, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, view := range []View{
+		{Section: SectionWorks, Sort: SortGlobalScore, Order: OrderDescending, Page: 1, PageSize: 5},
+		{Section: SectionWorks, Sort: SortGlobalScore, Order: OrderAscending, Page: 2, PageSize: 5},
+	} {
+		projected, err := Project(context.Background(), core, view)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(projected.Core.Ratings, core.Ratings) {
+			t.Fatal("view changed complete rating evidence")
+		}
+	}
+	cloned := CloneCore(core)
+	cloned.Ratings.Global.Timeline[0].Works[0].Subject.Name = "Changed"
+	*cloned.Ratings.Global.Timeline[0].Works[0].Subject.NameCN = "Changed"
+	*cloned.Ratings.Global.Timeline[0].Works[0].Subject.Date = "Changed"
+	cloned.Ratings.Personal.Timeline[0].Works[0].Score = 1
+	if original := core.Ratings.Global.Timeline[0].Works[0]; original.Subject.Name != "Alpha" || *original.Subject.NameCN != "甲作" || *original.Subject.Date != "2024-01-10" || core.Ratings.Personal.Timeline[0].Works[0].Score != 900 {
+		t.Fatal("nested timeline references leaked across clone boundary")
+	}
+	before := coreCost(core)
+	core.Ratings.Global.Timeline[0].Works = append(core.Ratings.Global.Timeline[0].Works, RatingTimelineWork{
+		Subject: SubjectReference{ID: 999, Name: "Retained evidence", NameCN: stringPointer("中文"), Date: stringPointer("2024-01")}, Score: 800,
+	})
+	if coreCost(core) <= before {
+		t.Fatal("cache cost omitted retained timeline work")
+	}
+	before = coreCost(core)
+	*core.Ratings.Global.Timeline[0].Works[1].Subject.NameCN += " more retained text"
+	if coreCost(core) <= before {
+		t.Fatal("cache cost omitted nested timeline reference text")
 	}
 }

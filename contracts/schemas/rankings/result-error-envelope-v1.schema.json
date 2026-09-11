@@ -71,7 +71,7 @@
     "FieldErrorsV1": {
       "type": "object",
       "propertyNames": {
-        "pattern": "^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|refreshCollection|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$"
+        "pattern": "^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$"
       },
       "additionalProperties": {
         "type": "array",

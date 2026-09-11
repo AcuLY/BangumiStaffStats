@@ -48,9 +48,9 @@ emit result-operation request IDs, private no-store headers, stable status/code
 errors, pagination metadata, and personal collection freshness. Global mode
 SHALL never fetch collection data or emit personal collection members.
 
-#### Scenario: Global refresh is requested
-- **WHEN** a global request sets refreshCollection true
-- **THEN** the handler SHALL return 400 `FIELD_INVALID` at `/refreshCollection` before evaluation
+#### Scenario: Unknown request member is supplied
+- **WHEN** a candidates request contains an undeclared top-level member
+- **THEN** the handler SHALL return 400 `INVALID_REQUEST` before evaluation
 
 #### Scenario: Archive is not ready
 - **WHEN** the route is registered but no Archive store is published

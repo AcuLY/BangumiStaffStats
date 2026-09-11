@@ -71,7 +71,8 @@ type ParticipantInput struct {
 
 // Input is the closed pair/group selection.
 type Input struct {
-	Participants []ParticipantInput `json:"participants"`
+	PositionScope string             `json:"positionScope,omitempty"`
+	Participants  []ParticipantInput `json:"participants"`
 }
 
 // Sort is a common-work view primary metric.
@@ -288,6 +289,7 @@ type SeriesWork struct {
 	Key                       string
 	SeriesID                  int64
 	Representative            SubjectReference
+	MetaTags                  []string
 	MatchedWorkCount          int
 	MemberCount               int
 	Members                   []SeriesMember

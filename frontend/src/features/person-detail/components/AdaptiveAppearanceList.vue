@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NPopover } from 'naive-ui';
+import { NPopover, NTag } from 'naive-ui';
 import {
   computed,
   nextTick,
@@ -25,11 +25,13 @@ const props = defineProps<{
 
 const maxVisibleRows = 2;
 const root = ref<HTMLElement | null>(null);
+const popoverContent = ref<HTMLElement | null>(null);
 const rows = ref<AdaptiveAppearanceRow[]>([]);
 const overflowOpen = ref(false);
 const popoverId = `character-appearances-${useId()}`;
 let resizeObserver: ResizeObserver | null = null;
 let measureFrame = 0;
+let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
 const appearances = computed(() => props.item.appearances);
 const hiddenCount = computed(
@@ -92,7 +94,30 @@ function scheduleMeasure(): void {
 }
 
 function closeOverflow(): void {
+  clearTimeout(closeTimer);
   overflowOpen.value = false;
+}
+
+function openOverflow(): void {
+  clearTimeout(closeTimer);
+  overflowOpen.value = true;
+}
+
+function leaveOverflow(): void {
+  clearTimeout(closeTimer);
+  closeTimer = setTimeout(closeOverflow, 100);
+}
+
+function onFocusOut(event: FocusEvent): void {
+  const next = event.relatedTarget as Node | null;
+  if (next && (root.value?.contains(next) || popoverContent.value?.contains(next))) return;
+  closeOverflow();
+}
+
+function escapePopover(): void {
+  root.value?.querySelector<HTMLButtonElement>('.character-role-card__source-more')
+    ?.focus({ preventScroll: true });
+  closeOverflow();
 }
 
 watch(
@@ -118,6 +143,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  clearTimeout(closeTimer);
   resizeObserver?.disconnect();
   if (typeof cancelAnimationFrame === 'function') {
     cancelAnimationFrame(measureFrame);
@@ -141,6 +167,8 @@ onBeforeUnmount(() => {
         ref="root"
         class="person-character-appearances character-role-card__appearances"
         :aria-label="`${primaryEntityName(item.character)}出演 ${item.workCount} 部作品`"
+        @mouseleave="leaveOverflow"
+        @focusout="onFocusOut"
       >
         <li
           v-for="(row, rowIndex) in rows"
@@ -156,17 +184,13 @@ onBeforeUnmount(() => {
             :key="`${appearances[appearanceIndex]!.subject.id}-${appearanceIndex}`"
             class="character-role-card__appearance"
           >
-            <small
+            <n-tag
               class="character-role-tag"
-              :class="{
-                'character-role-tag--prominent':
-                  /主角|主役/.test(
-                    appearances[appearanceIndex]!.roleLabel,
-                  ),
-              }"
+              size="small"
+              round
             >
               {{ appearances[appearanceIndex]!.roleLabel }}
-            </small>
+            </n-tag>
             <a
               :href="`https://bgm.tv/subject/${appearances[appearanceIndex]!.subject.id}`"
               target="_blank"
@@ -186,9 +210,9 @@ onBeforeUnmount(() => {
             :aria-label="`查看全部出演作品，另有 ${row.hiddenCount} 部`"
             :aria-controls="popoverId"
             :aria-expanded="overflowOpen"
-            @mouseenter="overflowOpen = true"
-            @focus="overflowOpen = true"
-            @click="overflowOpen = !overflowOpen"
+            @mouseenter="openOverflow"
+            @focus="openOverflow"
+            @click="openOverflow"
             @keydown.esc.stop.prevent="closeOverflow"
           >
             … +{{ row.hiddenCount }}
@@ -204,9 +228,9 @@ onBeforeUnmount(() => {
             class="character-role-card__appearance character-role-card__appearance--measure"
             data-appearance-measure
           >
-            <small class="character-role-tag">
+            <n-tag class="character-role-tag" size="small" round>
               {{ appearance.roleLabel }}
-            </small>
+            </n-tag>
             <span>{{ primaryEntityName(appearance.subject) }}</span>
           </span>
           <span
@@ -219,24 +243,29 @@ onBeforeUnmount(() => {
 
     <div
       :id="popoverId"
+      ref="popoverContent"
+      data-person-detail-popup
       class="character-role-source-tooltip"
       role="list"
       :aria-label="`全部出演作品，共 ${item.workCount} 部`"
+      @mouseenter="openOverflow"
+      @mouseleave="leaveOverflow"
+      @focusin="openOverflow"
+      @focusout="onFocusOut"
+      @keydown.esc.stop.prevent="escapePopover"
     >
       <span
         v-for="(appearance, index) in appearances"
         :key="`full-${appearance.subject.id}-${index}`"
         role="listitem"
       >
-        <small
+        <n-tag
           class="character-role-tag"
-          :class="{
-            'character-role-tag--prominent':
-              /主角|主役/.test(appearance.roleLabel),
-          }"
+          size="small"
+          round
         >
           {{ appearance.roleLabel }}
-        </small>
+        </n-tag>
         <a
           :href="`https://bgm.tv/subject/${appearance.subject.id}`"
           target="_blank"

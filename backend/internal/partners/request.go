@@ -43,7 +43,7 @@ func parseInput(raw json.RawMessage) (Input, error) {
 	}
 	for name := range fields {
 		switch name {
-		case "source", "candidatePositionKey":
+		case "source", "candidatePositionKey", "positionScope":
 		default:
 			return Input{}, unknownFieldFailure("/input/" + escapePointerToken(name))
 		}
@@ -57,6 +57,10 @@ func parseInput(raw json.RawMessage) (Input, error) {
 		return Input{}, err
 	}
 	result := Input{Source: source}
+	result.PositionScope, err = query.OperationPositionScope(raw)
+	if err != nil {
+		return Input{}, requestFailure("invalid position scope", "/input/positionScope", "UNSUPPORTED_VALUE")
+	}
 	if candidateRaw, found := fields["candidatePositionKey"]; found {
 		value, parseErr := parsePositionKey(candidateRaw, "/input/candidatePositionKey")
 		if parseErr != nil {

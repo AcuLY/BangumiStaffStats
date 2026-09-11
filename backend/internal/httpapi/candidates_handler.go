@@ -286,7 +286,7 @@ func decodeCandidatesRequest(
 	}
 	for name := range fields {
 		switch name {
-		case "query", "input", "view", "refreshCollection":
+		case "query", "input", "view":
 		default:
 			response := candidatesInvalidResponse
 			response.fieldErrors = map[string][]fieldErrorCode{
@@ -317,16 +317,6 @@ func decodeCandidatesRequest(
 	}
 	if view, found := fields["view"]; found {
 		result.View = bytes.Clone(view)
-	}
-	if refresh, found := fields["refreshCollection"]; found {
-		if err := json.Unmarshal(refresh, &result.RefreshCollection); err != nil ||
-			bytes.Equal(bytes.TrimSpace(refresh), []byte("null")) {
-			response := candidatesInvalidResponse
-			response.fieldErrors = map[string][]fieldErrorCode{
-				"/refreshCollection": {"INVALID_TYPE"},
-			}
-			return candidates.Request{}, &response
-		}
 	}
 	return result, nil
 }

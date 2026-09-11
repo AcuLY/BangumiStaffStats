@@ -1,9 +1,15 @@
 import type {
-  RankingItem,
   RankingMetricScale,
   RankingRational,
   RankingSort,
 } from './model';
+
+type RankingMetricValues = Readonly<{
+  workCount: number;
+  average: number | null;
+  overall: number | null;
+  preference?: Readonly<{ score: RankingRational | null }> | null;
+}>;
 
 function rationalParts(
   value: RankingRational,
@@ -41,7 +47,7 @@ export function formatRational(
 }
 
 export function rankingMetricValue(
-  item: RankingItem,
+  item: RankingMetricValues,
   metric: RankingSort,
 ): number | RankingRational | null {
   if (metric === 'count') {
@@ -57,7 +63,7 @@ export function rankingMetricValue(
 }
 
 export function rankingProgress(
-  item: RankingItem,
+  item: RankingMetricValues,
   scale: RankingMetricScale,
 ): { direction: 'negative' | 'neutral' | 'positive'; percent: number } {
   const value = rankingMetricValue(item, scale.metric);

@@ -137,6 +137,7 @@ type globalSeriesWorkWire struct {
 	Key              string                  `json:"key"`
 	SeriesID         int64                   `json:"seriesId"`
 	Representative   SubjectReference        `json:"representative"`
+	MetaTags         []string                `json:"metaTags"`
 	MatchedWorkCount int                     `json:"matchedWorkCount"`
 	MemberCount      int                     `json:"memberCount"`
 	Members          []seriesMemberWire      `json:"members"`
@@ -149,6 +150,7 @@ type personalSeriesWorkWire struct {
 	Key                       string                  `json:"key"`
 	SeriesID                  int64                   `json:"seriesId"`
 	Representative            SubjectReference        `json:"representative"`
+	MetaTags                  []string                `json:"metaTags"`
 	MatchedWorkCount          int                     `json:"matchedWorkCount"`
 	MemberCount               int                     `json:"memberCount"`
 	Members                   []seriesMemberWire      `json:"members"`
@@ -415,6 +417,7 @@ func projectWorkWires(values []WorkItem, scope string) ([]any, error) {
 					Key:              value.Series.Key,
 					SeriesID:         value.Series.SeriesID,
 					Representative:   cloneSubject(value.Series.Representative),
+					MetaTags:         cloneSlice(value.Series.MetaTags),
 					MatchedWorkCount: value.Series.MatchedWorkCount,
 					MemberCount:      value.Series.MemberCount,
 					Members:          members,
@@ -427,6 +430,7 @@ func projectWorkWires(values []WorkItem, scope string) ([]any, error) {
 					Key:                       value.Series.Key,
 					SeriesID:                  value.Series.SeriesID,
 					Representative:            cloneSubject(value.Series.Representative),
+					MetaTags:                  cloneSlice(value.Series.MetaTags),
 					MatchedWorkCount:          value.Series.MatchedWorkCount,
 					MemberCount:               value.Series.MemberCount,
 					Members:                   members,

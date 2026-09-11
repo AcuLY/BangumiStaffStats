@@ -57,35 +57,28 @@ Internet
       → /api/v1/images/*         → 127.0.0.1:<new-api>
       → legacy host/statistics   → 127.0.0.1:<legacy-api>（仅迁移期）
 
-宿主机 systemd
-  → archive-update.timer
-      → archive-update.service
-          → activation wrapper
-              → docker compose run --rm updater
-              → current.json 切换
-              → api restart/readiness/rollback
-
 新版 Compose 长驻：
   - api
   - prometheus
 
-新版 Compose 按需：
-  - updater
+api 进程内：
+  - Go weekly timer
+  - Go Archive builder
+  - current.json / Store 热替换
 ```
 
 ### 2.1 宿主机职责
 
 - nginx 是唯一监听公网 80/443 的进程。
 - nginx 直接服务版本化前端静态目录；不为前端增加长期 nginx 容器。
-- systemd timer/service 负责每周调度、主机级互斥、总超时和 wrapper 退出状态。
+- Go API 内置 weekly timer 负责每周调度、单 goroutine 串行和六小时 context；宿主机不安装 Archive timer/service。
 - 主机固定部署入口负责应用制品安装、Compose 引用、readiness 和回滚。
 - nginx access/error log 使用宿主机有界轮转。
 - TLS、DNS、vhost 和 Referrer-Policy 在宿主机集中配置。
 
 ### 2.2 Compose 职责
 
-- api 和 Prometheus 是新版唯一长驻容器。
-- updater 是固定镜像的 one-shot service，不设置 restart。
+- api 和 Prometheus 是新版唯一容器；api 内含后台 Go builder，不存在 updater service/image。
 - api、Prometheus 和 legacy 服务端口只绑定 loopback 或 Compose 内部网络。
 - `/metrics` 和 Prometheus UI 不进入公网 nginx。
 - 新旧版使用不同 project name、network、loopback 端口、镜像名、env、secret、数据目录和资源限制。
@@ -107,9 +100,7 @@ Internet
     compose.yaml
     release.env
   data/
-    updater.lock
     current.json
-    update-status.json
     versions/
       <dataVersion>/
         bangumi.sqlite
@@ -170,33 +161,18 @@ Archive 周更、应用部署、schema 升级和手工数据回滚共用同一�
 
 ### 5.1 激活事务
 
-1. 取得主机锁。
-2. 记录当前 dataVersion 和 `current.json` 内容。
-3. 运行固定 digest 的 `docker compose run --rm updater`。
-4. updater 无变化时记录状态并正常退出。
-5. updater 发布新版本后，验证新 version/manifest/sqlite 已存在且权限正确。
-6. 原子切换 `current.json`。
-7. 受控重启唯一 api。
-8. 等待 `/readyz`，并校验实际 dataVersion、snapshot schema 和 app version。
-9. 60 秒内成功则由 wrapper 记录唯一 `update_activated` JSON 事件，包含 run_id、old/new dataVersion、duration_seconds 和 app version；有界清理过旧 snapshot。
-10. 失败或超时则恢复上一 `current.json`，再次重启并验证旧版本。
-11. 成功或回滚完成后释放锁；任何未恢复故障都非零退出。
+1. Go scheduler 启动时异步检查 freshness，此后每周日 04:15 UTC+8 运行。
+2. builder 在当前 Store 继续服务时下载、解析并构建 staging SQLite。
+3. 候选 minimal-open/readiness 成功后取得短维护写锁，等待现有请求和 bounded executor 空闲。
+4. 原子替换 Store 和 `current.json`；失败时在开放请求前恢复旧 Store/pointer。
+5. 成功后关闭旧 Store、开放请求并删除全部非当前版本。
 
-切换到重启之间，旧进程继续使用已经打开的旧 snapshot。v1 接受一次短暂 503；nginx 可以使用短时友好 503 页面，但不能把请求路由到不兼容数据。
+### 5.2 清理与恢复
 
-### 5.2 数据回滚
-
-- 数据回滚只恢复上一 `current.json`/dataVersion，并重启当前发布的 API。
-- 不同时更改 API 镜像、前端 release 或 release manifest。
-- 回滚前验证上一 snapshot 与当前应用 schema/domain 兼容。
-- 回滚后检查 `/readyz`、dataVersion、最小查询、日志和 metrics。
-- 当前/上一 snapshot 都失败时停止自动循环重启，保留证据并进入人工恢复。
-
-### 5.3 清理
-
-- 新 snapshot ready 且至少完成一次回滚演练后，才能删除更老版本。
+- 构建或候选打开失败不改变 current；激活失败在维护窗口内恢复旧 Store。
+- 成功激活后不保留独立 data rollback slot；后续恢复重新构建或恢复完整 Archive。
 - `.staging` 只清理明确属于已结束 run 的目录；不得递归删除未解析路径。
-- 每次构建前检查 staging、新版、当前版和回滚版所需空间。
+- 每次构建前检查 staging、新版和当前版所需空间。
 - 磁盘空间不足时安全退出，不切换 current。
 
 ## 6. 资源基线
@@ -225,7 +201,6 @@ Archive 周更、应用部署、schema 升级和手工数据回滚共用同一�
 |---|---:|
 | cache core 命中、收藏 fresh | ≤ 300 ms |
 | 本地冷查询，不含 Bangumi 上游 | ≤ 5 s |
-| 上游健康的显式收藏刷新 | ≤ 20 s |
 
 验收：
 
@@ -310,9 +285,8 @@ v1 可以先使用 Prometheus 自带查询页面和 journalctl；需要固定 da
 | 制品 | 位置 | 生产引用 |
 |---|---|---|
 | Go API | GHCR | `image@sha256:...` |
-| Python updater | GHCR | one-shot `image@sha256:...` |
 | 前端 | GitHub Release 压缩包 | SHA-256 校验后安装 |
-| `release-manifest.json` | 同一 Release | commit、镜像 digest、前端 digest、兼容范围 |
+| `release-manifest.json` | 同一 Release | commit、Backend/前端 digest、兼容范围 |
 | Archive SQLite | 生产主机本地构建 | `current.json` |
 | Prometheus | 上游已审阅镜像 | 固定版本或 digest |
 

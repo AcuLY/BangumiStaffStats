@@ -10,6 +10,10 @@ import type {
 import type { ApiClient } from './client';
 import { ApiDecodeError } from './errors';
 import {
+  decodeCandidatesInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
+import {
   type CandidatePayload,
   decodeCandidatePayload,
   decodeCandidatesError,
@@ -97,8 +101,10 @@ export function candidateErrorMessage(code: ErrorCodeV1): string {
   if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
     return '候选人物服务正在准备，请稍后重试';
   }
+  if (code === 'UPSTREAM_TIMEOUT') {
+    return '候选人物查询超时，请重试';
+  }
   if (
-    code === 'UPSTREAM_TIMEOUT' ||
     code === 'UPSTREAM_UNAVAILABLE' ||
     code === 'UPSTREAM_PROTOCOL_ERROR'
   ) {
@@ -136,7 +142,6 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
 export interface CandidatesDriverRequest {
   readonly input: DeepReadonly<CandidatesInputV1>;
   readonly query: DeepReadonly<SharedQueryV1Schema>;
-  readonly refreshCollection: boolean;
   readonly signal: AbortSignal;
   readonly transactionId: string;
   readonly view: DeepReadonly<CandidatesViewV1>;
@@ -172,14 +177,12 @@ function projectionMismatch(): never {
 export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
   return {
     async execute(request): Promise<CandidatesDriverResponse> {
-      const refreshCollection =
-        request.refreshCollection === true &&
-        request.query.scope === 'personal';
+      const input = decodeCandidatesInput(request.input);
+      decodeSharedQueryForOperation(request.query, input.positionScope);
       const body: CandidatesRequestV1 = {
         input: structuredClone(request.input),
         query: structuredClone(request.query) as SharedQueryV1Schema,
         view: structuredClone(request.view),
-        ...(refreshCollection ? { refreshCollection: true } : {}),
       };
       const payload = await client.request({
         body: JSON.stringify(body),
@@ -199,19 +202,39 @@ export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
 
       const expectedPage = request.view.page ?? 1;
       const expectedPageSize = request.view.pageSize ?? 10;
-      const expectedPositionKeys = request.query.positionKeys.map(String);
+      const expectedPositionKeys = request.input.positionScope === 'all'
+        ? payload.positionCounts.map((entry) => entry.positionKey)
+        : request.query.positionKeys.map(String);
+      const expectedPositionKey =
+        request.input.positionKey === null
+          ? null
+          : String(request.input.positionKey);
+      const invalidItemPositions = payload.items.some((item) => {
+        const ordered = expectedPositionKeys.filter((key) =>
+          item.positionKeys.includes(key),
+        );
+        return (
+          ordered.length !== item.positionKeys.length ||
+          ordered.some((key, index) => key !== item.positionKeys[index]) ||
+          (expectedPositionKey !== null &&
+            (item.positionKeys.length !== 1 ||
+              item.positionKeys[0] !== expectedPositionKey))
+        );
+      });
       if (
         payload.scope !== request.query.scope ||
-        payload.positionKey !== String(request.input.positionKey) ||
+        payload.positionKey !== expectedPositionKey ||
         payload.workUnit !==
           (request.query.mergeSeries === true ? 'series' : 'subject') ||
         payload.pagination.page !== expectedPage ||
         payload.pagination.pageSize !== expectedPageSize ||
+        new Set(expectedPositionKeys).size !== expectedPositionKeys.length ||
         payload.positionCounts.length !== expectedPositionKeys.length ||
         payload.positionCounts.some(
           (entry, index) =>
             entry.positionKey !== expectedPositionKeys[index],
-        )
+        ) ||
+        invalidItemPositions
       ) {
         return projectionMismatch();
       }

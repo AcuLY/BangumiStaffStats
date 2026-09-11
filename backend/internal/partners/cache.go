@@ -59,12 +59,14 @@ func ResultKey(
 		return runtimecache.ResultKey{}, fieldError("/input/source")
 	}
 	canonical, err := json.Marshal(struct {
-		Source struct {
+		PositionScope string `json:"positionScope,omitempty"`
+		Source        struct {
 			PersonID     int64    `json:"personId"`
 			PositionKeys []string `json:"positionKeys"`
 		} `json:"source"`
 		CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
 	}{
+		PositionScope: input.PositionScope,
 		Source: struct {
 			PersonID     int64    `json:"personId"`
 			PositionKeys []string `json:"positionKeys"`

@@ -3,11 +3,15 @@ package partners
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
 
@@ -183,4 +187,152 @@ func boolCount(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func TestProjectMetricScaleIsStableAcrossSearchPageSizeAndOrder(t *testing.T) {
+	core := partnerViewCore("personal")
+	average := int64(800)
+	for id := int64(2); id <= 9; id++ {
+		partner := partnerForView(id, "Visible", int(10-id), &average, &average)
+		score := statistics.Rational{Numerator: "1", Denominator: "5"}
+		if id == 9 {
+			partner.Person.Name = "Hidden negative maximum"
+			score.Numerator = "-4"
+		}
+		partner.Preference = &Preference{Score: &score, EvidenceWeight: statistics.Rational{Numerator: "1", Denominator: "6"}}
+		core.Partners = append(core.Partners, partner)
+	}
+	want := statistics.MetricScale{Metric: "preference", Kind: "linear", Max: statistics.Rational{Numerator: "4", Denominator: "5"}}
+	for _, view := range []View{
+		{Sort: SortPreference, Order: statistics.Descending, Page: 1, PageSize: 5},
+		{Sort: SortPreference, Order: statistics.Descending, Page: 2, PageSize: 5},
+		{Search: "Visible", Sort: SortPreference, Order: statistics.Descending, Page: 1, PageSize: 10},
+		{Search: "Nobody", Sort: SortPreference, Order: statistics.Ascending, Page: 5, PageSize: 20},
+	} {
+		page, err := Project(context.Background(), core, view)
+		if err != nil || !reflect.DeepEqual(page.MetricScale, want) {
+			t.Fatalf("view %+v: scale %#v, error %v", view, page.MetricScale, err)
+		}
+		if page.Summary.Leaders[3].Item == nil || page.Summary.Leaders[3].Item.Preference.Score.Numerator != "1" {
+			t.Fatal("absolute scale replaced the signed preference leader")
+		}
+		page.MetricScale.Max = statistics.Rational{Numerator: "99", Denominator: "1"}
+	}
+	if core.Partners[7].Preference.Score.Numerator != "-4" {
+		t.Fatal("projection mutated the core preference")
+	}
+}
+
+func TestProjectMetricScaleDistinguishesZeroMissingAndFilteredPopulations(t *testing.T) {
+	request := partnerBuildRequest(t, "global")
+	request.Query.EffectiveQuery.MergeSeries = false
+	request.Series = nil
+	request.Query.PositionResults[0].CandidateSubjectIDs = []int64{101, 102}
+	request.Query.PositionResults[0].Contributions = append(request.Query.PositionResults[0].Contributions, query.Contribution{
+		PositionKey: "staffset:anime:creative", MemberPositionKey: "staff:anime:3", Kind: "staff", SubjectID: 102, PersonID: 1, PositionID: 3,
+	})
+	request.Query.PositionResults[1].Contributions = append(request.Query.PositionResults[1].Contributions, query.Contribution{
+		PositionKey: "staff:anime:2", Kind: "staff", SubjectID: 101, PersonID: 3, PositionID: 2,
+	})
+	castKey := "cast:anime:main"
+	for index, candidateKey := range []*string{nil, &castKey} {
+		request.Input.CandidatePositionKey = candidateKey
+		core, err := Build(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		page, err := Project(context.Background(), core, View{Sort: SortCount, Order: statistics.Descending, Page: 1, PageSize: 5})
+		if err != nil || page.MetricScale.Max != int64(2-index) {
+			t.Fatalf("filtered count scale = %+v, error %v", page.MetricScale, err)
+		}
+	}
+	core := partnerViewCore("personal")
+	partner := partnerForView(2, "Partner", 1, nil, nil)
+	partner.Preference = &Preference{EvidenceWeight: statistics.Rational{Numerator: "0", Denominator: "1"}}
+	core.Partners = []PartnerCore{partner}
+	for _, metric := range []Sort{SortAverage, SortOverall, SortPreference} {
+		page, err := Project(context.Background(), core, View{Sort: metric, Order: statistics.Descending, Page: 1, PageSize: 5})
+		if err != nil || page.MetricScale.Max != nil {
+			t.Fatalf("missing %s scale = %+v, error %v", metric, page.MetricScale, err)
+		}
+	}
+	zero := statistics.Rational{Numerator: "0", Denominator: "1"}
+	core.Partners[0].Preference.Score = &zero
+	page, err := Project(context.Background(), core, View{Sort: SortPreference, Order: statistics.Descending, Page: 1, PageSize: 5})
+	if err != nil || page.MetricScale.Max != zero {
+		t.Fatalf("zero scale = %+v, error %v", page.MetricScale, err)
+	}
+	core.Partners = nil
+	page, err = Project(context.Background(), core, View{Sort: SortCount, Order: statistics.Descending, Page: 1, PageSize: 5})
+	if err != nil || page.MetricScale.Max != nil {
+		t.Fatalf("empty count scale = %+v, error %v", page.MetricScale, err)
+	}
+}
+
+func TestProjectMetricScaleMatchesSharedCompletePopulationGoldens(t *testing.T) {
+	for _, filename := range []string{"global.json", "personal.json", "many-identities.json"} {
+		data, err := os.ReadFile(filepath.Join("..", "..", "..", "contracts", "goldens", "api", "partners", "cases", filename))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var corpus struct {
+			Cases []struct {
+				ID      string `json:"id"`
+				Request struct {
+					Query struct {
+						Scope string `json:"scope"`
+					} `json:"query"`
+					View json.RawMessage `json:"view"`
+				} `json:"request"`
+				Expected struct {
+					Body struct {
+						Data struct {
+							WorkUnit    statistics.UnitKind `json:"workUnit"`
+							Source      SourceCore          `json:"source"`
+							MetricScale json.RawMessage     `json:"metricScale"`
+						} `json:"data"`
+					} `json:"body"`
+				} `json:"expected"`
+				Assertions struct {
+					Population []PartnerCore `json:"metricScalePopulation"`
+				} `json:"assertions"`
+			} `json:"cases"`
+		}
+		if err := json.Unmarshal(data, &corpus); err != nil {
+			t.Fatal(err)
+		}
+		for _, test := range corpus.Cases {
+			t.Run(test.ID, func(t *testing.T) {
+				if test.Assertions.Population == nil {
+					t.Fatal("complete population evidence is missing")
+				}
+				core := partnerViewCore(test.Request.Query.Scope)
+				core.Source = test.Expected.Body.Data.Source
+				core.WorkUnit = test.Expected.Body.Data.WorkUnit
+				core.Partners = test.Assertions.Population
+				view, err := parseView(test.Request.View, core.Scope)
+				if err != nil {
+					t.Fatal(err)
+				}
+				page, err := Project(context.Background(), core, view)
+				if err != nil {
+					t.Fatal(err)
+				}
+				actual, err := json.Marshal(page.MetricScale)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var got, want any
+				if err := json.Unmarshal(actual, &got); err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(test.Expected.Body.Data.MetricScale, &want); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(got, want) {
+					t.Fatalf("complete-set scale = %s, want %s", actual, test.Expected.Body.Data.MetricScale)
+				}
+			})
+		}
+	}
 }

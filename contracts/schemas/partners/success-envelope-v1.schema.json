@@ -557,7 +557,8 @@
         "workUnit",
         "source",
         "summary",
-        "items"
+        "items",
+        "metricScale"
       ],
       "properties": {
         "workUnit": {
@@ -579,6 +580,9 @@
           "items": {
             "$ref": "#/$defs/GlobalPartnerItemV1"
           }
+        },
+        "metricScale": {
+          "$ref": "../rankings/success-envelope-v1.schema.json#/$defs/GlobalRankingsMetricScaleV1"
         }
       }
     },
@@ -589,7 +593,8 @@
         "workUnit",
         "source",
         "summary",
-        "items"
+        "items",
+        "metricScale"
       ],
       "properties": {
         "workUnit": {
@@ -611,6 +616,9 @@
           "items": {
             "$ref": "#/$defs/PersonalPartnerItemV1"
           }
+        },
+        "metricScale": {
+          "$ref": "../rankings/success-envelope-v1.schema.json#/$defs/RankingsMetricScaleV1"
         }
       }
     },

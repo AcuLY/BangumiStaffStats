@@ -15,11 +15,7 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 	if err := contextError(ctx); err != nil {
 		return Core{}, err
 	}
-	if request.PositionKey == "" {
-		return Core{}, fieldError("/input/positionKey")
-	}
-
-	positions, current, err := validatePositions(request.Query, request.PositionKey)
+	positions, selected, err := validatePositions(request.Query, request.PositionKey)
 	if err != nil {
 		return Core{}, err
 	}
@@ -27,7 +23,7 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 	if err != nil {
 		return Core{}, err
 	}
-	people, participating, err := independentPeople(ctx, current)
+	people, participating, positionKeysByPerson, err := independentPeople(ctx, selected)
 	if err != nil {
 		return Core{}, err
 	}
@@ -41,7 +37,12 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 	}
 
 	effective := request.Query.EffectiveQuery
-	effective.PositionKeys = []string{request.PositionKey}
+	effective.PositionKeys = make([]string, len(selected))
+	positionResults := make([]query.PositionResult, len(selected))
+	for index, position := range selected {
+		effective.PositionKeys[index] = position.PositionKey
+		positionResults[index] = clonePositionResult(position)
+	}
 	evaluation, err := statistics.Evaluate(ctx, statistics.EvaluationRequest{
 		DataVersion: request.DataVersion,
 		Result: query.Result{
@@ -49,7 +50,7 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 			QueryDigest:             request.Query.QueryDigest,
 			CollectionAccessCount:   request.Query.CollectionAccessCount,
 			EligibleSubjectIDs:      append([]int64(nil), request.Query.EligibleSubjectIDs...),
-			PositionResults:         []query.PositionResult{clonePositionResult(current)},
+			PositionResults:         positionResults,
 			RankingPeople:           people,
 			ParticipatingSubjectIDs: participating,
 		},
@@ -68,6 +69,7 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 		}
 		row := Row{
 			Person:           clonePerson(references[person.PersonID]),
+			PositionKeys:     append([]string(nil), positionKeysByPerson[person.PersonID]...),
 			WorkCount:        len(person.Units),
 			GlobalAverage:    cloneInt64(person.Global.AverageHundredths),
 			GlobalRatedCount: person.Global.RatedUnitCount,
@@ -96,70 +98,80 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 func validatePositions(
 	result query.Result,
 	currentKey string,
-) ([]PositionCount, query.PositionResult, error) {
+) ([]PositionCount, []query.PositionResult, error) {
 	if len(result.EffectiveQuery.PositionKeys) == 0 ||
 		len(result.PositionResults) != len(result.EffectiveQuery.PositionKeys) {
-		return nil, query.PositionResult{}, fieldError("/query/positionKeys")
+		return nil, nil, fieldError("/query/positionKeys")
 	}
 	seen := make(map[string]struct{}, len(result.PositionResults))
 	counts := make([]PositionCount, len(result.PositionResults))
-	var current query.PositionResult
-	foundCurrent := false
+	selected := make([]query.PositionResult, 0, len(result.PositionResults))
 	for index, key := range result.EffectiveQuery.PositionKeys {
 		position := result.PositionResults[index]
 		if key == "" || position.PositionKey != key {
-			return nil, query.PositionResult{}, fieldError("/query/positionKeys")
+			return nil, nil, fieldError("/query/positionKeys")
 		}
 		if _, duplicate := seen[key]; duplicate {
-			return nil, query.PositionResult{}, fieldError("/query/positionKeys")
+			return nil, nil, fieldError("/query/positionKeys")
 		}
 		seen[key] = struct{}{}
 		if !strictPositiveUnique(position.CandidatePersonIDs) {
-			return nil, query.PositionResult{}, fieldError("/query/positionKeys")
+			return nil, nil, fieldError("/query/positionKeys")
 		}
 		counts[index] = PositionCount{
 			PositionKey: key,
 			Count:       len(position.CandidatePersonIDs),
 		}
-		if key == currentKey {
-			current = position
-			foundCurrent = true
+		if currentKey == "" || key == currentKey {
+			selected = append(selected, position)
 		}
 	}
-	if !foundCurrent {
-		return nil, query.PositionResult{}, fieldError("/input/positionKey")
+	if len(selected) == 0 {
+		return nil, nil, fieldError("/input/positionKey")
 	}
-	return counts, current, nil
+	return counts, selected, nil
 }
 
 func independentPeople(
 	ctx context.Context,
-	position query.PositionResult,
-) ([]query.PersonSubjects, []int64, error) {
-	subjectsByPerson := make(map[int64]map[int64]struct{}, len(position.CandidatePersonIDs))
-	for _, personID := range position.CandidatePersonIDs {
-		subjectsByPerson[personID] = make(map[int64]struct{})
+	positions []query.PositionResult,
+) ([]query.PersonSubjects, []int64, map[int64][]string, error) {
+	subjectsByPerson := make(map[int64]map[int64]struct{})
+	positionKeysByPerson := make(map[int64][]string)
+	for _, position := range positions {
+		for _, personID := range position.CandidatePersonIDs {
+			if subjectsByPerson[personID] == nil {
+				subjectsByPerson[personID] = make(map[int64]struct{})
+			}
+			positionKeysByPerson[personID] = append(
+				positionKeysByPerson[personID],
+				position.PositionKey,
+			)
+		}
 	}
-	for _, contribution := range position.Contributions {
-		if err := contextError(ctx); err != nil {
-			return nil, nil, err
+	for _, position := range positions {
+		for _, contribution := range position.Contributions {
+			if err := contextError(ctx); err != nil {
+				return nil, nil, nil, err
+			}
+			if contribution.SubjectID <= 0 || contribution.PersonID <= 0 {
+				return nil, nil, nil, fieldError("/query/positionKeys")
+			}
+			subjects, found := subjectsByPerson[contribution.PersonID]
+			if !found {
+				return nil, nil, nil, fieldError("/query/positionKeys")
+			}
+			subjects[contribution.SubjectID] = struct{}{}
 		}
-		if contribution.SubjectID <= 0 || contribution.PersonID <= 0 {
-			return nil, nil, fieldError("/query/positionKeys")
-		}
-		subjects, found := subjectsByPerson[contribution.PersonID]
-		if !found {
-			return nil, nil, fieldError("/query/positionKeys")
-		}
-		subjects[contribution.SubjectID] = struct{}{}
 	}
 
-	people := make([]query.PersonSubjects, 0, len(position.CandidatePersonIDs))
+	personIDs := sortedKeys(subjectsByPerson)
+	people := make([]query.PersonSubjects, 0, len(personIDs))
 	participatingSet := make(map[int64]struct{})
-	for _, personID := range position.CandidatePersonIDs {
+	for _, personID := range personIDs {
 		subjectSet := subjectsByPerson[personID]
 		if len(subjectSet) == 0 {
-			return nil, nil, fieldError("/query/positionKeys")
+			return nil, nil, nil, fieldError("/query/positionKeys")
 		}
 		subjectIDs := sortedKeys(subjectSet)
 		for _, subjectID := range subjectIDs {
@@ -170,7 +182,7 @@ func independentPeople(
 			SubjectIDs: subjectIDs,
 		})
 	}
-	return people, sortedKeys(participatingSet), nil
+	return people, sortedKeys(participatingSet), positionKeysByPerson, nil
 }
 
 func indexPeople(values []PersonReference) (map[int64]PersonReference, error) {
@@ -201,7 +213,7 @@ func strictPositiveUnique(values []int64) bool {
 	return true
 }
 
-func sortedKeys(values map[int64]struct{}) []int64 {
+func sortedKeys[T any](values map[int64]T) []int64 {
 	result := make([]int64, 0, len(values))
 	for value := range values {
 		result = append(result, value)

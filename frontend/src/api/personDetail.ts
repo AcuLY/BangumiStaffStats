@@ -10,6 +10,10 @@ import type {
 import type { ApiClient } from './client';
 import { ApiDecodeError } from './errors';
 import {
+  decodePersonDetailInput,
+  decodeSharedQueryForOperation,
+} from './adapters/queryWire';
+import {
   decodePersonDetailError,
   decodePersonDetailPayload,
   type PersonDetailPayload,
@@ -87,8 +91,10 @@ export function personDetailErrorMessage(code: ErrorCodeV1): string {
   if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
     return '人物详情服务正在准备，请稍后重试';
   }
+  if (code === 'UPSTREAM_TIMEOUT') {
+    return '人物详情查询超时，请重试';
+  }
   if (
-    code === 'UPSTREAM_TIMEOUT' ||
     code === 'UPSTREAM_UNAVAILABLE' ||
     code === 'UPSTREAM_PROTOCOL_ERROR'
   ) {
@@ -162,6 +168,11 @@ export function createPersonDetailDriver(
 ): PersonDetailDriver {
   return {
     async execute(request): Promise<PersonDetailDriverResponse> {
+      const input = decodePersonDetailInput(request.input);
+      decodeSharedQueryForOperation(
+        request.query,
+        input.positionKeys === undefined ? 'query' : input.positionScope,
+      );
       const body: PersonDetailRequestV1 = {
         input: structuredClone(request.input),
         query: structuredClone(request.query) as SharedQueryV1Schema,

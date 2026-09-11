@@ -13,6 +13,15 @@ bgmss_select_check_toolchain_mode "$backend_root"
 cleanup() {
   bgmss_cleanup_check_state
 }
+
+normalize_inventory_paths() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -u -f -
+    return
+  fi
+  cat
+}
+
 bgmss_install_check_traps
 
 if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'ordinary' ]]; then
@@ -66,7 +75,17 @@ else
   fi
   selected_go_root="$("$go_command" env GOROOT)"
   pinned_gofmt="$selected_go_root/bin/gofmt"
-  if [[ ! -x "$pinned_gofmt" || "$selected_go_root" != "$cache_root/go-mod/"*go1.26.5* ]]; then
+  selected_go_root_comparable="${selected_go_root//\\//}"
+  cache_root_comparable="${cache_root//\\//}"
+  if command -v cygpath >/dev/null 2>&1; then
+    selected_go_root_comparable="$(cygpath -m "$selected_go_root")"
+    cache_root_comparable="$(cygpath -m "$cache_root")"
+    pinned_gofmt="$(cygpath -u "$selected_go_root")/bin/gofmt"
+  fi
+  if [[
+    ! -x "$pinned_gofmt" ||
+    "$selected_go_root_comparable" != "$cache_root_comparable/go-mod/"*go1.26.5*
+  ]]; then
     echo "Go 1.26.5 GOROOT is not contained in the backend module cache: $selected_go_root" >&2
     exit 1
   fi
@@ -121,15 +140,14 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
   -bench '^(BenchmarkEvaluateRatings|BenchmarkBuildSeriesIndex|BenchmarkSortPeople)$' \
   -benchtime=1x -benchmem
 "$go_command" test ./internal/httpapi/wire
-"$go_command" test ./internal/archive/contracttest
-"$go_command" test ./internal/archive ./cmd/archive-smoke
+"$go_command" test ./internal/archivebuild
+"$go_command" test ./internal/archive
 "$go_command" test ./...
 "$go_command" test -race ./...
 "$go_command" vet ./...
 "$go_command" build ./...
 CGO_ENABLED=0 "$go_command" test ./...
 CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/api" ./cmd/api
-CGO_ENABLED=0 "$go_command" build -o "$temporary_root/bin/archive-smoke" ./cmd/archive-smoke
 CGO_ENABLED=0 "$go_command" test -c -o "$temporary_root/bin/query.test" ./internal/query
 "$go_command" mod verify
 
@@ -181,7 +199,7 @@ fi
 
 collection_version="$("$go_command" list -m -f '{{.Version}}' github.com/AcuLY/bangumi-collection-go)"
 time_version="$("$go_command" list -m -f '{{.Version}}' golang.org/x/time)"
-if [[ "$collection_version" != "v0.1.1" || "$time_version" != "v0.15.0" ]]; then
+if [[ "$collection_version" != "v0.1.2" || "$time_version" != "v0.15.0" ]]; then
   echo "unexpected public collection dependency versions: collection=$collection_version time=$time_version" >&2
   exit 1
 fi
@@ -217,27 +235,45 @@ build/test.sh
 build/toolchain-policy.sh
 cmd/api/main.go
 cmd/api/main_test.go
-cmd/archive-smoke/main.go
-cmd/archive-smoke/main_test.go
 go.mod
 go.sum
+internal/app/archive_updater.go
+internal/app/archive_updater_test.go
 internal/app/catalog_archive_integration_test.go
+internal/app/maintenance.go
+internal/app/maintenance_test.go
 internal/app/run.go
 internal/app/run_test.go
+internal/app/scheduler.go
+internal/app/scheduler_test.go
 internal/architecture/dependencies_test.go
-internal/archive/contract.go
-internal/archive/contracttest/archive_contract_test.go
-internal/archive/contracttest/doc.go
+internal/archive/direct_test.go
 internal/archive/errors.go
 internal/archive/filesystem.go
-internal/archive/golden_test.go
 internal/archive/loader.go
-internal/archive/mutation_test.go
+internal/archive/pointer.go
 internal/archive/sqlite.go
 internal/archive/state.go
-internal/archive/state_test.go
 internal/archive/store.go
 internal/archive/test_helpers_test.go
+internal/archivebuild/acquisition.go
+internal/archivebuild/acquisition_test.go
+internal/archivebuild/assets.go
+internal/archivebuild/assets/display-v1.yaml
+internal/archivebuild/assets/schema.sql
+internal/archivebuild/assets/staff-sets-v1.yaml
+internal/archivebuild/builder.go
+internal/archivebuild/builder_test.go
+internal/archivebuild/catalog.go
+internal/archivebuild/catalog_test.go
+internal/archivebuild/evidence.go
+internal/archivebuild/jsonutil.go
+internal/archivebuild/manifest.go
+internal/archivebuild/records.go
+internal/archivebuild/run_test.go
+internal/archivebuild/staging.go
+internal/archivebuild/summary_test.go
+internal/archivebuild/types.go
 internal/candidates/archive.go
 internal/candidates/build.go
 internal/candidates/build_test.go
@@ -247,6 +283,7 @@ internal/candidates/doc.go
 internal/candidates/errors.go
 internal/candidates/operation.go
 internal/candidates/projection.go
+internal/candidates/projection_test.go
 internal/candidates/request.go
 internal/candidates/service.go
 internal/candidates/service_model.go
@@ -332,6 +369,7 @@ internal/partners/types.go
 internal/partners/view.go
 internal/partners/view_test.go
 internal/persondetail/archive.go
+internal/persondetail/archive_summary_test.go
 internal/persondetail/build.go
 internal/persondetail/build_test.go
 internal/persondetail/cache.go
@@ -349,12 +387,15 @@ internal/publiccollection/source.go
 internal/publiccollection/source_test.go
 internal/publiccollection/transport_test.go
 internal/query/archive_loader.go
+internal/query/archive_loader_cache_test.go
 internal/query/archive_loader_test.go
 internal/query/evaluate.go
 internal/query/golden_test.go
 internal/query/model.go
 internal/query/normalize.go
 internal/query/normalize_test.go
+internal/query/operation_positions.go
+internal/query/operation_positions_test.go
 internal/query/unicode_assigned_15_1.go
 internal/query/unicode_assigned_15_1_test.go
 internal/querytiming/trace.go
@@ -366,6 +407,7 @@ internal/ranking/service.go
 internal/ranking/service_test.go
 internal/ranking/store.go
 internal/ranking/view.go
+internal/ranking/view_test.go
 internal/releaseinfo/releaseinfo.go
 internal/releaseinfo/releaseinfo_test.go
 internal/runtimecache/collection.go
@@ -388,6 +430,8 @@ internal/statistics/errors.go
 internal/statistics/evaluator.go
 internal/statistics/evaluator_test.go
 internal/statistics/golden_test.go
+internal/statistics/metric_scale.go
+internal/statistics/metric_scale_test.go
 internal/statistics/preference.go
 internal/statistics/preference_test.go
 internal/statistics/property_test.go
@@ -425,6 +469,7 @@ if [[ "$BGMSS_CHECK_TOOLCHAIN_MODE" == 'acceptance' ]]; then
       \( -path './.cache' -o -path './.tmp' -o -path './build/.tmp' \) -prune \
       -o -type f -print |
       sed 's#^\./##' |
+      normalize_inventory_paths |
       LC_ALL=C sort
   )"
 else
@@ -435,6 +480,7 @@ else
       -not -path './build/.tmp/*' \
       -print |
       sed 's#^\./##' |
+      normalize_inventory_paths |
       LC_ALL=C sort
   )"
 fi
@@ -468,7 +514,7 @@ else
     exit 1
   fi
 fi
-if grep -R -n -E '(/health|/proxy|ProxyFromEnvironment|update_activated|net/http/pprof)' \
+if grep -R -n -E '(/health|/proxy|ProxyFromEnvironment|net/http/pprof)' \
   --include='*.go' --exclude='*_test.go' cmd internal \
   | grep -v 'internal/httpapi/wire/query_wire.gen.go' >/dev/null; then
   echo "deferred route or feature found in production source" >&2

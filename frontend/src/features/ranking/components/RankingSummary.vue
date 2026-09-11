@@ -2,7 +2,7 @@
 import { NFlex, NNumberAnimation, NStatistic } from 'naive-ui';
 import { computed } from 'vue';
 
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import type { RankingPayload } from '../model';
 
 const props = defineProps<{

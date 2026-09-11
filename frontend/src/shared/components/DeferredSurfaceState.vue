@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { NSkeleton } from 'naive-ui';
-
 import AppIcon from './AppIcon.vue';
 
 withDefaults(
@@ -23,6 +21,7 @@ const emit = defineEmits<{
 
 <template>
   <section
+    v-if="error"
     class="query-result-state surface-panel deferred-surface-state"
     data-deferred-surface
     :aria-busy="error ? undefined : 'true'"
@@ -44,10 +43,10 @@ const emit = defineEmits<{
     >
       {{ retryLabel }}
     </button>
-    <div v-else class="query-result-skeleton" aria-hidden="true">
-      <n-skeleton text :repeat="4" />
-    </div>
   </section>
+  <slot v-else name="loading">
+    <span role="status" aria-live="polite">{{ loadingTitle }}</span>
+  </slot>
 </template>
 
 <style scoped>

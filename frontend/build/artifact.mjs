@@ -20,6 +20,7 @@ import {
   ARCHIVE_MANIFEST_SCHEMA_DIGEST,
   ARCHIVE_SCHEMA_SQL_DIGEST,
   OPENAPI_DIGEST,
+  SUPPORTED_ARCHIVE_SQLITE_SCHEMA,
   assertTrackedReleaseAuthorities,
   sha256Bytes,
   sha256File,
@@ -598,7 +599,7 @@ export function packageStaticArtifact({
     compatibility: {
       archive: {
         manifestSchemaVersion: { minimum: 1, maximum: 1 },
-        sqliteSchemaVersion: { minimum: 1, maximum: 1 },
+        sqliteSchemaVersion: { minimum: SUPPORTED_ARCHIVE_SQLITE_SCHEMA, maximum: SUPPORTED_ARCHIVE_SQLITE_SCHEMA },
         manifestSchemaDigest: ARCHIVE_MANIFEST_SCHEMA_DIGEST,
         schemaSqlDigest: ARCHIVE_SCHEMA_SQL_DIGEST,
         domainRulesVersion: ARCHIVE_DOMAIN_RULES_VERSION,

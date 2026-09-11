@@ -1,7 +1,7 @@
 import { readonly, ref, shallowReactive, type Ref } from 'vue';
 
 import type {
-  CandidatesInputV1,
+  CandidatesInputV1 as GeneratedCandidatesInputV1,
   CandidatesViewV1,
   CoStarInputV1,
   CoStarViewV1,
@@ -16,7 +16,8 @@ import { CoStarApiError } from '../../api/coStar';
 import { PartnersApiError } from '../../api/partners';
 import { RankingsApiError } from '../../api/rankings';
 import { PersonDetailApiError } from '../../api/personDetail';
-import type { CatalogSnapshot } from '../../api/adapters/catalog';
+import type { CatalogOperation, CatalogSnapshot } from '../../api/adapters/catalog';
+import { decodeEffectiveQueryForOperation } from '../../api/adapters/queryWire';
 import {
   type AppliedQuery,
   querySignature,
@@ -32,8 +33,12 @@ export type QueryOperation =
   | 'person-detail'
   | 'rankings';
 export type PrimaryQueryOperation = 'candidates' | 'rankings';
+export type CandidatesInputV1 = Omit<
+  GeneratedCandidatesInputV1,
+  'positionKey'
+> & { readonly positionKey: string | null };
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
-export type RankingsViewState = Required<RankingsViewV1>;
+export type RankingsViewState = Required<Omit<RankingsViewV1, 'locatePersonId'>>;
 export type CandidatesViewState = Required<CandidatesViewV1>;
 export type CoStarViewState = Required<CoStarViewV1>;
 export type PersonDetailViewState = Required<PersonDetailViewV1>;
@@ -48,7 +53,6 @@ export interface OperationFeedback {
 export interface SuccessfulQueryContext {
   readonly changed: boolean;
   readonly operation: PrimaryQueryOperation;
-  readonly refreshed: boolean;
 }
 
 export interface OperationResponse<Payload> {
@@ -62,7 +66,6 @@ export interface OperationResponse<Payload> {
 export interface OperationRequest<Input, View> {
   readonly input: Input;
   readonly query: AppliedQuery;
-  readonly refreshCollection: boolean;
   readonly transactionId: string;
   readonly sequence: number;
   readonly signal: AbortSignal;
@@ -145,27 +148,6 @@ interface OperationTransaction {
   readonly controller: AbortController;
   readonly sequence: number;
   readonly snapshot: ResourceSnapshot;
-}
-
-interface CandidateViewIntent {
-  readonly input: Readonly<CandidatesInputV1>;
-  readonly view: Readonly<CandidatesViewState>;
-}
-
-interface PendingCandidateRefresh {
-  readonly controller: AbortController;
-  readonly coStarSnapshot: ResourceSnapshot;
-  readonly partnersSnapshot: ResourceSnapshot;
-  readonly query: AppliedQuery;
-  readonly sequence: number;
-  latestIntent: CandidateViewIntent | null;
-}
-
-interface PendingRankingRefresh {
-  readonly controller: AbortController;
-  readonly personDetailSnapshot: ResourceSnapshot;
-  readonly query: AppliedQuery;
-  readonly sequence: number;
 }
 
 export class QueryCapabilityUnavailableError extends Error {
@@ -350,11 +332,42 @@ function defaultCoStarView(query: AppliedQuery): CoStarViewState {
   });
 }
 
+/** Operation scopes never change the shared ranking Query. */
+export function operationPositionAllowed(
+  query: AppliedQuery,
+  positionScope: 'query' | 'all' | undefined,
+  positionKey: string,
+  catalog: CatalogSnapshot | null,
+  capability: CatalogOperation,
+): boolean {
+  if (positionScope !== undefined && positionScope !== 'query' && positionScope !== 'all') return false;
+  if (positionScope !== 'all' && !query.positionKeys.includes(positionKey)) return false;
+  if (!catalog) return query.positionKeys.includes(positionKey);
+  const position = catalog.positionsByKey.get(positionKey);
+  return position?.selectable === true && position.subjectType === query.subjectType
+    && position.capabilities.includes(capability);
+}
+
+function assertCandidatePositions(
+  payload: unknown,
+  query: AppliedQuery,
+  input: Readonly<CandidatesInputV1>,
+  catalog: CatalogSnapshot | null,
+): void {
+  if (!payload || typeof payload !== 'object') return;
+  const data = payload as { items?: readonly { positionKeys: readonly string[] }[]; positionCounts?: readonly { positionKey: string }[] };
+  const keys = [...(data.positionCounts ?? []).map((entry) => entry.positionKey),
+    ...(data.items ?? []).flatMap((item) => item.positionKeys)];
+  if (keys.some((key) => !operationPositionAllowed(query, input.positionScope, key, catalog, 'candidates'))) {
+    throw new Error('Candidate response contains unsupported positions');
+  }
+}
+
 function canonicalCoStarInput(
   query: AppliedQuery,
   input: Readonly<CoStarInputV1>,
+  catalog: CatalogSnapshot | null,
 ): Readonly<CoStarInputV1> | null {
-  const queryPositions = new Set(query.positionKeys.map(String));
   if (
     input.participants.length < 2 ||
     input.participants.length > 10
@@ -373,7 +386,7 @@ function canonicalCoStarInput(
       people.has(personId) ||
       positionKeys.length === 0 ||
       new Set(positionKeys).size !== positionKeys.length ||
-      positionKeys.some((positionKey) => !queryPositions.has(positionKey))
+      positionKeys.some((positionKey) => !operationPositionAllowed(query, input.positionScope, positionKey, catalog, 'coStar'))
     ) {
       return null;
     }
@@ -387,6 +400,7 @@ function canonicalCoStarInput(
     return null;
   }
   return Object.freeze({
+    ...(input.positionScope === undefined ? {} : { positionScope: input.positionScope }),
     participants: Object.freeze([...participants]),
   }) as Readonly<CoStarInputV1>;
 }
@@ -396,6 +410,7 @@ function coStarInputEquals(
   right: Readonly<CoStarInputV1>,
 ): boolean {
   return (
+    (left.positionScope ?? 'query') === (right.positionScope ?? 'query') &&
     left.participants.length === right.participants.length &&
     left.participants.every((participant, index) => {
       const compared = right.participants[index];
@@ -444,10 +459,10 @@ function validPartnersView(
 function canonicalPartnersInput(
   query: AppliedQuery,
   input: Readonly<PartnersInputV1>,
+  catalog: CatalogSnapshot | null,
 ): Readonly<PartnersInputV1> | null {
   const personId = input.source.personId;
   const positionKeys = input.source.positionKeys.map(String);
-  const queryPositions = new Set(query.positionKeys.map(String));
   const candidatePositionKey =
     input.candidatePositionKey === undefined
       ? undefined
@@ -456,14 +471,16 @@ function canonicalPartnersInput(
     !Number.isSafeInteger(personId) ||
     personId < 1 ||
     positionKeys.length === 0 ||
+    positionKeys.length > 20 ||
     new Set(positionKeys).size !== positionKeys.length ||
-    positionKeys.some((positionKey) => !queryPositions.has(positionKey)) ||
+    positionKeys.some((positionKey) => !operationPositionAllowed(query, input.positionScope, positionKey, catalog, 'partners')) ||
     (candidatePositionKey !== undefined &&
-      !queryPositions.has(candidatePositionKey))
+      !operationPositionAllowed(query, input.positionScope, candidatePositionKey, catalog, 'partners'))
   ) {
     return null;
   }
   return Object.freeze({
+    ...(input.positionScope === undefined ? {} : { positionScope: input.positionScope }),
     source: Object.freeze({
       personId,
       positionKeys: Object.freeze([...positionKeys]),
@@ -481,6 +498,7 @@ function partnersInputEquals(
   const leftKeys = left.source.positionKeys.map(String);
   const rightKeys = right.source.positionKeys.map(String);
   return (
+    (left.positionScope ?? 'query') === (right.positionScope ?? 'query') &&
     left.source.personId === right.source.personId &&
     String(left.candidatePositionKey ?? '') ===
       String(right.candidatePositionKey ?? '') &&
@@ -592,7 +610,12 @@ export interface QueryCoordinator<
     candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
-    refreshCollection?: boolean;
+  }): Promise<boolean>;
+  executeApplied(options: {
+    candidateInput?: Readonly<CandidatesInputV1>;
+    candidateView?: Readonly<CandidatesViewState>;
+    catalog: CatalogSnapshot | null;
+    mode: QueryMode;
   }): Promise<boolean>;
   executeCandidateView(
     input: Readonly<CandidatesInputV1>,
@@ -667,6 +690,7 @@ export function createQueryCoordinator<
     query: AppliedQuery,
     context: SuccessfulQueryContext,
   ) => void,
+  options: { readonly getCatalog?: () => CatalogSnapshot | null } = {},
 ): QueryCoordinator<
   RankingPayload,
   CandidatePayload,
@@ -674,6 +698,8 @@ export function createQueryCoordinator<
   PartnersPayload,
   CoStarPayload
 > {
+  let acceptedCatalog: CatalogSnapshot | null = null;
+  const currentCatalog = () => options.getCatalog ? options.getCatalog() : acceptedCatalog;
   const lastOperationFeedback = ref<OperationFeedback | null>(null);
   const pending = ref(false);
   const pendingOperation = ref<QueryOperation | null>(null);
@@ -688,9 +714,6 @@ export function createQueryCoordinator<
   const controllers: Partial<Record<QueryOperation, AbortController>> = {};
   const transactions: Partial<Record<QueryOperation, OperationTransaction>> =
     {};
-  let pendingCandidateRefresh: PendingCandidateRefresh | null = null;
-  let pendingRankingRefresh: PendingRankingRefresh | null = null;
-
   const rankings = shallowReactive<
     OperationResource<
       RankingPayload,
@@ -722,7 +745,7 @@ export function createQueryCoordinator<
     acceptedQuery: null,
     error: null,
     feedback: null,
-    input: Object.freeze({ positionKey: '' as never }),
+    input: Object.freeze({ positionKey: null }),
     payload: null,
     phase: 'idle',
     requestId: null,
@@ -861,68 +884,6 @@ export function createQueryCoordinator<
     resource.viewPending = snapshot.viewPending;
   }
 
-  function activeCandidateRefresh(): PendingCandidateRefresh | null {
-    const refresh = pendingCandidateRefresh;
-    return (
-      refresh &&
-      transactions.candidates?.controller === refresh.controller &&
-      transactions.candidates.sequence === refresh.sequence &&
-      controllers.candidates === refresh.controller &&
-      !refresh.controller.signal.aborted &&
-      candidates.phase === 'pending' &&
-      store.applied !== null &&
-      querySignature(store.applied) === querySignature(refresh.query)
-        ? refresh
-        : null
-    );
-  }
-
-  function activeRankingRefresh(): PendingRankingRefresh | null {
-    const refresh = pendingRankingRefresh;
-    return (
-      refresh &&
-      transactions.rankings?.controller === refresh.controller &&
-      transactions.rankings.sequence === refresh.sequence &&
-      controllers.rankings === refresh.controller &&
-      !refresh.controller.signal.aborted &&
-      rankings.phase === 'pending' &&
-      store.applied !== null &&
-      querySignature(store.applied) === querySignature(refresh.query)
-        ? refresh
-        : null
-    );
-  }
-
-  function restoreRefreshDependents(
-    operation: PrimaryQueryOperation,
-    controller: AbortController,
-  ): void {
-    if (
-      operation === 'candidates' &&
-      pendingCandidateRefresh?.controller === controller
-    ) {
-      restoreResource(
-        coStar,
-        pendingCandidateRefresh.coStarSnapshot,
-      );
-      restoreResource(
-        partners,
-        pendingCandidateRefresh.partnersSnapshot,
-      );
-      pendingCandidateRefresh = null;
-    }
-    if (
-      operation === 'rankings' &&
-      pendingRankingRefresh?.controller === controller
-    ) {
-      restoreResource(
-        personDetail,
-        pendingRankingRefresh.personDetailSnapshot,
-      );
-      pendingRankingRefresh = null;
-    }
-  }
-
   function syncPendingState(): void {
     pendingOperation.value = transactions.rankings
       ? 'rankings'
@@ -968,9 +929,6 @@ export function createQueryCoordinator<
             ? partners
             : personDetail;
     restoreResource(resource, transaction.snapshot);
-    if (operation === 'candidates' || operation === 'rankings') {
-      restoreRefreshDependents(operation, transaction.controller);
-    }
     resource.feedback = feedback || null;
     if (feedback) {
       publishFeedback(operation, feedback, 'status');
@@ -1133,37 +1091,79 @@ export function createQueryCoordinator<
     candidateView?: Readonly<CandidatesViewState>;
     catalog: CatalogSnapshot | null;
     mode: QueryMode;
-    refreshCollection?: boolean;
   }): Promise<boolean> {
+    const candidateInput = options.candidateInput ?? {
+      positionKey: null,
+      ...(store.coStarPositionScope === 'all'
+        ? { positionScope: 'all' as const }
+        : {}),
+    };
     const validation = validateDraft(
       store.draft,
       options.mode,
       options.catalog,
+      candidateInput.positionScope,
     );
     if (!validation.query) {
       store.setErrors(validation.errors);
       return false;
     }
 
-    const query = validation.query;
+    return executeQuery(validation.query, { ...options, candidateInput });
+  }
+
+  async function executeApplied(options: {
+    candidateInput?: Readonly<CandidatesInputV1>;
+    candidateView?: Readonly<CandidatesViewState>;
+    catalog: CatalogSnapshot | null;
+    mode: QueryMode;
+  }): Promise<boolean> {
+    if (!store.applied) {
+      return false;
+    }
+    return executeQuery(store.applied, {
+      ...options,
+      candidateInput: options.candidateInput ?? {
+        positionKey: null,
+        ...(store.appliedCoStarPositionScope === 'all'
+          ? { positionScope: 'all' as const }
+          : {}),
+      },
+    });
+  }
+
+  async function executeQuery(
+    query: AppliedQuery,
+    options: {
+      candidateInput?: Readonly<CandidatesInputV1>;
+      candidateView?: Readonly<CandidatesViewState>;
+      catalog: CatalogSnapshot | null;
+      mode: QueryMode;
+      refreshCollection?: boolean;
+    },
+  ): Promise<boolean> {
+    acceptedCatalog = options.catalog;
     const operation = operationFor(options.mode);
+    const candidateScope = options.candidateInput?.positionScope ?? 'query';
+    try {
+      decodeEffectiveQueryForOperation(
+        query, operation === 'candidates' ? candidateScope : 'query',
+      );
+    } catch {
+      store.setErrors({ positionKeys: '至少选择一个适用于当前查询的职位' });
+      return false;
+    }
     const otherOperation: PrimaryQueryOperation =
       operation === 'rankings' ? 'candidates' : 'rankings';
     cancelOperation(otherOperation, '查询已由其他模式替代');
     const resource = operation === 'rankings' ? rankings : candidates;
     let nextCandidateInput: Readonly<CandidatesInputV1> | null = null;
     if (operation === 'candidates') {
-      const requestedPosition =
-        options.candidateInput?.positionKey ?? query.positionKeys[0];
-      const candidatePosition = options.catalog?.positionsByKey.get(
-        String(requestedPosition),
-      );
+      const requestedPosition = options.candidateInput?.positionKey ?? null;
       if (
-        !query.positionKeys.includes(requestedPosition) ||
-        !candidatePosition ||
-        !candidatePosition.selectable ||
-        candidatePosition.subjectType !== query.subjectType ||
-        !candidatePosition.capabilities.includes('candidates')
+        requestedPosition !== null &&
+        !operationPositionAllowed(query, options.candidateInput?.positionScope,
+          requestedPosition, options.catalog, 'candidates')
       ) {
         candidates.error = '查询暂时无法完成，请稍后重试';
         publishFeedback('candidates', candidates.error, 'error');
@@ -1171,13 +1171,14 @@ export function createQueryCoordinator<
       }
       nextCandidateInput = Object.freeze({
         positionKey: requestedPosition,
+        ...(options.candidateInput?.positionScope === undefined ? {} : { positionScope: options.candidateInput.positionScope }),
       }) as Readonly<CandidatesInputV1>;
     }
     const sameQuery =
       store.applied !== null &&
       querySignature(store.applied) === querySignature(query);
-    const refreshCollection =
-      options.refreshCollection === true && query.scope === 'personal';
+    const scopeChanged = operation === 'candidates' &&
+      store.appliedCoStarPositionScope !== candidateScope;
     let nextCandidateView: Readonly<CandidatesViewState> | null = null;
     if (operation === 'candidates') {
       const priorScope = candidates.acceptedQuery?.scope;
@@ -1221,24 +1222,21 @@ export function createQueryCoordinator<
     }
     if (
       sameQuery &&
+      !scopeChanged &&
       resource.revision === store.revision &&
       resource.phase === 'ready' &&
       (operation !== 'candidates' ||
-        candidates.input.positionKey === nextCandidateInput?.positionKey) &&
-      !refreshCollection
+        (candidates.input.positionKey === nextCandidateInput?.positionKey &&
+          (candidates.input.positionScope ?? 'query') === (nextCandidateInput?.positionScope ?? 'query')))
     ) {
-      resource.feedback = '查询条件没有变化';
-      publishFeedback(operation, resource.feedback, 'status');
+      resource.feedback = null;
+      if (lastOperationFeedback.value?.operation === operation) {
+        lastOperationFeedback.value = null;
+      }
       return true;
     }
 
     const existingTransaction = transactions[operation];
-    if (existingTransaction) {
-      restoreRefreshDependents(
-        operation,
-        existingTransaction.controller,
-      );
-    }
     controllers[operation]?.abort();
     const controller = new AbortController();
     controllers[operation] = controller;
@@ -1259,32 +1257,6 @@ export function createQueryCoordinator<
     if (nextCandidateView) {
       candidates.view = nextCandidateView;
     }
-    if (
-      operation === 'candidates' &&
-      sameQuery &&
-      refreshCollection
-    ) {
-      pendingCandidateRefresh = {
-        controller,
-        coStarSnapshot: captureResource(coStar),
-        latestIntent: null,
-        partnersSnapshot: captureResource(partners),
-        query,
-        sequence,
-      };
-    }
-    if (
-      operation === 'rankings' &&
-      sameQuery &&
-      refreshCollection
-    ) {
-      pendingRankingRefresh = {
-        controller,
-        personDetailSnapshot: captureResource(personDetail),
-        query,
-        sequence,
-      };
-    }
     lastOperationFeedback.value = null;
     syncPendingState();
 
@@ -1303,7 +1275,6 @@ export function createQueryCoordinator<
         const response = await drivers.rankings.execute({
           input: rankings.input,
           query,
-          refreshCollection,
           sequence,
           signal: controller.signal,
           transactionId: transaction,
@@ -1343,7 +1314,7 @@ export function createQueryCoordinator<
         rankings.staleCollection =
           responseUsesStaleCollection(response);
         rankings.feedback = rankings.staleCollection
-          ? '收藏刷新未完成，当前显示最近一次可用数据'
+          ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
           : null;
         rankings.phase = 'ready';
         rankings.viewPending = false;
@@ -1353,7 +1324,6 @@ export function createQueryCoordinator<
         const response = await drivers.candidates.execute({
           input,
           query,
-          refreshCollection,
           sequence,
           signal: controller.signal,
           transactionId: transaction,
@@ -1369,6 +1339,7 @@ export function createQueryCoordinator<
         if (response.transactionId !== transaction) {
           throw new Error('Response transaction ID does not match the request');
         }
+        assertCandidatePositions(response.payload, query, input, currentCatalog());
         nextSnapshotIdentity = acceptedSnapshotIdentity(
           operation,
           response,
@@ -1397,7 +1368,7 @@ export function createQueryCoordinator<
         candidates.staleCollection =
           responseUsesStaleCollection(response);
         candidates.feedback = candidates.staleCollection
-          ? '收藏刷新未完成，当前显示最近一次可用数据'
+          ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
           : null;
         candidates.phase = 'ready';
       }
@@ -1419,14 +1390,16 @@ export function createQueryCoordinator<
         invalidateChildOperation('partners');
       }
       snapshotIdentity.value = nextSnapshotIdentity;
-      store.commit(query, nextRevision);
+      store.commit(
+        query, nextRevision,
+        operation === 'candidates' ? candidateScope : undefined,
+      );
       try {
         onSuccessfulQuery?.(
           query,
           Object.freeze({
             changed: !sameQuery,
             operation,
-            refreshed: refreshCollection,
           }),
         );
       } catch {
@@ -1440,29 +1413,6 @@ export function createQueryCoordinator<
           resource.staleCollection ? 'warning' : 'status',
         );
       }
-      if (operation === 'candidates') {
-        const refreshState = pendingCandidateRefresh;
-        if (refreshState?.controller === controller) {
-          const latestIntent = refreshState.latestIntent;
-          pendingCandidateRefresh = null;
-          if (
-            latestIntent &&
-            (String(latestIntent.input.positionKey) !==
-              String(nextCandidateInput!.positionKey) ||
-              !candidateViewEquals(latestIntent.view, nextCandidateView!))
-          ) {
-            controllers.candidates = undefined;
-            transactions.candidates = undefined;
-            syncPendingState();
-            await executeCandidateView(
-              latestIntent.input,
-              latestIntent.view,
-            );
-          }
-        }
-      } else if (pendingRankingRefresh?.controller === controller) {
-        pendingRankingRefresh = null;
-      }
       return true;
     } catch (error) {
       if (
@@ -1472,7 +1422,6 @@ export function createQueryCoordinator<
         return false;
       }
       restoreResource(resource, snapshot);
-      restoreRefreshDependents(operation, controller);
       resource.error = controller.signal.aborted
         ? '查询已取消'
         : resourceError(error);
@@ -1506,15 +1455,15 @@ export function createQueryCoordinator<
     input: Readonly<CandidatesInputV1>,
     view: Readonly<CandidatesViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeCandidateRefresh();
-    const query = activeRefresh?.query ?? readyCandidateQuery();
+    const query = readyCandidateQuery();
     if (!query) {
       candidates.error = '请先完成一次共演分析查询';
       publishFeedback('candidates', candidates.error, 'error');
       return false;
     }
     if (
-      !query.positionKeys.map(String).includes(String(input.positionKey))
+      input.positionKey !== null &&
+      !operationPositionAllowed(query, input.positionScope, input.positionKey, currentCatalog(), 'candidates')
     ) {
       candidates.error = '候选职位不在已应用查询中';
       publishFeedback('candidates', candidates.error, 'error');
@@ -1525,32 +1474,10 @@ export function createQueryCoordinator<
       publishFeedback('candidates', candidates.error, 'error');
       return false;
     }
-    if (activeRefresh) {
-      const nextInput = Object.freeze(
-        structuredClone(input),
-      ) as Readonly<CandidatesInputV1>;
-      const nextView = Object.freeze(
-        structuredClone(view),
-      ) as Readonly<CandidatesViewState>;
-      activeRefresh.latestIntent = Object.freeze({
-        input: nextInput,
-        view: nextView,
-      });
-      candidates.error = null;
-      candidates.feedback = null;
-      candidates.input = nextInput;
-      candidates.view = nextView;
-      if (
-        lastOperationFeedback.value?.operation === 'candidates' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
-    }
     if (
       !candidates.viewPending &&
       String(candidates.input.positionKey) === String(input.positionKey) &&
+      (candidates.input.positionScope ?? 'query') === (input.positionScope ?? 'query') &&
       candidateViewEquals(
         candidates.view as Readonly<CandidatesViewState>,
         view,
@@ -1591,7 +1518,6 @@ export function createQueryCoordinator<
       const response = await drivers.candidates.execute({
         input: nextInput,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -1612,6 +1538,7 @@ export function createQueryCoordinator<
       }
       assertResponseUsesSnapshot(response, snapshotIdentity.value);
 
+      assertCandidatePositions(response.payload, query, nextInput, currentCatalog());
       candidates.payload = response.payload;
       candidates.requestId = response.requestId;
       candidates.acceptedInput = nextInput;
@@ -1620,7 +1547,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       candidates.feedback = candidates.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       candidates.error = null;
       candidates.phase = 'ready';
@@ -1680,7 +1607,7 @@ export function createQueryCoordinator<
       publishFeedback('co-star', coStar.error, 'error');
       return false;
     }
-    const input = canonicalCoStarInput(query, requestedInput);
+    const input = canonicalCoStarInput(query, requestedInput, currentCatalog());
     if (!input) {
       coStar.error = '共演人物身份无效';
       coStar.phase = coStar.payload ? coStar.phase : 'error';
@@ -1756,7 +1683,6 @@ export function createQueryCoordinator<
       const response = await drivers.coStar.execute({
         input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -1789,7 +1715,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       coStar.feedback = coStar.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       coStar.error = null;
       coStar.phase = 'ready';
@@ -1834,8 +1760,7 @@ export function createQueryCoordinator<
   async function executeCoStarView(
     requestedView: Readonly<CoStarViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeCandidateRefresh();
-    const query = activeRefresh?.query ?? readyCoStarQuery();
+    const query = readyCoStarQuery();
     if (!query) {
       coStar.error = '请先选择至少两位人物进行共演分析';
       publishFeedback('co-star', coStar.error, 'error');
@@ -1846,19 +1771,6 @@ export function createQueryCoordinator<
       coStar.error = '共同作品视图参数无效';
       publishFeedback('co-star', coStar.error, 'error');
       return false;
-    }
-    if (activeRefresh) {
-      coStar.error = null;
-      coStar.feedback = null;
-      coStar.view = view;
-      coStar.viewPending = false;
-      if (
-        lastOperationFeedback.value?.operation === 'co-star' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
     }
     if (!coStar.viewPending && coStarViewEquals(coStar.view, view)) {
       return true;
@@ -1892,7 +1804,6 @@ export function createQueryCoordinator<
       const response = await drivers.coStar.execute({
         input: capturedInput,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -1922,7 +1833,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       coStar.feedback = coStar.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       coStar.error = null;
       coStar.phase = 'ready';
@@ -1980,7 +1891,7 @@ export function createQueryCoordinator<
       publishFeedback('partners', partners.error, 'error');
       return false;
     }
-    const input = canonicalPartnersInput(query, requestedInput);
+    const input = canonicalPartnersInput(query, requestedInput, currentCatalog());
     if (!input) {
       partners.error = '合作人物来源身份无效';
       partners.phase = partners.payload ? partners.phase : 'error';
@@ -2000,6 +1911,7 @@ export function createQueryCoordinator<
 
     const priorInput = partners.input;
     const sameSource =
+      (priorInput.positionScope ?? 'query') === (input.positionScope ?? 'query') &&
       priorInput.source.personId === input.source.personId &&
       priorInput.source.positionKeys.length ===
         input.source.positionKeys.length &&
@@ -2076,7 +1988,6 @@ export function createQueryCoordinator<
       const response = await drivers.partners.execute({
         input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2109,7 +2020,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       partners.feedback = partners.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       partners.error = null;
       partners.phase = 'ready';
@@ -2154,8 +2065,7 @@ export function createQueryCoordinator<
   async function executePartnersView(
     requestedView: Readonly<PartnersViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeCandidateRefresh();
-    const query = activeRefresh?.query ?? readyPartnersQuery();
+    const query = readyPartnersQuery();
     if (!query) {
       partners.error = '请先选择一位人物查看合作人物';
       publishFeedback('partners', partners.error, 'error');
@@ -2166,19 +2076,6 @@ export function createQueryCoordinator<
       partners.error = '合作人物视图参数无效';
       publishFeedback('partners', partners.error, 'error');
       return false;
-    }
-    if (activeRefresh) {
-      partners.error = null;
-      partners.feedback = null;
-      partners.view = view;
-      partners.viewPending = false;
-      if (
-        lastOperationFeedback.value?.operation === 'partners' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
     }
     if (!partners.viewPending && partnersViewEquals(partners.view, view)) {
       return true;
@@ -2212,7 +2109,6 @@ export function createQueryCoordinator<
       const response = await drivers.partners.execute({
         input: capturedInput,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2242,7 +2138,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       partners.feedback = partners.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       partners.error = null;
       partners.phase = 'ready';
@@ -2338,7 +2234,6 @@ export function createQueryCoordinator<
       const response = await drivers.rankings.execute({
         input: rankings.input,
         query: rankings.acceptedQuery,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2364,7 +2259,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       rankings.feedback = rankings.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       rankings.error = null;
       rankings.phase = 'ready';
@@ -2486,7 +2381,6 @@ export function createQueryCoordinator<
       const response = await drivers.personDetail.execute({
         input: personDetail.input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2516,7 +2410,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       personDetail.feedback = personDetail.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       personDetail.phase = 'ready';
       if (personDetail.feedback) {
@@ -2551,17 +2445,14 @@ export function createQueryCoordinator<
   async function executePersonDetailView(
     view: Readonly<PersonDetailViewState>,
   ): Promise<boolean> {
-    const activeRefresh = activeRankingRefresh();
-    const query = activeRefresh?.query ?? readyRankingQuery();
+    const query = readyRankingQuery();
     const detailReady =
       query !== null &&
-      (activeRefresh !== null ||
-        (personDetail.acceptedQuery !== null &&
-          personDetail.payload !== null &&
-          personDetail.phase === 'ready' &&
-          personDetail.revision === store.revision &&
-          querySignature(personDetail.acceptedQuery) ===
-            querySignature(query)));
+      personDetail.acceptedQuery !== null &&
+      personDetail.payload !== null &&
+      personDetail.phase === 'ready' &&
+      personDetail.revision === store.revision &&
+      querySignature(personDetail.acceptedQuery) === querySignature(query);
     if (!query || !detailReady) {
       personDetail.error = '请先选择排行中的人物';
       publishFeedback('person-detail', personDetail.error, 'error');
@@ -2573,19 +2464,6 @@ export function createQueryCoordinator<
       return false;
     }
     const nextView = Object.freeze(structuredClone(view));
-    if (activeRefresh) {
-      personDetail.error = null;
-      personDetail.feedback = null;
-      personDetail.view = nextView;
-      personDetail.viewPending = false;
-      if (
-        lastOperationFeedback.value?.operation === 'person-detail' &&
-        lastOperationFeedback.value.kind === 'error'
-      ) {
-        lastOperationFeedback.value = null;
-      }
-      return true;
-    }
     if (
       !personDetail.viewPending &&
       personDetailViewEquals(personDetail.view, nextView)
@@ -2619,7 +2497,6 @@ export function createQueryCoordinator<
       const response = await drivers.personDetail.execute({
         input: personDetail.input,
         query,
-        refreshCollection: false,
         sequence,
         signal: controller.signal,
         transactionId: transaction,
@@ -2649,7 +2526,7 @@ export function createQueryCoordinator<
         response.staleCollection === true ||
         response.warningCodes?.includes('COLLECTION_STALE') === true;
       personDetail.feedback = personDetail.staleCollection
-        ? '收藏刷新未完成，当前显示最近一次可用数据'
+        ? '收藏数据暂时无法更新，当前显示最近一次可用数据'
         : null;
       personDetail.error = null;
       personDetail.phase = 'ready';
@@ -2693,6 +2570,7 @@ export function createQueryCoordinator<
     clearPersonDetail,
     clearPartners,
     execute,
+    executeApplied,
     executeCandidateView,
     executeCoStar,
     executeCoStarView,

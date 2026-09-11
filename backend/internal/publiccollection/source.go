@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -35,9 +36,14 @@ type Source struct {
 }
 
 // New constructs the process-wide production source with a fixed identifying
-// User-Agent. The admitted client has no credential or Cookie configuration.
+// User-Agent, a shared limit of five requests per second with a burst of ten,
+// and a ten-second timeout for each outbound page attempt.
+// The admitted client has no credential or Cookie configuration.
 func New() *Source {
-	return newAnonymousSource()
+	return newAnonymousSource(
+		collection.WithRateLimit(5, 10),
+		collection.WithRequestTimeout(10*time.Second),
+	)
 }
 
 func newAnonymousSource(options ...collection.Option) *Source {

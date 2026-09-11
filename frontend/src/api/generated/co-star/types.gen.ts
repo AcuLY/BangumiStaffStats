@@ -13,8 +13,8 @@ export type CoStarSuccessEnvelopeV1 = SuccessEnvelopeV1Schema;
 /**
  * CoStarRequestV1
  */
-export type RequestV1Schema = {
-    query: SharedQueryV1Schema;
+export type RequestV1Schema = unknown & {
+    query: OperationSharedQueryV1;
     input: CoStarInputV1;
     view?: CoStarViewV1;
 };
@@ -103,6 +103,7 @@ export type GlobalSeriesWorkV1 = {
     key: string;
     seriesId: JsonSafePositiveIntegerV1;
     representative: SubjectReferenceV1;
+    metaTags: Array<string>;
     matchedWorkCount: JsonSafePositiveIntegerV1;
     memberCount: JsonSafePositiveIntegerV1;
     members: Array<SeriesMemberV1>;
@@ -228,6 +229,7 @@ export type PersonalSeriesWorkV1 = {
     key: string;
     seriesId: JsonSafePositiveIntegerV1;
     representative: SubjectReferenceV1;
+    metaTags: Array<string>;
     matchedWorkCount: JsonSafePositiveIntegerV1;
     memberCount: JsonSafePositiveIntegerV1;
     members: Array<SeriesMemberV1>;
@@ -265,6 +267,31 @@ export type PersonalTagsV1 = {
 };
 
 export type PersonalWorkItemV1 = PersonalSubjectWorkV1 | PersonalSeriesWorkV1;
+
+export type RatingDistributionV1 = {
+    validCount: JsonSafeNonNegativeIntegerV1;
+    average: NullableHundredthsV1;
+    buckets: [
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1,
+        RatingBucketV1
+    ];
+    timeline: Array<RatingTimelinePointV1>;
+};
+
+export type RatingTimelinePointV1 = {
+    year: number;
+    quarter: number;
+    average: HundredthsV1;
+    count: JsonSafePositiveIntegerV1;
+};
 
 export type SeriesParticipantV1 = {
     personId: JsonSafePositiveIntegerV1;
@@ -382,31 +409,6 @@ export type RatingBucketV1 = {
     hiddenCount: SuccessEnvelopeV1SchemaJsonSafeNonNegativeIntegerV1;
 };
 
-export type RatingDistributionV1 = {
-    validCount: SuccessEnvelopeV1SchemaJsonSafeNonNegativeIntegerV1;
-    average: SuccessEnvelopeV1SchemaNullableHundredthsV1;
-    buckets: [
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1,
-        RatingBucketV1
-    ];
-    timeline: Array<RatingTimelinePointV1>;
-};
-
-export type RatingTimelinePointV1 = {
-    year: number;
-    quarter: number;
-    average: SuccessEnvelopeV1SchemaHundredthsV1;
-    count: SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1;
-};
-
 export type RationalV1 = {
     numerator: CanonicalIntegerStringV1;
     denominator: CanonicalPositiveIntegerStringV1;
@@ -464,6 +466,10 @@ export type UnitReferenceV1 = {
 
 export type CoStarInputV1 = {
     participants: Array<PersonIdentityV1>;
+    /**
+     * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+     */
+    positionScope?: 'query' | 'all';
 };
 
 export type CoStarViewV1 = {
@@ -501,13 +507,17 @@ export type CommonFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type GlobalSharedQueryV1 = {
+export type GlobalSharedQueryFieldsV1 = {
     scope: 'global';
     subjectType: SubjectTypeV1;
     positionKeys: Array<PositionKeyV1>;
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: CommonFiltersInputV1;
+};
+
+export type GlobalSharedQueryV1 = GlobalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type SharedQueryV1SchemaJsonSafePositiveIntegerV1 = number;
@@ -519,6 +529,11 @@ export type MonthRangeV1 = {
 
 export type MonthV1 = string;
 
+/**
+ * Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.
+ */
+export type OperationSharedQueryV1 = PersonalSharedQueryFieldsV1 | GlobalSharedQueryFieldsV1;
+
 export type PersonalFiltersInputV1 = {
     subjectDate?: MonthRangeV1;
     collectionUpdatedAt?: MonthRangeV1;
@@ -529,7 +544,7 @@ export type PersonalFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type PersonalSharedQueryV1 = {
+export type PersonalSharedQueryFieldsV1 = {
     scope: 'personal';
     uid: string;
     collectionStatuses: Array<CollectionStatusV1>;
@@ -538,6 +553,10 @@ export type PersonalSharedQueryV1 = {
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: PersonalFiltersInputV1;
+};
+
+export type PersonalSharedQueryV1 = PersonalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type PositionKeyV1 = unknown | unknown | unknown;

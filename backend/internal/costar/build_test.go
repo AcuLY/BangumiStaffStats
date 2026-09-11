@@ -2,6 +2,7 @@ package costar
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"testing"
@@ -177,6 +178,80 @@ func TestBuildRejectsMissingArchiveSubjectReference(t *testing.T) {
 		failure.Code() != CodeReferenceMissing ||
 		!failure.Retryable() {
 		t.Fatalf("missing Archive reference = %#v", err)
+	}
+}
+
+func TestSeriesMetaTagsUseOnlyUnmatchedRepresentativeAcrossScopeProjection(t *testing.T) {
+	for _, personal := range []bool{false, true} {
+		for _, empty := range []bool{false, true} {
+			request := pairBuildRequest(t, true)
+			if personal {
+				request.Query.EffectiveQuery.Scope = "personal"
+				request.Query.EffectiveQuery.UID = "alice"
+				request.Query.EffectiveQuery.CollectionStatuses = []string{"completed"}
+				score := 8.0
+				request.PersonalEntries = []query.CollectionEntry{{SubjectID: 101, Status: "completed", PersonalScore: &score}}
+			}
+			request.Facts.Subjects[0].Tags = []query.SubjectTag{{Scope: "meta", Name: "member-only"}}
+			representative := testSubject(102, 7)
+			representative.Tags = []query.SubjectTag{{Scope: "community", Name: "community-only"}}
+			if !empty {
+				representative.Tags = append(representative.Tags,
+					query.SubjectTag{Scope: "meta", Name: "Z"},
+					query.SubjectTag{Scope: "meta", Name: "A"},
+					query.SubjectTag{Scope: "meta", Name: "A"},
+				)
+			}
+			request.Facts.Subjects = append(request.Facts.Subjects, representative, testSubject(103, 6))
+			request.Evidence.Subjects = append(request.Evidence.Subjects,
+				SubjectReference{ID: 102, Name: "Representative"}, SubjectReference{ID: 103, Name: "Later"},
+			)
+			firstDate, representativeDate, lastDate := "2024-01-10", "2024-04-10", "2025-01-10"
+			series, err := statistics.BuildSeriesIndex(context.Background(), testDataVersion,
+				[]statistics.SeriesSubject{
+					{SubjectID: 101, SubjectType: "anime", AirDate: &firstDate},
+					{SubjectID: 102, SubjectType: "anime", AirDate: &representativeDate},
+					{SubjectID: 103, SubjectType: "anime", AirDate: &lastDate},
+				},
+				[]statistics.Relation{
+					{SourceID: 101, SourceType: "anime", TargetID: 102, TargetType: "anime", RelationID: 2},
+					{SourceID: 102, SourceType: "anime", TargetID: 103, TargetType: "anime", RelationID: 2},
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request.Series = series
+			core, err := Build(context.Background(), request)
+			if err != nil {
+				t.Fatalf("Build personal=%t empty=%t: %v", personal, empty, err)
+			}
+			want := []string{}
+			if !empty {
+				want = []string{"A", "Z"}
+			}
+			work := core.Works[0].Series
+			if work.Representative.ID != 102 || work.MatchedWorkCount != 1 || work.MetaTags == nil || !slices.Equal(work.MetaTags, want) {
+				t.Fatalf("representative metadata personal=%t empty=%t: %+v", personal, empty, work)
+			}
+			projected, err := projectWorkWires(CloneCore(core).Works, core.Scope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(projected)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var works []struct {
+				MetaTags []string `json:"metaTags"`
+			}
+			if err := json.Unmarshal(body, &works); err != nil {
+				t.Fatal(err)
+			}
+			if len(works) != 1 || works[0].MetaTags == nil || !slices.Equal(works[0].MetaTags, want) {
+				t.Fatalf("wire metadata personal=%t empty=%t: %s", personal, empty, body)
+			}
+		}
 	}
 }
 

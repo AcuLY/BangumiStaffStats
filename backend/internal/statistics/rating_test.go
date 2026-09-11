@@ -42,3 +42,31 @@ func TestRatingCountValidation(t *testing.T) {
 		t.Fatalf("fractional bucket error = %v", err)
 	}
 }
+
+func TestRatingQuarterUsesCanonicalDateEligibility(t *testing.T) {
+	for _, test := range []struct {
+		date           string
+		year, quarter  int
+		dated, invalid bool
+	}{
+		{date: ""},
+		{date: "2024"},
+		{date: "2024-01", year: 2024, quarter: 1, dated: true},
+		{date: "2024-04-10", year: 2024, quarter: 2, dated: true},
+		{date: "2024-09", year: 2024, quarter: 3, dated: true},
+		{date: "2024-12-31", year: 2024, quarter: 4, dated: true},
+		{date: "2024-13", invalid: true},
+		{date: "2024-1", invalid: true},
+	} {
+		t.Run(test.date, func(t *testing.T) {
+			var value *string
+			if test.date != "" {
+				value = &test.date
+			}
+			year, quarter, dated, err := RatingQuarter(value)
+			if (err != nil) != test.invalid || year != test.year || quarter != test.quarter || dated != test.dated {
+				t.Fatalf("RatingQuarter(%q) = %d, %d, %v, %v", test.date, year, quarter, dated, err)
+			}
+		})
+	}
+}

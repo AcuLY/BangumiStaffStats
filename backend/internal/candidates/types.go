@@ -23,6 +23,7 @@ type PositionCount struct {
 // Row is one immutable pre-view candidate.
 type Row struct {
 	Person             PersonReference
+	PositionKeys       []string
 	WorkCount          int
 	GlobalAverage      *int64
 	GlobalRatedCount   int
@@ -90,9 +91,10 @@ type View struct {
 
 // Item is one projected row retaining its complete-set rank.
 type Item struct {
-	Rank      int
-	Person    PersonReference
-	WorkCount int
+	Rank         int
+	Person       PersonReference
+	PositionKeys []string
+	WorkCount    int
 }
 
 // Page is one independent candidate view.
@@ -123,6 +125,7 @@ func CloneCore(value Core) Core {
 	value.Rows = append([]Row(nil), value.Rows...)
 	for index := range value.Rows {
 		value.Rows[index].Person = clonePerson(value.Rows[index].Person)
+		value.Rows[index].PositionKeys = append([]string(nil), value.Rows[index].PositionKeys...)
 		value.Rows[index].GlobalAverage = cloneInt64(value.Rows[index].GlobalAverage)
 		value.Rows[index].PersonalAverage = cloneInt64(value.Rows[index].PersonalAverage)
 	}

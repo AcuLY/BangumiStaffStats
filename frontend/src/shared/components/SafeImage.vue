@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { NSkeleton } from 'naive-ui';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import AppIcon from './AppIcon.vue';
+import { isBangumiImageProxyReference } from '../media/bangumiImage';
 
 export type SafeImageState = 'error' | 'loaded' | 'loading' | 'missing';
 
@@ -25,12 +27,10 @@ const props = withDefaults(
 const sourceIndex = ref(0);
 const loaded = ref(false);
 let timeoutId: number | undefined;
-const safeProxyReference =
-  /^\/api\/v1\/images\/bangumi\/(?:subjects|persons|characters)\/[1-9][0-9]*\?type=(?:small|grid|large|medium|common)$/;
 const sources = computed(() =>
   Object.freeze([
     ...new Set(
-      props.sources.filter((source) => safeProxyReference.test(source)),
+      props.sources.filter((source) => isBangumiImageProxyReference(source)),
     ),
   ]),
 );
@@ -125,7 +125,17 @@ onBeforeUnmount(clearSourceTimeout);
       :aria-label="decorative ? undefined : fallbackLabel"
       :aria-hidden="decorative ? 'true' : undefined"
     >
-      <app-icon name="person" :size="Math.min(24, width * 0.56)" />
+      <n-skeleton
+        v-if="state === 'loading'"
+        class="app-skeleton safe-image__loading-skeleton"
+        :sharp="false"
+        aria-hidden="true"
+      />
+      <app-icon
+        v-else
+        name="person"
+        :size="Math.min(24, width * 0.56)"
+      />
     </span>
     <img
       v-if="currentSource"

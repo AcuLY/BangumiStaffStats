@@ -17,11 +17,9 @@ const maxReadQueryBytes = 65_536
 // deliberately narrow single read-statement boundary.
 var ErrUnsafeQuery = errors.New("archive: unsafe query")
 
-// Identity contains the byte identities proven while a candidate is loaded.
+// Identity names the snapshot reported by its archive_meta row.
 type Identity struct {
-	DataVersion    string
-	ManifestDigest string
-	SQLiteDigest   string
+	DataVersion string
 }
 
 // Store is one immutable Archive snapshot. It intentionally exposes only
@@ -41,7 +39,7 @@ type Store struct {
 	closeErr   error
 }
 
-// Identity returns the validated immutable snapshot identity.
+// Identity returns the opened immutable snapshot identity.
 func (s *Store) Identity() Identity {
 	if s == nil {
 		return Identity{}

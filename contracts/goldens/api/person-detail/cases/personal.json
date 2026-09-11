@@ -76,13 +76,48 @@
                 "validCount": 1,
                 "average": 820,
                 "buckets": [
-                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 1,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 2,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 3,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 4,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 5,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 6,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 7,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
                   {
                     "score": 8,
                     "count": 1,
@@ -97,15 +132,36 @@
                     ],
                     "hiddenCount": 0
                   },
-                  {"score": 9, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                  {
+                    "score": 9,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 10,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  }
                 ],
                 "timeline": [
                   {
                     "year": 2024,
                     "quarter": 1,
                     "average": 820,
-                    "count": 1
+                    "count": 1,
+                    "works": [
+                      {
+                        "subject": {
+                          "id": 1,
+                          "name": "Golden Animation",
+                          "nameCN": "金标动画",
+                          "date": "2024-01-10"
+                        },
+                        "score": 820
+                      }
+                    ]
                   }
                 ]
               },
@@ -113,14 +169,54 @@
                 "validCount": 1,
                 "average": 900,
                 "buckets": [
-                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 8, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 1,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 2,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 3,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 4,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 5,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 6,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 7,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 8,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
                   {
                     "score": 9,
                     "count": 1,
@@ -135,14 +231,30 @@
                     ],
                     "hiddenCount": 0
                   },
-                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                  {
+                    "score": 10,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  }
                 ],
                 "timeline": [
                   {
                     "year": 2024,
                     "quarter": 1,
                     "average": 900,
-                    "count": 1
+                    "count": 1,
+                    "works": [
+                      {
+                        "subject": {
+                          "id": 1,
+                          "name": "Golden Animation",
+                          "nameCN": "金标动画",
+                          "date": "2024-01-10"
+                        },
+                        "score": 900
+                      }
+                    ]
                   }
                 ]
               }
@@ -298,13 +410,48 @@
                 "validCount": 1,
                 "average": 800,
                 "buckets": [
-                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 1,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 2,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 3,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 4,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 5,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 6,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 7,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
                   {
                     "score": 8,
                     "count": 1,
@@ -319,8 +466,18 @@
                     ],
                     "hiddenCount": 0
                   },
-                  {"score": 9, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                  {
+                    "score": 9,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 10,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  }
                 ],
                 "timeline": []
               },
@@ -328,14 +485,54 @@
                 "validCount": 1,
                 "average": 850,
                 "buckets": [
-                  {"score": 1, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 2, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 3, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 4, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 5, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 6, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 7, "count": 0, "examples": [], "hiddenCount": 0},
-                  {"score": 8, "count": 0, "examples": [], "hiddenCount": 0},
+                  {
+                    "score": 1,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 2,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 3,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 4,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 5,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 6,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 7,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
+                  {
+                    "score": 8,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  },
                   {
                     "score": 9,
                     "count": 1,
@@ -350,7 +547,12 @@
                     ],
                     "hiddenCount": 0
                   },
-                  {"score": 10, "count": 0, "examples": [], "hiddenCount": 0}
+                  {
+                    "score": 10,
+                    "count": 0,
+                    "examples": [],
+                    "hiddenCount": 0
+                  }
                 ],
                 "timeline": []
               }
@@ -399,6 +601,10 @@
                   "nameCN": "系列代表",
                   "date": "2024-04-01"
                 },
+                "metaTags": [
+                  "TV",
+                  "原创"
+                ],
                 "matchedWorkCount": 2,
                 "memberCount": 3,
                 "members": [

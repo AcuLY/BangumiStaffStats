@@ -9,9 +9,9 @@
 本轮工作的目标是在新分支中从零建立新版 Bangumi Staff Statistics：
 
 - 对用户可见的外观、交互、文案、状态边界和响应式行为，以固定 oracle 和现行产品、设计文档为证据，保持一致；
-- 在一致性之外实现现行文档已经定义、但原型尚未具备的正式 API、真实数据、分享查询、渐进加载、错误恢复和可观测性；
+- 在一致性之外实现现行文档已经定义、但原型尚未具备的正式 API、真实数据、标签页恢复、渐进加载、错误恢复和可观测性；
 - 使用 clean-room architecture。旧代码只能作为行为证据、golden 来源和差异定位线索，不复用其目录、状态机、请求层、计算边界或部署结构；
-- Go 后端是统计计算唯一权威，Python updater 只生成不可变 Archive，Vue 前端只负责交互状态、展示和可视化；
+- Go 后端是统计计算与不可变 Archive 构建的唯一权威，后台定时构建不进入请求处理；Vue 前端只负责交互状态、展示和可视化；
 - 先完成可在开发环境内完整验收的产品与制品，生产运维、发布、迁移和切换另立后续 OpenSpec。
 
 “正式开发完成”只表示本文的开发验收门全部通过，不表示已经发布、部署或完成生产迁移。
@@ -45,7 +45,7 @@
 - 人物排行与共演分析的整体信息架构；
 - Query Draft、Applied Query、query revision、取消和错误后的状态连续性；
 - 排行、候选、人物详情、合作人物和共演分析的分区加载边界；
-- Light/Dark、桌面 inspector、移动 drawer、职位 selector、selected tray 和分享入口的交互语义；
+- Light/Dark、桌面 inspector、移动 drawer、职位 selector、selected tray 和旧版入口的交互语义；
 - `360 / 390 / 768 / 779 / 780 / 781 / 917 / 1024 / 1185 / 1440px` 的响应式结构；
 - PRODUCT 与 DESIGN 中已经确认的文案、指标名、空状态、错误状态和无障碍行为。
 
@@ -147,10 +147,10 @@ cleanup commit 之后，归档工具输出发生了一次最终且可重现的 E
 ### 4.1 固定基线
 
 - 前端：Vue 3、Vite、TypeScript、Pinia、Naive UI、native `fetch`。
-- 后端：Go 1.26，标准库 `net/http` 为 HTTP 基线。
-- Updater：Python one-shot process，生成不可变 SQLite Archive。
+- 后端：Go 1.26，标准库 `net/http` 为 HTTP 基线；同一进程以后台任务构建并热替换不可变 SQLite Archive。
+- Updater：不再作为独立 Python 运行时或发布组件；原实现仅在 Go parity 通过前作为只读迁移证据。
 - 契约：版本化 OpenAPI、JSON Schema、manifest、golden 和跨语言 contract tests。
-- 数据边界：Python 写新 Archive；Go 只读；前端不读取 Archive、不复制统计算法。
+- 数据边界：Go 后台 builder 写新版本，Go Store 只读查询当前版本；前端不读取 Archive、不复制统计算法。
 
 ### 4.2 质量库准入
 
@@ -167,13 +167,18 @@ cleanup commit 之后，归档工具输出发生了一次最终且可重现的 E
 
 ## 5. OpenSpec 与角色纪律
 
+> 2026-09 架构修订：`backend-embed-go-archive-builder` 在严格验证后取代
+> 下方历史 DAG 中独立 Python updater、三组件制品和 systemd 激活职责。
+> 历史行保留为完成顺序证据，不再控制当前生产实现；当前权威为 Go
+> `backend-archive-builder`、两组件制品和进程内热替换 delta。
+
 ### 5.1 单根治理
 
 - 主仓只允许根 `openspec/`；禁止 `frontend/openspec/`、`backend/openspec/`、`updater/openspec/` 等嵌套 root。
 - 主仓 capability 必须且只能使用一个所有权前缀：
   - `contracts-`：跨语言 wire、manifest、共享 fixtures/goldens 和集成契约；
-  - `backend-`：Go 只读 API、统计权威、缓存和上游 adapter；
-  - `updater-`：Python Archive producer；
+  - `backend-`：Go API、统计权威、Archive builder/scheduler、缓存和上游 adapter；
+  - `updater-`：仅用于退休既有 Python Archive producer capability；
   - `frontend-`：Vue UI、交互状态和可视化。
 - 一个 change 可以包含多个跨层 capability，但每个 capability 必须分别声明 Owner 和 Owned paths；`backend-`、`updater-` 或 `frontend-` owner 不得以“schema/golden/API 增量”为由直接写入 `contracts/**`。共享契约、golden、OpenAPI 和跨语言验收路径始终由同一 change 中显式列出的 `contracts-*` capability 与 Contracts owner 负责。
 - `/Users/luca/dev/bangumi-collection-go` 是独立仓库，使用自己的 OpenSpec、分支和 capability 命名，不写入主仓 change。
@@ -387,7 +392,7 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 | Change | Owner / capability | Owned paths | Depends | Deliverables | Acceptance | Non-goals | Exit |
 |---|---|---|---|---|---|---|---|
-| `define-shared-query-wire` | Contracts / `contracts-query-wire` | `contracts/openapi/**`, `contracts/schemas/query/**`, `contracts/goldens/query/**` | `establish-formal-rewrite-baseline` | personal/global 判别联合；PositionKey；tag 逻辑；sort/page/search；error envelope；share fragment v1；语言无关正反例 | schema lint、示例校验和正反例 golden 通过；规范化期望输出稳定；Go/TS codegen 输入可生成且无 schema-level error | 不要求尚未存在的 Go/TS runtime 执行 consumer test；不实现 endpoint、store 或统计 | versioned schema、goldens 和生成可行性证据齐全，实际 consumer tests 明确移交 backend/frontend foundation |
+| `define-shared-query-wire` | Contracts / `contracts-query-wire` | `contracts/openapi/**`, `contracts/schemas/query/**`, `contracts/goldens/query/**` | `establish-formal-rewrite-baseline` | personal/global 判别联合；PositionKey；tag 逻辑；sort/page/search；error envelope；语言无关正反例 | schema lint、示例校验和正反例 golden 通过；规范化期望输出稳定；Go/TS codegen 输入可生成且无 schema-level error | 不要求尚未存在的 Go/TS runtime 执行 consumer test；不实现 endpoint、store 或统计 | versioned schema、goldens 和生成可行性证据齐全，实际 consumer tests 明确移交 backend/frontend foundation |
 | `define-archive-manifest-contract` | Contracts / `contracts-archive-manifest` | `contracts/schemas/archive/**`, `contracts/goldens/archive/**` | `establish-formal-rewrite-baseline` | SQLite schema version、manifest、dataVersion、digest、兼容性和最小有效/损坏 fixtures；语言无关校验向量 | schema lint、正反例 fixture 和 dataVersion/digest 向量自洽；Python/Go codegen或解析模型输入可生成且无 schema-level error | 不要求尚未存在的 Python/Go runtime 执行 consumer test；不下载数据、不建完整 Archive、不激活版本 | contract bundle 与生成可行性证据齐全，实际 producer/consumer tests 明确移交 updater/backend foundation |
 | `bootstrap-backend-runtime` | Backend / `backend-runtime-foundation` | `backend/**`, 仅其必要根级 toolchain 文件 | `define-shared-query-wire`, `define-archive-manifest-contract` | Go 1.26 module、依赖方向、空 API process、生成契约接入、基础测试命令；Go 对 query/archive 最小正反例的 consumer contract tests | build/test/vet 通过；Go 生成模型无 drift；Go 能接受最小合法 query/archive contract 并拒绝指定错误版本/结构；业务包不反向依赖 transport | 不实现查询、缓存、图片代理、Docker | 空 process 可启动/停止，Go consumer contract tests 和生成检查通过 |
 | `bootstrap-updater-runtime` | Updater / `updater-runtime-foundation` | `updater/**` | `define-archive-manifest-contract` | Python package、one-shot CLI 外壳、契约读取、测试和类型/静态检查入口；Python 对 archive 正反例的 producer-side contract tests | clean environment 可安装并运行空命令；Python 能接受最小合法 archive contract 并拒绝指定错误版本/结构；无 daemon、scheduler 或激活逻辑 | 不抓取/构建完整 Archive，不写 `current.json` | updater 质量命令和 Python archive contract tests 稳定通过 |
@@ -399,10 +404,10 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 |---|---|---|---|---|---|---|---|
 | `correct-archive-subject-semantics` | Contracts / `contracts-archive-manifest` | `contracts/schemas/archive/schema.sql`, `contracts/schemas/archive/README.md`, `contracts/schemas/archive/compatibility-matrix.json`, `contracts/schemas/archive/tooling/build_sqlite_fixtures.py`, `contracts/schemas/archive/tooling/verify.mjs`, 既有 `contracts/goldens/archive/{valid/minimal/**,invalid/bundles/**,invalid/json/**,vectors/data-version.json,index.json}`, 本文及本 change task markers；验证期间仅可写且退出前必须移除 `contracts/schemas/archive/{.cache/**,.tmp/**,tooling/node_modules/**}` | `define-archive-manifest-contract`, `define-shared-query-wire` | 上线前修正 SQLite v1 subject：权威 NSFW、显式 null/year/month/day precision、严格 Gregorian/calendar/leap 约束；以 canonical SQL digest + actual 35-object seal 绑定真实 DDL；原位重生成同一 31-path closed corpus 和全部 identities | 无 formal/public/activated v1；四类 subject、非法输入/弱化 schema 矩阵、9 sentinels、双重确定性、digest/vector/index 与严格 OpenSpec gate 全通过 | 不改 manifest/SQLite 版本号；不兼容旧 draft v1；不实现 producer/consumer/query runtime，不激活或部署 | corrected v1 Contracts 被接受并退出后，consumer、producer、query-result 才可适配和继续验收 |
 | `harden-archive-manifest-string-semantics` | Contracts / `contracts-archive-manifest` | `contracts/schemas/archive/{archive-manifest.schema.json,README.md,tooling/build_sqlite_fixtures.py,tooling/verify.mjs}`, `contracts/goldens/archive/{index.json,vectors/manifest-string-semantics.json}`, 本文及本 change task markers；验证期间仅可写且退出前必须移除 `contracts/schemas/archive/{.cache/**,.tmp/**,tooling/node_modules/**}` | `define-archive-manifest-contract`, `correct-archive-subject-semantics` | 上线前收敛 `generatedAt` 的精确 UTC/Gregorian 语义、两 URL 的 Unicode scalar `12..2048` 边界、fatal UTF-8 与孤立 surrogate 拒绝；新增一个含 25 个字符串 case 与精确 `C3 28` raw-byte 配方的三语言索引向量 | 原 31 个 golden 路径/字节不变且索引精确增至 32；Node/Python/isolated-Go 对 timestamp/scalar/surrogate/raw-byte 结果一致；无新依赖，deterministic/strict/scope/residue gates 全通过 | 不改 manifest/SQLite/dataVersion 版本；不实现 backend/updater runtime，不改 URL origin/normalization，不激活或部署 | Contracts 被接受并退出后，consumer 和 producer 仍须分别在真实 Go decoder/Python finalizer 执行同一向量才能最终验收 |
-| `implement-backend-archive-consumer` | Backend / `backend-archive-consumer` | `backend/internal/archive/**`，以及 backend foundation 在 spec 中枚举的启动装配文件 | `define-archive-manifest-contract`, `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `bootstrap-backend-runtime` | 严格只读 Archive consumer 和启动门：一次性严格解析 `current.json`；校验 manifest/digest/canonical SQL + actual schema-object seal/table/index/dataVersion 一致；在真实 Go decoder 验证 exact UTC、Unicode scalar 与 surrogate 语义；read-only/no-create 打开；integrity/sentinel/catalog-domain smoke；成功后原子发布 store/ready | 未知字段、非法路径、文件缺失、timestamp/scalar/surrogate/raw UTF-8、digest/schema definition/table/index/dataVersion 不一致或 sentinel 失败均关闭新句柄并保持 not-ready；完整 manifest-string 向量通过真实 runtime；API 不修改 snapshot、不自动回退；最小合法 fixture 可发布 ready | 不生成 Archive；不切换 `current.json`；不实现生产回滚或进程内热切换 | 最小合法/损坏/manifest-string/弱化 schema/不兼容 fixtures 的 Go consumer tests 全通过，后续 producer、HTTP readiness、catalog 和 domain 可依赖同一 consumer |
-| `produce-immutable-archive` | Updater / `updater-archive-producer`; Contracts / `contracts-archive-goldens` | Updater：`updater/**`；Contracts：`contracts/goldens/archive/**` | `define-archive-manifest-contract`, `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `bootstrap-updater-runtime`, `implement-backend-archive-consumer` | 下载、SHA-256、暂存、stream build、canonical SQL/35-object schema seal/reference/quality/integrity checks、精确 timestamp/scalar/surrogate manifest finalization；由 Contracts owner维护跨语言最小/完整 Archive golden | 中途失败无可消费版本；真实 Python finalizer 通过完整 manifest-string 向量；弱化/额外 schema object 不能进入 manifest；active DB 不原地改写；同输入逻辑数据和 dataVersion 稳定；完整来源 smoke 使用已实现的 Go 只读 consumer 验证 | 不调度、不 `flock`、不切 `current.json`、不重启 API | 完整 producer 输出通过 Go consumer 全部启动门和 smoke query |
+| `implement-backend-archive-consumer` | Backend / `backend-archive-consumer` | `backend/internal/archive/**`，以及 backend foundation 在 spec 中枚举的启动装配文件 | `define-archive-manifest-contract`, `bootstrap-backend-runtime` | 直接打开当前只读 Archive：一次有界解析 `current.json` 取得安全 dataVersion；在 `os.Root` 内定位不可变 SQLite；以 read-only/query-only/no-create 和有界连接池打开；从 `archive_meta` 读取 dataVersion；原子发布 store/ready | 非法/越界/符号链接路径、文件缺失、SQLite 打开失败或 identity 读取失败均关闭新句柄并保持 not-ready；API 不修改 snapshot、不自动回退；完整 Archive 启动不执行 manifest/digest/integrity/FK/schema/count admission | 不生成或校验 Archive；不读取 manifest；不切换 `current.json`；不实现生产回滚、热切换或任何 admission 替代入口 | 直接打开、只读查询、路径安全、并发 publication/query/shutdown 和完整 Archive readiness tests 全通过，HTTP/catalog/domain 可依赖同一 store |
+| `produce-immutable-archive` | Updater / `updater-archive-producer`; Contracts / `contracts-archive-goldens` | Updater：`updater/**`；Contracts：`contracts/goldens/archive/**` | `define-archive-manifest-contract`, `correct-archive-subject-semantics`, `harden-archive-manifest-string-semantics`, `bootstrap-updater-runtime` | 下载、SHA-256、暂存、stream build、canonical SQL/35-object schema seal/reference/quality/integrity checks、精确 timestamp/scalar/surrogate manifest finalization；由 Contracts owner维护跨语言最小/完整 Archive golden | 中途失败无可消费版本；真实 Python finalizer 通过完整 manifest-string 向量；弱化/额外 schema object 不能进入 manifest；active DB 不原地改写；同输入逻辑数据和 dataVersion 稳定；完整来源在 producer 内完成只读重开和查询验证 | 不调度、不 `flock`、不切 `current.json`、不重启 API、不调用 Backend admission/smoke | 完整 producer 输出通过全部 producer-owned schema/integrity/accounting/quality/read-only-reopen gates，并原子发布不可变 inactive version |
 | `derive-position-catalog-and-cast` | Updater / `updater-position-catalog`; Contracts / `contracts-position-catalog` | `updater/**`, `contracts/schemas/catalog/**`, `contracts/goldens/catalog/**` | `produce-immutable-archive` | 动态职位目录、多上层分类、固定常用职位、main/all 互斥、dormant staffset、exact cast 数据 | canonical key 稳定；多分类不复制实体；常用顺序精确；只接受 exact same-subject cast；无法证明时阻塞而非推断 | 不做跨作品 cast credit，不做 API/UI selector | catalog/cast synthetic 与完整数据质量门通过 |
-| `implement-backend-http-and-observability` | Backend / `backend-http-runtime`, `backend-observability` | `backend/**` | `bootstrap-backend-runtime`, `define-shared-query-wire`, `implement-backend-archive-consumer` | 严格 JSON、requestId、错误 envelope、limits/timeouts/cancel；`/livez`、`/readyz`、`/metrics`、结构化事件；readiness 只消费 archive consumer 的已发布状态 | 多余字段和超大 body 被拒；取消向下传播；consumer 任一启动门失败时保持 not-ready；指标低基数且日志无 UID/token | 不重复实现 Archive 校验；不部署 Prometheus，不写 systemd/nginx；不产生 `update_activated` | transport/fuzz/race/health tests 全通过，readiness 与 consumer 状态一致 |
+| `implement-backend-http-and-observability` | Backend / `backend-http-runtime`, `backend-observability` | `backend/**` | `bootstrap-backend-runtime`, `define-shared-query-wire`, `implement-backend-archive-consumer` | 严格 JSON、requestId、错误 envelope、limits/timeouts/cancel；`/livez`、`/readyz`、`/metrics`、结构化事件；readiness 只消费 direct-open store 的已发布状态和固定 probe | 多余字段和超大 body 被拒；取消向下传播；direct open/probe 失败时保持 not-ready；指标低基数且日志无 UID/token/admission detail | 不实现 Archive admission；不部署 Prometheus，不写 systemd/nginx；不产生 `update_activated` | transport/fuzz/race/health tests 全通过，readiness 与 direct-open store 状态一致 |
 | `implement-image-proxy` | Backend / `backend-image-proxy` | `backend/**` | `implement-backend-http-and-observability` | 同源图片代理、resource/type/size 白名单、上游超时、缓存头和安全错误 | 非开放代理；host/path/规格绕过测试通过；错误不泄露上游 body | 不为 UI 猜图片尺寸，不做 CDN/生产 cache 配置 | 代理 contract 和 SSRF 负例通过 |
 | `implement-query-result-set` | Backend / `backend-query-result-set`; Contracts / `contracts-query-goldens` | Backend：`backend/**`；Contracts：`contracts/goldens/query-domain/**` | `define-shared-query-wire`, `correct-archive-subject-semantics`, `implement-backend-archive-consumer`, `derive-position-catalog-and-cast` | personal/global 分离；查询归一化；过滤；多职位 AND；作品 union + Subject ID 去重；tag 布尔逻辑；identity；由 Contracts owner维护跨语言 result-set goldens | search/sort/page 不改变基础集合；global 不读取个人字段；标签逻辑和缺失值通过共享 goldens；所有查询只经只读 Archive consumer | 不计算最终指标，不分页 HTTP response | 与数据指南的结果集合 goldens 一致，consumer/domain integration 通过 |
 | `implement-statistics-series-sort-evidence` | Backend / `backend-statistics-authority`; Contracts / `contracts-statistics-goldens` | Backend：`backend/**`；Contracts：`contracts/goldens/statistics/**` | `implement-query-result-set` | 均分、综合分、偏好、评分分布、系列连通分量、严格总序、摘要、evidence；由 Contracts owner维护跨语言统计 goldens | `0/null` 不计评分；`[6,7,7] -> 6.66`；五个中性样本；缺失指标永远最后；stable ID 最终破同分；`.5` 向上分箱 | 前端不复制算法；不以评分人数加权综合分 | 跨语言历史 golden 与新 Go 权威结果一致或有已批准 delta |
@@ -441,7 +446,7 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 | Change | Owner / capability | Owned paths | Depends | Deliverables | Acceptance | Non-goals | Exit |
 |---|---|---|---|---|---|---|---|
-| `implement-frontend-query-shell` | Frontend / `frontend-query-shell` | `frontend/**` | `bootstrap-frontend-foundation`, `expose-dynamic-catalog`, `define-shared-query-wire` | 单 SPA；`/ranking`、`/co-star`；Header/Query Workspace；Draft/Applied/revision；Catalog/Query/Resource stores；share fragment | mode switch 不自动 apply；失败/取消保留 Draft 和旧结果；apply 原子提交；catalog pending 只占 selector；无 Applied Query 时分享禁用 | 不放 production fixture；不实现统计 | 状态机 unit tests、真实 catalog integration 和基础浏览器验收通过 |
+| `implement-frontend-query-shell` | Frontend / `frontend-query-shell` | `frontend/**` | `bootstrap-frontend-foundation`, `expose-dynamic-catalog`, `define-shared-query-wire` | 单 SPA；`/ranking`、`/co-star`；Header/Query Workspace；Draft/Applied/revision；Catalog/Query/Resource stores；本地标签页恢复；旧版固定入口 | mode switch 不自动 apply；失败/取消保留 Draft 和旧结果；apply 原子提交；catalog pending 只占 selector；旧版入口始终可用；URL fragment 不回放 | 不放 production fixture；不实现统计 | 状态机 unit tests、真实 catalog integration 和基础浏览器验收通过 |
 | `implement-frontend-ranking-vertical` | Frontend / `frontend-ranking-workspace` | `frontend/**` | `implement-frontend-query-shell`, `expose-rankings`, `expose-person-detail`, `implement-image-proxy` | 排行、人行、inspector/drawer、详情 operation、搜索排序分页和局部 loading | 排行先显示、详情独立等待；旧响应不能覆盖新人；本地交互无伪 Skeleton；刷新保留摘要、工具栏和焦点 | 不实现共演 tray/analysis | 桌面/移动真实 API vertical E2E 通过 |
 | `implement-frontend-co-star-vertical` | Frontend / `frontend-co-star-workspace` | `frontend/**` | `implement-frontend-query-shell`, `implement-frontend-ranking-vertical`, `expose-candidates`, `expose-partners`, `expose-co-star` | 复用已验收的 person/entity/detail/media primitives，建立 candidate rail/drawer、唯一 selected tray、单人合作、多人共演和 identity 管理 | 不复制或分叉 ranking vertical 的 person/detail primitives；selected 只由前端叠加；tray 是唯一修改入口；分析区只读；1/2/3+ 人 operation 正确；只接受最新响应 | 不与 ranking vertical 并行 apply；不建立第二套 person primitive、selector 或 selected owner | ranking vertical 已退出后，全 operation E2E、复用边界、取消与快速切换测试通过 |
 | `harden-frontend-design-and-accessibility` | Frontend / `frontend-design-system`, `frontend-accessibility` | `frontend/**`；唯一获准实际写入和再生成 `.impeccable/design.json` 的 change | `implement-frontend-ranking-vertical`, `implement-frontend-co-star-vertical` | DESIGN token 映射、SafeImage 四态、响应式重排、tooltip/focus/scroll、统一词表、生产 bundle denylist；按 foundation handoff 的 contract/timing 重新生成 Impeccable sidecar | 两模式 × Light/Dark × 全 viewport；无横向溢出、重复 ID、console error；44px target；图片 3:4 四态无位移；网络不直连 `api.bgm.tv`；sidecar 与最终 frontend 结构一致 | 不在两个 vertical 退出前修改 sidecar；不以装饰改版替代 fidelity；不依赖组件库私有 DOM | 视觉、交互、状态、响应式和 a11y matrix 全绿，sidecar regeneration 已由其唯一 owner 验收 |
@@ -459,7 +464,7 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 - `/livez`、`/readyz`、`/metrics`；
 - 低基数指标、结构化 application/query/updater events；
-- `update-status.json`、Archive manifest、compatibility manifest 和 `current.json` 的 schema/reader/local fixture；
+- 进程内 Archive update state、Archive manifest、compatibility manifest 和 `current.json` 的 schema/reader/local fixture；
 - updater 的不可变输出、自校验和失败安全；
 - Dockerfile 或等价不可变本地构建定义、checksums、SBOM、local smoke；
 - test/build CI，且不推镜像、不发布、不部署；
@@ -502,8 +507,8 @@ Wave 5 图中列出的 19 个 ID 是 `produce-development-artifacts` 的确切�
 
 ### 10.2 数据与计算
 
-- Archive producer 失败不会产生可消费版本，Go 只读 consumer 能拒绝损坏/不兼容数据；
-- Go consumer 严格解析 `current.json`，验证 manifest/digest/schema/table/index/dataVersion 一致，以 read-only/no-create 打开并执行 integrity/sentinel；只有全部通过才原子发布 store/ready，任一失败均关闭新句柄并保持 not-ready；
+- Archive producer 失败不会产生可消费版本；producer 独立拒绝损坏/不兼容数据并只原子发布通过 schema/integrity/accounting/quality/read-only-reopen gates 的 inactive version；
+- Go consumer 有界解析 `current.json`、在受限 root 内以 read-only/query-only/no-create 直接打开所选 SQLite、从 `archive_meta` 读取 dataVersion 并原子发布 store/ready；Backend 不读取 manifest、不重复 digest/integrity/FK/schema/count admission，打开或 probe 失败均关闭新句柄并保持 not-ready；
 - exact cast、series、rating、overall score、preference、sorting 和摘要全部通过 named goldens；
 - personal/global 数据源和 cache key 空间严格隔离；
 - 前端没有第二份统计权威。

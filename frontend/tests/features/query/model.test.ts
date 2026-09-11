@@ -12,6 +12,7 @@ import {
   createDefaultDraft,
   draftFromEffective,
   draftSemanticSignature,
+  isCanonicalAppliedQuery,
   normalizeQueryTagV1,
   summarizeQuery,
   trimQueryTextV1,
@@ -158,6 +159,44 @@ function draftForGolden(testCase: QueryGoldenCase) {
 }
 
 describe('query model', () => {
+  it('accepts an empty concrete position list only for an explicit all co-star query', () => {
+    const catalog = catalogFixture();
+    const draft = createDefaultDraft('luca');
+    draft.collectionStatuses = ['completed'];
+    draft.subjectDate = { enabled: true, min: '2020-01', max: '' };
+
+    const result = validateDraft(draft, 'co-star', catalog, 'all');
+
+    expect(result.errors).toEqual({});
+    expect(result.query).toMatchObject({
+      uid: 'luca', positionKeys: [], collectionStatuses: ['completed'],
+      filters: { subjectDate: { min: '2020-01' } },
+    });
+    expect(isCanonicalAppliedQuery(result.query!, 'all')).toBe(true);
+    expect(isCanonicalAppliedQuery(result.query!)).toBe(false);
+    expect(summarizeQuery(result.query!, catalog, 'all')[0]).toBe('全部职位');
+    expect(validateDraft(draft, 'co-star', catalog).errors.positionKeys).toBeTruthy();
+    expect(validateDraft(draft, 'ranking', catalog, 'all').errors.positionKeys).toBeTruthy();
+    expect(validateDraft(draft, 'co-star', null, 'all').errors.positionKeys).toBeTruthy();
+  });
+
+  it('keeps concrete ranking keys and validates other fields while all is selected', () => {
+    const catalog = catalogFixture();
+    const draft = createDefaultDraft('luca');
+    draft.positionKeys = ['staff:anime:2'];
+    const result = validateDraft(draft, 'co-star', catalog, 'all');
+    expect(result.query?.positionKeys).toEqual(['staff:anime:2']);
+    expect(summarizeQuery(result.query!, catalog)[0]).toBe(
+      catalog.positionsByKey.get('staff:anime:2')!.label,
+    );
+    expect(summarizeQuery(result.query!, catalog, 'all')[0]).toBe('全部职位');
+    draft.uid = '';
+    expect(validateDraft(draft, 'co-star', catalog, 'all').errors.uid).toBeTruthy();
+    draft.uid = 'luca';
+    draft.positionKeys = ['staff:anime:999999'];
+    expect(validateDraft(draft, 'co-star', catalog, 'all').errors.positionKeys).toBeTruthy();
+  });
+
   it('normalizes personal input, ordered positions, and structured tag groups', () => {
     const catalog = catalogFixture();
     const draft = createDefaultDraft('  luca  ');

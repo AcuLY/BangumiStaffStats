@@ -37,8 +37,9 @@ transaction/sequence owner; the feature SHALL not create a second concurrency
 or stale-response layer. Page SHALL reset to one when search, sort, order, or
 pageSize changes.
 
-The UI SHALL render backend-provided item rank, complete summary, metric scale,
-and pagination total unchanged. It SHALL never renumber filtered rows or derive
+The UI SHALL render backend-provided item rank, complete summary, and metric scale
+unchanged, and use the backend pagination total for page controls without a
+separate item-range/total hint. It SHALL never renumber filtered rows or derive
 complete statistics from the current page. Global mode SHALL not render a
 preference column or empty personal placeholder.
 
@@ -79,7 +80,7 @@ ratio, meaningful/decorative alt semantics, and fallback to the next candidate.
 
 A new ranking query MAY replace the ranking body with its skeleton while Header
 and Query summary remain available. A ranking view request SHALL preserve
-summary and controls while replacing only rows/pagination. Ranking failure SHALL
+summary and controls while replacing only rows; accepted pagination SHALL remain pending and initial pagination SHALL be absent. Initial and view requests SHALL share the same row and column skeleton. Known headings and controls SHALL remain real. The work/series heading SHALL be determined by the submitted query snapshot, not a later Draft edit. Only unresolved dynamic numeric values and list content SHALL use NSkeleton. Ranking failure SHALL
 not erase an unrelated co-star resource. Route switching SHALL not auto-apply
 Draft or refetch a present current-revision result.
 

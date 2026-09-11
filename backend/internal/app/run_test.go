@@ -371,7 +371,7 @@ func TestRunListenerArchiveFailureServesRuntimeAndImagePermanentlyNotReady(t *te
 	}
 }
 
-func TestRunListenerArchiveFailureNeverConsultsLaterState(t *testing.T) {
+func TestRunListenerArchiveFailureKeepsRecoveryProbeAvailable(t *testing.T) {
 	state := &fakeArchiveRuntime{
 		load: func(context.Context, string) error {
 			return errors.New("untyped load failure")
@@ -401,8 +401,8 @@ func TestRunListenerArchiveFailureNeverConsultsLaterState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runListener: %v", err)
 	}
-	if state.currentCount() != 0 {
-		t.Fatalf("Current called %d times after failed load", state.currentCount())
+	if state.currentCount() != 1 {
+		t.Fatalf("Current called %d times, want recovery probe", state.currentCount())
 	}
 	if state.closeCount() != 1 {
 		t.Fatalf("close count = %d", state.closeCount())
@@ -636,19 +636,6 @@ func TestRunRejectsInvalidAddress(t *testing.T) {
 	}
 }
 
-func TestRunListenerWithOptionsRejectsUnsafeUpdateStatusPath(t *testing.T) {
-	err := RunListenerWithOptions(
-		context.Background(),
-		nil,
-		"/unused",
-		RunOptions{UpdateStatusPath: filepath.Join(t.TempDir(), "other.json")},
-	)
-	if err == nil ||
-		!strings.Contains(err.Error(), "configure update status") {
-		t.Fatalf("RunListenerWithOptions error = %v", err)
-	}
-}
-
 func TestRunListenerWithOptionsRejectsInvalidImageProxyBeforeServing(t *testing.T) {
 	proxy := "http://CALLER-CONTROLLED.invalid:0"
 	err := RunListenerWithOptions(
@@ -855,7 +842,7 @@ type fakeArchiveRuntime struct {
 	closeCalls   int
 }
 
-func (f *fakeArchiveRuntime) LoadCurrent(ctx context.Context, root string) error {
+func (f *fakeArchiveRuntime) OpenCurrent(ctx context.Context, root string) error {
 	f.mu.Lock()
 	f.loadCalls++
 	load := f.load
@@ -984,7 +971,6 @@ func arrangeArchive(t *testing.T) string {
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	copyArchiveTestFile(t, filepath.Join(bundleRoot, "archive-manifest.json"), filepath.Join(versionRoot, "manifest.json"))
 	copyArchiveTestFile(t, filepath.Join(bundleRoot, "bangumi.sqlite"), filepath.Join(versionRoot, "bangumi.sqlite"))
 	if err := os.WriteFile(filepath.Join(root, "current.json"), pointerData, 0o644); err != nil {
 		t.Fatal(err)

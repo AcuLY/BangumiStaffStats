@@ -20,7 +20,7 @@ import {
   closestTimelinePointIndex,
   timelineHitSizeInViewBox,
 } from '../../../shared/charts/timelineGeometry';
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import { formatHundredths } from '../../ranking/format';
 import type {
   CoStarParticipant,
@@ -721,19 +721,22 @@ onBeforeUnmount(() => timelineResizeObserver?.disconnect());
                 hoveredBar = scoreBarKey(dataset.key, scoreBin.score)
               "
               @blur="hoveredBar = null"
+              @keydown.esc.stop.prevent="hoveredBar = null"
+              @click="hoveredBar = scoreBarKey(dataset.key, scoreBin.score)"
             >
-              <n-tooltip
-                :show="
-                  hoveredBar ===
-                  scoreBarKey(dataset.key, scoreBin.score)
-                "
-                trigger="manual"
-                placement="top"
-                :animated="false"
-                style="max-width: min(336px, calc(100dvw - 72px));"
-              >
-                <template #trigger>
-                  <span class="horizontal-score-bar__track">
+              <span class="horizontal-score-bar__track">
+                <n-tooltip
+                  :show="
+                    hoveredBar ===
+                    scoreBarKey(dataset.key, scoreBin.score)
+                  "
+                  trigger="manual"
+                  placement="top"
+                  :animated="false"
+                  style="max-width: min(336px, calc(100dvw - 72px)); pointer-events: none;"
+                  content-class="workbench-tooltip-content"
+                >
+                  <template #trigger>
                     <span
                       class="horizontal-score-bar__fill"
                       aria-hidden="true"
@@ -742,10 +745,24 @@ onBeforeUnmount(() => timelineResizeObserver?.disconnect());
                         {{ dataset.bucket.count }}
                       </span>
                     </span>
-                  </span>
-                </template>
-                <span>{{ bucketLabel(dataset.label, dataset.bucket) }}</span>
-              </n-tooltip>
+                  </template>
+                  <ul class="score-distribution-tooltip">
+                    <li
+                      v-for="example in dataset.bucket.examples"
+                      :key="example.key"
+                      :title="example.nameCN ?? example.name"
+                    >
+                      {{ example.nameCN ?? example.name }}
+                    </li>
+                    <li
+                      v-if="dataset.bucket.hiddenCount"
+                      class="score-distribution-tooltip__more"
+                    >
+                      … +{{ dataset.bucket.hiddenCount }}
+                    </li>
+                  </ul>
+                </n-tooltip>
+              </span>
             </div>
           </div>
         </div>

@@ -89,10 +89,11 @@
         "positionCounts": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 16,
+          "maxItems": 50260,
           "items": {
             "$ref": "#/$defs/PositionCountV1"
-          }
+          },
+          "description": "Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope."
         }
       }
     },
@@ -102,6 +103,7 @@
       "required": [
         "rank",
         "person",
+        "positionKeys",
         "workCount"
       ],
       "properties": {
@@ -110,6 +112,16 @@
         },
         "person": {
           "$ref": "#/$defs/PersonReferenceV1"
+        },
+        "positionKeys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50260,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PositionKeyV1"
+          },
+          "description": "Bounded by CatalogDataV1.positions; every identity belongs to the resolved operation position scope."
         },
         "workCount": {
           "$ref": "#/$defs/JsonSafeNonNegativeIntegerV1"
@@ -130,7 +142,14 @@
           "$ref": "#/$defs/CandidatesSummaryV1"
         },
         "positionKey": {
-          "$ref": "#/$defs/PositionKeyV1"
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PositionKeyV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "workUnit": {
           "type": "string",

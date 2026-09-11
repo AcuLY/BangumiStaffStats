@@ -1,10 +1,7 @@
-// Package archive loads and publishes immutable Archive snapshots.
+// Package archive directly opens and publishes immutable Archive snapshots.
 package archive
 
-import (
-	"context"
-	"os"
-)
+import "context"
 
 type loadHooks struct {
 	afterPointerRead      func()
@@ -12,16 +9,15 @@ type loadHooks struct {
 	beforeSQLiteOpen      func()
 	beforeSQLiteVFSOpen   func(int)
 	afterSQLiteVFSOpen    func(int)
-	beforeFinalFileCheck  func()
 }
 
-// LoadCandidate validates one fixed inactive version without reading or
-// publishing current.json. The caller owns the returned store.
-func LoadCandidate(ctx context.Context, rootPath, dataVersion string) (*Store, error) {
-	return loadCandidate(ctx, rootPath, dataVersion, loadHooks{})
+// OpenVersion directly opens one fixed version without reading or publishing
+// current.json. The caller owns the returned Store.
+func OpenVersion(ctx context.Context, rootPath, dataVersion string) (*Store, error) {
+	return openVersionStore(ctx, rootPath, dataVersion, loadHooks{})
 }
 
-func loadCandidate(
+func openVersionStore(
 	ctx context.Context,
 	rootPath string,
 	dataVersion string,
@@ -31,39 +27,23 @@ func loadCandidate(
 	if err != nil {
 		return nil, err
 	}
-	return loadFromRoot(ctx, root, dataVersion, false, hooks)
-}
-
-func loadCurrentCandidate(ctx context.Context, rootPath string, hooks loadHooks) (*Store, error) {
-	root, err := openArchiveRoot(ctx, rootPath, hooks)
-	if err != nil {
-		return nil, err
-	}
-	return loadFromRoot(ctx, root, "", true, hooks)
-}
-
-func loadFromRoot(
-	ctx context.Context,
-	root *os.Root,
-	dataVersion string,
-	useCurrent bool,
-	hooks loadHooks,
-) (*Store, error) {
-	var (
-		files selectedFiles
-		err   error
-	)
-	if useCurrent {
-		files, err = selectCurrentFiles(ctx, root, hooks)
-	} else {
-		files, err = selectCandidateFiles(ctx, root, dataVersion, "")
-	}
+	files, err := selectVersionFiles(ctx, root, dataVersion)
 	if err != nil {
 		_ = root.Close()
 		return nil, err
 	}
+	return openStore(ctx, files, hooks)
+}
 
-	// openValidatedStore takes ownership of root on both success and failure so
-	// SQLite can remain bound to the already validated directory handle.
-	return openValidatedStore(ctx, files, hooks)
+func openCurrentStore(ctx context.Context, rootPath string, hooks loadHooks) (*Store, error) {
+	root, err := openArchiveRoot(ctx, rootPath, hooks)
+	if err != nil {
+		return nil, err
+	}
+	files, err := selectCurrentFiles(ctx, root, hooks)
+	if err != nil {
+		_ = root.Close()
+		return nil, err
+	}
+	return openStore(ctx, files, hooks)
 }

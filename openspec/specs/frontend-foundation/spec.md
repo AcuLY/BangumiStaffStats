@@ -63,7 +63,7 @@ or host.
 Exact `@hey-api/openapi-ts@0.99.0` with only bundled
 `@hey-api/typescript` SHALL generate exactly
 `src/api/generated/query-wire/types.gen.ts` from the shared OpenAPI authority.
-The output SHALL cover all 17 named components and include no SDK, client,
+The output SHALL cover all 14 named components and include no SDK, client,
 runtime, schema copy, index barrel, store, or business logic. Configuration
 SHALL set `entryFile: false`, `clean: true`, `source: false`, the `.gen`
 filename suffix, `enums: false`, and `topType: 'unknown'`.
@@ -88,12 +88,12 @@ statistics, or expose wire values directly to UI/store code.
 
 #### Scenario: Shared positive values are consumed
 
-- **WHEN** the declared query/error/view/share positive cases run
+- **WHEN** the declared query/error/view positive cases run
 - **THEN** each SHALL validate and return the corresponding typed wire value
 
 #### Scenario: Structural negative runs
 
-- **WHEN** an unknown/forbidden field, unsafe integer/page, unsupported/malformed share, invalid UTF-8/JSON, or trailing-data case runs
+- **WHEN** an unknown/forbidden field, unsafe integer/page, invalid UTF-8/JSON, or trailing-data case runs
 - **THEN** the matching decoder SHALL reject it without mutating the input
 
 ### Requirement: Dependencies SHALL be exact and compatible with TypeScript 6
@@ -120,7 +120,7 @@ loader, Playwright, and undeclared packages SHALL be absent.
 The build SHALL emit one HTML entry, no source map or test/fixture/user snapshot,
 no prototype/workbench/fixed-user marker, no direct upstream URL/Axios, and no
 frontend statistical formula. The reachable initial JavaScript gzip SHALL be
-below 300 KiB.
+below 350 KiB.
 
 #### Scenario: Production artifact passes
 
@@ -131,6 +131,11 @@ below 300 KiB.
 
 - **WHEN** another HTML, fixture, prototype marker, upstream URL, source map, or statistical implementation is reachable
 - **THEN** acceptance SHALL fail
+
+#### Scenario: Initial JavaScript reaches the budget
+
+- **WHEN** the initial JavaScript gzip sum reaches or exceeds 358400 bytes
+- **THEN** the artifact check SHALL fail
 
 ### Requirement: Browser and Impeccable acceptance SHALL be proportional
 
@@ -167,3 +172,11 @@ handoff. No operations or sibling/protected mutation is allowed.
 
 - **WHEN** frontend work writes elsewhere, retains disposable state, or attempts operations
 - **THEN** apply SHALL stop without broadly cleaning unrelated paths
+
+### Requirement: The icon dependency SHALL remain pinned and bounded
+The frontend SHALL pin @vicons/ionicons5 exactly to 0.13.0 as the sole added business-icon dependency. The frontend owner SHALL maintain its MIT license and compatibility with the repository-pinned Vue 3/TypeScript toolchain. Existing dependency versions SHALL remain locked. Explicit component imports SHALL permit unused icon elimination without a CDN, font request or whole-library dynamic registry.
+
+#### Scenario: Dependency installation and production build
+- **WHEN** the approved icon migration is installed and built
+- **THEN** package and lockfile SHALL agree on 0.13.0, architecture inventory SHALL admit that exact dependency, and used icons SHALL resolve in the production artifact
+- **AND** unrelated dependency versions SHALL not change

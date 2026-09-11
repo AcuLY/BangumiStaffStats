@@ -2,10 +2,8 @@ package candidates
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -318,28 +316,16 @@ func loadCandidateArchive(t *testing.T) *archive.Store {
 	if err := os.MkdirAll(versionRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for source, destination := range map[string]string{
-		"archive-manifest.json": "manifest.json",
-		"bangumi.sqlite":        "bangumi.sqlite",
-	} {
-		data, err := os.ReadFile(filepath.Join(bundle, source))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(
-			filepath.Join(versionRoot, destination),
-			data,
-			0o644,
-		); err != nil {
-			t.Fatal(err)
-		}
+	sqliteData, err := os.ReadFile(filepath.Join(bundle, "bangumi.sqlite"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	rewriteCandidateFixture(
-		t,
-		filepath.Join(versionRoot, "bangumi.sqlite"),
-		filepath.Join(versionRoot, "manifest.json"),
-	)
-	store, err := archive.LoadCandidate(
+	sqlitePath := filepath.Join(versionRoot, "bangumi.sqlite")
+	if err := os.WriteFile(sqlitePath, sqliteData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rewriteCandidateFixture(t, sqlitePath)
+	store, err := archive.OpenVersion(
 		context.Background(),
 		root,
 		pointer.DataVersion,
@@ -355,7 +341,7 @@ func loadCandidateArchive(t *testing.T) *archive.Store {
 	return store
 }
 
-func rewriteCandidateFixture(t *testing.T, sqlitePath, manifestPath string) {
+func rewriteCandidateFixture(t *testing.T, sqlitePath string) {
 	t.Helper()
 	database, err := sql.Open("sqlite", sqlitePath)
 	if err != nil {
@@ -382,36 +368,53 @@ func rewriteCandidateFixture(t *testing.T, sqlitePath, manifestPath string) {
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
-	sqliteBytes, err := os.ReadFile(sqlitePath)
+}
+
+func TestAllPositionCandidatesAreIndependentOfDirectorQuery(t *testing.T) {
+	service := newCandidateService(t, loadCandidateArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"positionKey":"cast:anime:all","positionScope":"all"}`)}
+	result, err := service.Execute(context.Background(), request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifestBytes, err := os.ReadFile(manifestPath)
+	data, err := result.MarshalEnvelope("cross-role")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var manifest map[string]any
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatal(err)
+	if !strings.Contains(string(data), `"cast:anime:all"`) {
+		t.Fatal(string(data))
 	}
-	tableCounts, ok := manifest["tableCounts"].(map[string]any)
-	if !ok {
-		t.Fatal("manifest tableCounts is missing")
+	request.Input = json.RawMessage(`{"positionKey":"cast:anime:all"}`)
+	if _, err = service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted cast filter")
 	}
-	capabilityCount, ok := tableCounts["catalog_capability"].(float64)
-	if !ok || capabilityCount < 1 {
-		t.Fatal("manifest catalog_capability count is invalid")
-	}
-	tableCounts["catalog_capability"] = capabilityCount - 1
-	digest := sha256.Sum256(sqliteBytes)
-	manifest["sqliteSize"] = len(sqliteBytes)
-	manifest["sqliteDigest"] = fmt.Sprintf("sha256:%x", digest)
-	updated, err := json.MarshalIndent(manifest, "", "  ")
+}
+
+func TestAllPositionCandidatesAcceptsEmptyQuerySelection(t *testing.T) {
+	service := newCandidateService(t, loadCandidateArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["staff:anime:2"]}`), Input: json.RawMessage(`{"positionKey":null,"positionScope":"all"}`)}
+	prior, err := service.Execute(context.Background(), request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	updated = append(updated, '\n')
-	if err := os.WriteFile(manifestPath, updated, 0o644); err != nil {
+	want, err := prior.MarshalEnvelope("all-empty")
+	if err != nil {
 		t.Fatal(err)
+	}
+	request.Query = json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":[]}`)
+	result, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := result.MarshalEnvelope("all-empty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("empty all query changed operation result:\n%s\nwant:\n%s", got, want)
+	}
+	request.Input = json.RawMessage(`{"positionKey":null}`)
+	if _, err := service.Execute(context.Background(), request); err == nil {
+		t.Fatal("query scope accepted empty positions")
 	}
 }

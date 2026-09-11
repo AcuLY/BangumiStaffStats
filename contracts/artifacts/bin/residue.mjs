@@ -13,7 +13,6 @@ const ARTIFACTS_ROOT = path.resolve(import.meta.dirname, '..');
 const REPOSITORY_ROOT = path.resolve(ARTIFACTS_ROOT, '..', '..');
 const BUILD_ROOTS = Object.freeze([
   'backend/build',
-  'updater/build',
   'frontend/build',
   'contracts/artifacts',
 ]);

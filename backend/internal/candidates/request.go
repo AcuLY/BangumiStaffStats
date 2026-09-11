@@ -19,22 +19,19 @@ func normalizeOperationRequest(
 	if err != nil {
 		return Operation{}, err
 	}
+	positionScope, err := query.OperationPositionScope(request.Input)
+	if err != nil {
+		return Operation{}, requestFailure("invalid position scope", "/input/positionScope", "UNSUPPORTED_VALUE")
+	}
 	viewInput, err := parseViewInput(request.View)
 	if err != nil {
 		return Operation{}, err
 	}
-	if !containsPosition(effective.PositionKeys, positionKey) {
+	if positionKey != "" && !containsPosition(effective.PositionKeys, positionKey) {
 		return Operation{}, requestFailure(
 			"the candidate position is not selected by the query",
 			"/input/positionKey",
 			string(CodePositionNotFound),
-		)
-	}
-	if effective.Scope == "global" && request.RefreshCollection {
-		return Operation{}, requestFailure(
-			"collection refresh requires personal scope",
-			"/refreshCollection",
-			"VALUE_CONFLICT",
 		)
 	}
 	view, err := NormalizeView(effective.Scope, viewInput)
@@ -54,9 +51,9 @@ func normalizeOperationRequest(
 		return Operation{}, err
 	}
 	return Operation{
-		PositionKey:       positionKey,
-		View:              view,
-		RefreshCollection: request.RefreshCollection,
+		PositionKey:   positionKey,
+		PositionScope: positionScope,
+		View:          view,
 	}, nil
 }
 
@@ -77,7 +74,7 @@ func parsePositionInput(raw json.RawMessage) (string, error) {
 		)
 	}
 	for name := range fields {
-		if name != "positionKey" {
+		if name != "positionKey" && name != "positionScope" {
 			return "", unknownFieldFailure("/input/" + escapePointerToken(name))
 		}
 	}
@@ -88,6 +85,9 @@ func parsePositionInput(raw json.RawMessage) (string, error) {
 			"/input/positionKey",
 			"REQUIRED",
 		)
+	}
+	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return "", nil
 	}
 	var positionKey string
 	if err := json.Unmarshal(value, &positionKey); err != nil {

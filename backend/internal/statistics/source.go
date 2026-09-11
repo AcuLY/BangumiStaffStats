@@ -3,9 +3,18 @@ package statistics
 import (
 	"context"
 	"database/sql"
+	"sync"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 )
+
+type seriesIndexCacheEntry struct {
+	done  chan struct{}
+	index *SeriesIndex
+	err   error
+}
+
+var seriesIndexes sync.Map
 
 const (
 	selectSeriesSubjects = `SELECT subject_type, subject_id, air_date
@@ -25,6 +34,27 @@ func LoadSeriesIndex(ctx context.Context, store *archive.Store) (*SeriesIndex, e
 	if store == nil {
 		return nil, outcome(CodeInputInvalid)
 	}
+	entry := &seriesIndexCacheEntry{done: make(chan struct{})}
+	actual, loaded := seriesIndexes.LoadOrStore(store, entry)
+	if loaded {
+		entry = actual.(*seriesIndexCacheEntry)
+		select {
+		case <-entry.done:
+			return entry.index, entry.err
+		case <-ctx.Done():
+			return nil, contextError(ctx)
+		}
+	}
+
+	entry.index, entry.err = loadSeriesIndex(ctx, store)
+	if entry.err != nil {
+		seriesIndexes.Delete(store)
+	}
+	close(entry.done)
+	return entry.index, entry.err
+}
+
+func loadSeriesIndex(ctx context.Context, store *archive.Store) (*SeriesIndex, error) {
 	subjects, err := loadSeriesSubjects(ctx, store)
 	if err != nil {
 		return nil, err

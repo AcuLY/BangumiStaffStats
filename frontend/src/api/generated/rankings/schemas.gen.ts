@@ -54,6 +54,9 @@ export const RankingsViewV1Schema = {
         },
         pageSize: {
             $ref: '#/components/schemas/PageSizeV1'
+        },
+        locatePersonId: {
+            $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
         }
     }
 } as const;
@@ -304,6 +307,38 @@ export const shared_query_v1_schemaSchema = {
             }
         },
         PersonalSharedQueryV1: {
+            allOf: [
+                {
+                    $ref: '#/components/schemas/PersonalSharedQueryFieldsV1'
+                },
+                {
+                    type: 'object',
+                    properties: {
+                        positionKeys: {
+                            type: 'array',
+                            minItems: 1
+                        }
+                    }
+                }
+            ]
+        },
+        GlobalSharedQueryV1: {
+            allOf: [
+                {
+                    $ref: '#/components/schemas/GlobalSharedQueryFieldsV1'
+                },
+                {
+                    type: 'object',
+                    properties: {
+                        positionKeys: {
+                            type: 'array',
+                            minItems: 1
+                        }
+                    }
+                }
+            ]
+        },
+        PersonalSharedQueryFieldsV1: {
             type: 'object',
             additionalProperties: false,
             required: [
@@ -335,7 +370,6 @@ export const shared_query_v1_schemaSchema = {
                 },
                 positionKeys: {
                     type: 'array',
-                    minItems: 1,
                     items: {
                         $ref: '#/components/schemas/PositionKeyV1'
                     }
@@ -353,7 +387,7 @@ export const shared_query_v1_schemaSchema = {
                 }
             }
         },
-        GlobalSharedQueryV1: {
+        GlobalSharedQueryFieldsV1: {
             type: 'object',
             additionalProperties: false,
             required: [
@@ -370,7 +404,6 @@ export const shared_query_v1_schemaSchema = {
                 },
                 positionKeys: {
                     type: 'array',
-                    minItems: 1,
                     items: {
                         $ref: '#/components/schemas/PositionKeyV1'
                     }
@@ -387,6 +420,17 @@ export const shared_query_v1_schemaSchema = {
                     $ref: '#/components/schemas/CommonFiltersInputV1'
                 }
             }
+        },
+        OperationSharedQueryV1: {
+            description: 'Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.',
+            oneOf: [
+                {
+                    $ref: '#/components/schemas/PersonalSharedQueryFieldsV1'
+                },
+                {
+                    $ref: '#/components/schemas/GlobalSharedQueryFieldsV1'
+                }
+            ]
         }
     }
 } as const;
@@ -421,7 +465,7 @@ export const CommonFiltersInputV1Schema = {
     }
 } as const;
 
-export const GlobalSharedQueryV1Schema = {
+export const GlobalSharedQueryFieldsV1Schema = {
     type: 'object',
     additionalProperties: false,
     required: [
@@ -438,7 +482,6 @@ export const GlobalSharedQueryV1Schema = {
         },
         positionKeys: {
             type: 'array',
-            minItems: 1,
             items: {
                 $ref: '#/components/schemas/PositionKeyV1'
             }
@@ -455,6 +498,29 @@ export const GlobalSharedQueryV1Schema = {
             $ref: '#/components/schemas/CommonFiltersInputV1'
         }
     }
+} as const;
+
+export const GlobalSharedQueryV1Schema = {
+    allOf: [
+        {
+            $ref: '#/components/schemas/GlobalSharedQueryFieldsV1'
+        },
+        {
+            type: 'object',
+            properties: {
+                positionKeys: {
+                    type: 'array',
+                    minItems: 1
+                }
+            }
+        }
+    ]
+} as const;
+
+export const JsonSafePositiveIntegerV1Schema = {
+    type: 'integer',
+    minimum: 1,
+    maximum: 9007199254740991
 } as const;
 
 export const MonthRangeV1Schema = {
@@ -505,7 +571,7 @@ export const PersonalFiltersInputV1Schema = {
     }
 } as const;
 
-export const PersonalSharedQueryV1Schema = {
+export const PersonalSharedQueryFieldsV1Schema = {
     type: 'object',
     additionalProperties: false,
     required: [
@@ -537,7 +603,6 @@ export const PersonalSharedQueryV1Schema = {
         },
         positionKeys: {
             type: 'array',
-            minItems: 1,
             items: {
                 $ref: '#/components/schemas/PositionKeyV1'
             }
@@ -554,6 +619,23 @@ export const PersonalSharedQueryV1Schema = {
             $ref: '#/components/schemas/PersonalFiltersInputV1'
         }
     }
+} as const;
+
+export const PersonalSharedQueryV1Schema = {
+    allOf: [
+        {
+            $ref: '#/components/schemas/PersonalSharedQueryFieldsV1'
+        },
+        {
+            type: 'object',
+            properties: {
+                positionKeys: {
+                    type: 'array',
+                    minItems: 1
+                }
+            }
+        }
+    ]
 } as const;
 
 export const PositionKeyV1Schema = {
@@ -719,10 +801,6 @@ export const request_v1_schemaSchema = {
         },
         view: {
             $ref: '#/components/schemas/RankingsViewV1'
-        },
-        refreshCollection: {
-            type: 'boolean',
-            default: false
         }
     }
 } as const;
@@ -800,7 +878,7 @@ export const result_error_envelope_v1_schemaSchema = {
         FieldErrorsV1: {
             type: 'object',
             propertyNames: {
-                pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|refreshCollection|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
+                pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
             },
             additionalProperties: {
                 type: 'array',
@@ -960,7 +1038,7 @@ export const FieldErrorCodeV1Schema = {
 export const FieldErrorsV1Schema = {
     type: 'object',
     propertyNames: {
-        pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|refreshCollection|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
+        pattern: '^/(?:query|scope|uid|collectionStatuses|subjectType|positionKeys|includeNSFW|mergeSeries|filters|catalog|operation|input|view|workspace|error|meta)(?:/(?:[A-Za-z0-9_.-]|~0|~1)+)*$'
     },
     additionalProperties: {
         type: 'array',
@@ -1076,7 +1154,7 @@ export const success_envelope_v1_schemaSchema = {
             ],
             properties: {
                 id: {
-                    $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+                    $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
                 },
                 name: {
                     type: 'string',
@@ -1272,7 +1350,7 @@ export const success_envelope_v1_schemaSchema = {
             ],
             properties: {
                 rank: {
-                    $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+                    $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
                 },
                 person: {
                     $ref: '#/components/schemas/PersonReferenceV1'
@@ -1315,7 +1393,7 @@ export const success_envelope_v1_schemaSchema = {
             ],
             properties: {
                 rank: {
-                    $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+                    $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
                 },
                 person: {
                     $ref: '#/components/schemas/PersonReferenceV1'
@@ -1376,6 +1454,9 @@ export const success_envelope_v1_schemaSchema = {
                     items: {
                         $ref: '#/components/schemas/GlobalRankingItemV1'
                     }
+                },
+                location: {
+                    $ref: '#/components/schemas/RankingLocationV1'
                 }
             }
         },
@@ -1400,6 +1481,9 @@ export const success_envelope_v1_schemaSchema = {
                     items: {
                         $ref: '#/components/schemas/PersonalRankingItemV1'
                     }
+                },
+                location: {
+                    $ref: '#/components/schemas/RankingLocationV1'
                 }
             }
         },
@@ -1413,7 +1497,7 @@ export const success_envelope_v1_schemaSchema = {
             ],
             properties: {
                 page: {
-                    $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+                    $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
                 },
                 pageSize: {
                     type: 'integer',
@@ -1563,6 +1647,36 @@ export const success_envelope_v1_schemaSchema = {
                     $ref: '#/components/schemas/PersonalRankingsMetaV1'
                 }
             }
+        },
+        RankingLocationV1: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+                'personId',
+                'rank',
+                'page'
+            ],
+            properties: {
+                personId: {
+                    $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
+                },
+                rank: {
+                    type: [
+                        'integer',
+                        'null'
+                    ],
+                    minimum: 1,
+                    maximum: 9007199254740991
+                },
+                page: {
+                    type: [
+                        'integer',
+                        'null'
+                    ],
+                    minimum: 1,
+                    maximum: 9007199254740991
+                }
+            }
         }
     }
 } as const;
@@ -1666,7 +1780,7 @@ export const GlobalRankingItemV1Schema = {
     ],
     properties: {
         rank: {
-            $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+            $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
         },
         person: {
             $ref: '#/components/schemas/PersonReferenceV1'
@@ -1718,6 +1832,9 @@ export const GlobalRankingsDataV1Schema = {
             items: {
                 $ref: '#/components/schemas/GlobalRankingItemV1'
             }
+        },
+        location: {
+            $ref: '#/components/schemas/RankingLocationV1'
         }
     }
 } as const;
@@ -1815,7 +1932,7 @@ export const JsonSafeNonNegativeIntegerV1Schema = {
     maximum: 9007199254740991
 } as const;
 
-export const JsonSafePositiveIntegerV1Schema = {
+export const success_envelope_v1_schema_JsonSafePositiveIntegerV1Schema = {
     type: 'integer',
     minimum: 1,
     maximum: 9007199254740991
@@ -1855,7 +1972,7 @@ export const PaginationV1Schema = {
     ],
     properties: {
         page: {
-            $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+            $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
         },
         pageSize: {
             type: 'integer',
@@ -1881,7 +1998,7 @@ export const PersonReferenceV1Schema = {
     ],
     properties: {
         id: {
-            $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+            $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
         },
         name: {
             type: 'string',
@@ -1912,7 +2029,7 @@ export const PersonalRankingItemV1Schema = {
     ],
     properties: {
         rank: {
-            $ref: '#/components/schemas/JsonSafePositiveIntegerV1'
+            $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
         },
         person: {
             $ref: '#/components/schemas/PersonReferenceV1'
@@ -1974,6 +2091,9 @@ export const PersonalRankingsDataV1Schema = {
             items: {
                 $ref: '#/components/schemas/PersonalRankingItemV1'
             }
+        },
+        location: {
+            $ref: '#/components/schemas/RankingLocationV1'
         }
     }
 } as const;
@@ -2077,6 +2197,37 @@ export const PreferenceV1Schema = {
         },
         score: {
             $ref: '#/components/schemas/RationalV1'
+        }
+    }
+} as const;
+
+export const RankingLocationV1Schema = {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+        'personId',
+        'rank',
+        'page'
+    ],
+    properties: {
+        personId: {
+            $ref: '#/components/schemas/success-envelope-v1_schema_JsonSafePositiveIntegerV1'
+        },
+        rank: {
+            type: [
+                'integer',
+                'null'
+            ],
+            minimum: 1,
+            maximum: 9007199254740991
+        },
+        page: {
+            type: [
+                'integer',
+                'null'
+            ],
+            minimum: 1,
+            maximum: 9007199254740991
         }
     }
 } as const;

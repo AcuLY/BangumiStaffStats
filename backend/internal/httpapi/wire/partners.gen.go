@@ -10,6 +10,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for PostPartnersV1JSONBodyInputPositionScope.
+const (
+	PostPartnersV1JSONBodyInputPositionScopeAll   PostPartnersV1JSONBodyInputPositionScope = "all"
+	PostPartnersV1JSONBodyInputPositionScopeQuery PostPartnersV1JSONBodyInputPositionScope = "query"
+)
+
+// Valid indicates whether the value is a known member of the PostPartnersV1JSONBodyInputPositionScope enum.
+func (e PostPartnersV1JSONBodyInputPositionScope) Valid() bool {
+	switch e {
+	case PostPartnersV1JSONBodyInputPositionScopeAll:
+		return true
+	case PostPartnersV1JSONBodyInputPositionScopeQuery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostPartnersV1JSONBodyQuery0CollectionStatuses.
 const (
 	PostPartnersV1JSONBodyQuery0CollectionStatusesCompleted  PostPartnersV1JSONBodyQuery0CollectionStatuses = "completed"
@@ -151,6 +169,24 @@ func (e PostPartnersV1JSONBodyViewSort) Valid() bool {
 	}
 }
 
+// Defines values for PostPartnersV1200JSONResponseBody0DataMetricScale1Metric.
+const (
+	PostPartnersV1200JSONResponseBody0DataMetricScale1MetricAverage PostPartnersV1200JSONResponseBody0DataMetricScale1Metric = "average"
+	PostPartnersV1200JSONResponseBody0DataMetricScale1MetricOverall PostPartnersV1200JSONResponseBody0DataMetricScale1Metric = "overall"
+)
+
+// Valid indicates whether the value is a known member of the PostPartnersV1200JSONResponseBody0DataMetricScale1Metric enum.
+func (e PostPartnersV1200JSONResponseBody0DataMetricScale1Metric) Valid() bool {
+	switch e {
+	case PostPartnersV1200JSONResponseBody0DataMetricScale1MetricAverage:
+		return true
+	case PostPartnersV1200JSONResponseBody0DataMetricScale1MetricOverall:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostPartnersV1200JSONResponseBody0DataSummaryLeaders0Metric.
 const (
 	PostPartnersV1200JSONResponseBody0DataSummaryLeaders0MetricAverage    PostPartnersV1200JSONResponseBody0DataSummaryLeaders0Metric = "average"
@@ -280,6 +316,24 @@ func (e PostPartnersV1200JSONResponseBody0MetaPaginationPageSize) Valid() bool {
 	case PostPartnersV1200JSONResponseBody0MetaPaginationPageSizeN20:
 		return true
 	case PostPartnersV1200JSONResponseBody0MetaPaginationPageSizeN5:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostPartnersV1200JSONResponseBody1DataMetricScale1Metric.
+const (
+	PostPartnersV1200JSONResponseBody1DataMetricScale1MetricAverage PostPartnersV1200JSONResponseBody1DataMetricScale1Metric = "average"
+	PostPartnersV1200JSONResponseBody1DataMetricScale1MetricOverall PostPartnersV1200JSONResponseBody1DataMetricScale1Metric = "overall"
+)
+
+// Valid indicates whether the value is a known member of the PostPartnersV1200JSONResponseBody1DataMetricScale1Metric enum.
+func (e PostPartnersV1200JSONResponseBody1DataMetricScale1Metric) Valid() bool {
+	switch e {
+	case PostPartnersV1200JSONResponseBody1DataMetricScale1MetricAverage:
+		return true
+	case PostPartnersV1200JSONResponseBody1DataMetricScale1MetricOverall:
 		return true
 	default:
 		return false
@@ -2009,11 +2063,16 @@ func (e PostPartnersV1504JSONResponseBodyErrorFieldErrors) Valid() bool {
 type PostPartnersV1JSONBody struct {
 	Input struct {
 		CandidatePositionKey *string `json:"candidatePositionKey,omitempty"`
-		Source               struct {
+
+		// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+		PositionScope *PostPartnersV1JSONBodyInputPositionScope `json:"positionScope,omitempty"`
+		Source        struct {
 			PersonId     int      `json:"personId"`
 			PositionKeys []string `json:"positionKeys"`
 		} `json:"source"`
 	} `json:"input"`
+
+	// Query Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.
 	Query PostPartnersV1JSONBody_Query `json:"query"`
 	View  *struct {
 		Order    *PostPartnersV1JSONBodyViewOrder    `json:"order,omitempty"`
@@ -2023,6 +2082,9 @@ type PostPartnersV1JSONBody struct {
 		Sort     *PostPartnersV1JSONBodyViewSort     `json:"sort,omitempty"`
 	} `json:"view,omitempty"`
 }
+
+// PostPartnersV1JSONBodyInputPositionScope defines parameters for PostPartnersV1.
+type PostPartnersV1JSONBodyInputPositionScope string
 
 // PostPartnersV1JSONBodyQuery0 defines parameters for PostPartnersV1.
 type PostPartnersV1JSONBodyQuery0 struct {
@@ -2158,7 +2220,8 @@ type PostPartnersV1200JSONResponseBody0 struct {
 			} `json:"preference"`
 			Rank int `json:"rank"`
 		} `json:"items"`
-		Source struct {
+		MetricScale PostPartnersV1200JSONResponseBody_0_Data_MetricScale `json:"metricScale"`
+		Source      struct {
 			Metrics struct {
 				Average        *int `json:"average"`
 				RatedWorkCount int  `json:"ratedWorkCount"`
@@ -2191,6 +2254,38 @@ type PostPartnersV1200JSONResponseBody0 struct {
 		} `json:"pagination"`
 		RequestId string `json:"requestId"`
 	} `json:"meta"`
+}
+
+// PostPartnersV1200JSONResponseBody0DataMetricScale0 defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody0DataMetricScale0 struct {
+	Kind   interface{} `json:"kind"`
+	Max    *int        `json:"max"`
+	Metric interface{} `json:"metric"`
+}
+
+// PostPartnersV1200JSONResponseBody0DataMetricScale1 defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody0DataMetricScale1 struct {
+	Kind   interface{}                                              `json:"kind"`
+	Max    *int                                                     `json:"max"`
+	Metric PostPartnersV1200JSONResponseBody0DataMetricScale1Metric `json:"metric"`
+}
+
+// PostPartnersV1200JSONResponseBody0DataMetricScale1Metric defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody0DataMetricScale1Metric string
+
+// PostPartnersV1200JSONResponseBody0DataMetricScale2 defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody0DataMetricScale2 struct {
+	Kind interface{} `json:"kind"`
+	Max  *struct {
+		Denominator string `json:"denominator"`
+		Numerator   string `json:"numerator"`
+	} `json:"max"`
+	Metric interface{} `json:"metric"`
+}
+
+// PostPartnersV1200JSONResponseBody_0_Data_MetricScale defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody_0_Data_MetricScale struct {
+	union json.RawMessage
 }
 
 // PostPartnersV1200JSONResponseBody0DataSummaryLeaders0 defines parameters for PostPartnersV1.
@@ -2378,7 +2473,8 @@ type PostPartnersV1200JSONResponseBody1 struct {
 			PositionKeys []string `json:"positionKeys"`
 			Rank         int      `json:"rank"`
 		} `json:"items"`
-		Source struct {
+		MetricScale PostPartnersV1200JSONResponseBody_1_Data_MetricScale `json:"metricScale"`
+		Source      struct {
 			Metrics struct {
 				Average        *int `json:"average"`
 				RatedWorkCount int  `json:"ratedWorkCount"`
@@ -2406,6 +2502,28 @@ type PostPartnersV1200JSONResponseBody1 struct {
 		} `json:"pagination"`
 		RequestId string `json:"requestId"`
 	} `json:"meta"`
+}
+
+// PostPartnersV1200JSONResponseBody1DataMetricScale0 defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody1DataMetricScale0 struct {
+	Kind   interface{} `json:"kind"`
+	Max    *int        `json:"max"`
+	Metric interface{} `json:"metric"`
+}
+
+// PostPartnersV1200JSONResponseBody1DataMetricScale1 defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody1DataMetricScale1 struct {
+	Kind   interface{}                                              `json:"kind"`
+	Max    *int                                                     `json:"max"`
+	Metric PostPartnersV1200JSONResponseBody1DataMetricScale1Metric `json:"metric"`
+}
+
+// PostPartnersV1200JSONResponseBody1DataMetricScale1Metric defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody1DataMetricScale1Metric string
+
+// PostPartnersV1200JSONResponseBody_1_Data_MetricScale defines parameters for PostPartnersV1.
+type PostPartnersV1200JSONResponseBody_1_Data_MetricScale struct {
+	union json.RawMessage
 }
 
 // PostPartnersV1200JSONResponseBody1DataSummaryLeaders0 defines parameters for PostPartnersV1.
@@ -2621,6 +2739,94 @@ func (t *PostPartnersV1JSONBody_Query) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsPostPartnersV1200JSONResponseBody0DataMetricScale0 returns the union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale as a PostPartnersV1200JSONResponseBody0DataMetricScale0
+func (t PostPartnersV1200JSONResponseBody_0_Data_MetricScale) AsPostPartnersV1200JSONResponseBody0DataMetricScale0() (PostPartnersV1200JSONResponseBody0DataMetricScale0, error) {
+	var body PostPartnersV1200JSONResponseBody0DataMetricScale0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostPartnersV1200JSONResponseBody0DataMetricScale0 overwrites any union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale as the provided PostPartnersV1200JSONResponseBody0DataMetricScale0
+func (t *PostPartnersV1200JSONResponseBody_0_Data_MetricScale) FromPostPartnersV1200JSONResponseBody0DataMetricScale0(v PostPartnersV1200JSONResponseBody0DataMetricScale0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostPartnersV1200JSONResponseBody0DataMetricScale0 performs a merge with any union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale, using the provided PostPartnersV1200JSONResponseBody0DataMetricScale0
+func (t *PostPartnersV1200JSONResponseBody_0_Data_MetricScale) MergePostPartnersV1200JSONResponseBody0DataMetricScale0(v PostPartnersV1200JSONResponseBody0DataMetricScale0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPostPartnersV1200JSONResponseBody0DataMetricScale1 returns the union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale as a PostPartnersV1200JSONResponseBody0DataMetricScale1
+func (t PostPartnersV1200JSONResponseBody_0_Data_MetricScale) AsPostPartnersV1200JSONResponseBody0DataMetricScale1() (PostPartnersV1200JSONResponseBody0DataMetricScale1, error) {
+	var body PostPartnersV1200JSONResponseBody0DataMetricScale1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostPartnersV1200JSONResponseBody0DataMetricScale1 overwrites any union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale as the provided PostPartnersV1200JSONResponseBody0DataMetricScale1
+func (t *PostPartnersV1200JSONResponseBody_0_Data_MetricScale) FromPostPartnersV1200JSONResponseBody0DataMetricScale1(v PostPartnersV1200JSONResponseBody0DataMetricScale1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostPartnersV1200JSONResponseBody0DataMetricScale1 performs a merge with any union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale, using the provided PostPartnersV1200JSONResponseBody0DataMetricScale1
+func (t *PostPartnersV1200JSONResponseBody_0_Data_MetricScale) MergePostPartnersV1200JSONResponseBody0DataMetricScale1(v PostPartnersV1200JSONResponseBody0DataMetricScale1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPostPartnersV1200JSONResponseBody0DataMetricScale2 returns the union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale as a PostPartnersV1200JSONResponseBody0DataMetricScale2
+func (t PostPartnersV1200JSONResponseBody_0_Data_MetricScale) AsPostPartnersV1200JSONResponseBody0DataMetricScale2() (PostPartnersV1200JSONResponseBody0DataMetricScale2, error) {
+	var body PostPartnersV1200JSONResponseBody0DataMetricScale2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostPartnersV1200JSONResponseBody0DataMetricScale2 overwrites any union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale as the provided PostPartnersV1200JSONResponseBody0DataMetricScale2
+func (t *PostPartnersV1200JSONResponseBody_0_Data_MetricScale) FromPostPartnersV1200JSONResponseBody0DataMetricScale2(v PostPartnersV1200JSONResponseBody0DataMetricScale2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostPartnersV1200JSONResponseBody0DataMetricScale2 performs a merge with any union data inside the PostPartnersV1200JSONResponseBody_0_Data_MetricScale, using the provided PostPartnersV1200JSONResponseBody0DataMetricScale2
+func (t *PostPartnersV1200JSONResponseBody_0_Data_MetricScale) MergePostPartnersV1200JSONResponseBody0DataMetricScale2(v PostPartnersV1200JSONResponseBody0DataMetricScale2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PostPartnersV1200JSONResponseBody_0_Data_MetricScale) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PostPartnersV1200JSONResponseBody_0_Data_MetricScale) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // AsPostPartnersV1200JSONResponseBody0DataSummaryLeaders0 returns the union data inside the PostPartnersV1200JSONResponseBody_0_Data_Summary_Leaders_Item as a PostPartnersV1200JSONResponseBody0DataSummaryLeaders0
 func (t PostPartnersV1200JSONResponseBody_0_Data_Summary_Leaders_Item) AsPostPartnersV1200JSONResponseBody0DataSummaryLeaders0() (PostPartnersV1200JSONResponseBody0DataSummaryLeaders0, error) {
 	var body PostPartnersV1200JSONResponseBody0DataSummaryLeaders0
@@ -2731,6 +2937,68 @@ func (t PostPartnersV1200JSONResponseBody_0_Data_Summary_Leaders_Item) MarshalJS
 }
 
 func (t *PostPartnersV1200JSONResponseBody_0_Data_Summary_Leaders_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsPostPartnersV1200JSONResponseBody1DataMetricScale0 returns the union data inside the PostPartnersV1200JSONResponseBody_1_Data_MetricScale as a PostPartnersV1200JSONResponseBody1DataMetricScale0
+func (t PostPartnersV1200JSONResponseBody_1_Data_MetricScale) AsPostPartnersV1200JSONResponseBody1DataMetricScale0() (PostPartnersV1200JSONResponseBody1DataMetricScale0, error) {
+	var body PostPartnersV1200JSONResponseBody1DataMetricScale0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostPartnersV1200JSONResponseBody1DataMetricScale0 overwrites any union data inside the PostPartnersV1200JSONResponseBody_1_Data_MetricScale as the provided PostPartnersV1200JSONResponseBody1DataMetricScale0
+func (t *PostPartnersV1200JSONResponseBody_1_Data_MetricScale) FromPostPartnersV1200JSONResponseBody1DataMetricScale0(v PostPartnersV1200JSONResponseBody1DataMetricScale0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostPartnersV1200JSONResponseBody1DataMetricScale0 performs a merge with any union data inside the PostPartnersV1200JSONResponseBody_1_Data_MetricScale, using the provided PostPartnersV1200JSONResponseBody1DataMetricScale0
+func (t *PostPartnersV1200JSONResponseBody_1_Data_MetricScale) MergePostPartnersV1200JSONResponseBody1DataMetricScale0(v PostPartnersV1200JSONResponseBody1DataMetricScale0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPostPartnersV1200JSONResponseBody1DataMetricScale1 returns the union data inside the PostPartnersV1200JSONResponseBody_1_Data_MetricScale as a PostPartnersV1200JSONResponseBody1DataMetricScale1
+func (t PostPartnersV1200JSONResponseBody_1_Data_MetricScale) AsPostPartnersV1200JSONResponseBody1DataMetricScale1() (PostPartnersV1200JSONResponseBody1DataMetricScale1, error) {
+	var body PostPartnersV1200JSONResponseBody1DataMetricScale1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostPartnersV1200JSONResponseBody1DataMetricScale1 overwrites any union data inside the PostPartnersV1200JSONResponseBody_1_Data_MetricScale as the provided PostPartnersV1200JSONResponseBody1DataMetricScale1
+func (t *PostPartnersV1200JSONResponseBody_1_Data_MetricScale) FromPostPartnersV1200JSONResponseBody1DataMetricScale1(v PostPartnersV1200JSONResponseBody1DataMetricScale1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostPartnersV1200JSONResponseBody1DataMetricScale1 performs a merge with any union data inside the PostPartnersV1200JSONResponseBody_1_Data_MetricScale, using the provided PostPartnersV1200JSONResponseBody1DataMetricScale1
+func (t *PostPartnersV1200JSONResponseBody_1_Data_MetricScale) MergePostPartnersV1200JSONResponseBody1DataMetricScale1(v PostPartnersV1200JSONResponseBody1DataMetricScale1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PostPartnersV1200JSONResponseBody_1_Data_MetricScale) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PostPartnersV1200JSONResponseBody_1_Data_MetricScale) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

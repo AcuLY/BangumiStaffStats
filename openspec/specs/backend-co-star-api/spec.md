@@ -59,3 +59,14 @@ and bounded 1–60 second Retry-After for rate-limited or busy outcomes.
 #### Scenario: A caller mutates its projected page
 - **WHEN** one caller changes returned participant, matrix, or work data
 - **THEN** cached data and another caller's result SHALL remain unchanged
+
+### Requirement: Common series metadata SHALL come from its displayed representative
+Both scope projections SHALL populate metaTags from the existing displayed representative's meta tag facts using the stable bounded tag-name policy. Other members SHALL NOT contribute tags to this card field. Cloning and cache accounting SHALL include the field, while shared-work intersection, summary and metrics remain unchanged.
+
+#### Scenario: Representative and member tags differ
+- **WHEN** a series representative has tags different from another member
+- **THEN** the series card metadata SHALL contain only the representative's tags
+
+#### Scenario: Representative metadata is empty
+- **WHEN** the representative has no meta tags
+- **THEN** an empty array SHALL remain empty through projection and display

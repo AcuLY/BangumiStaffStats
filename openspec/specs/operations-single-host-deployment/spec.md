@@ -11,11 +11,11 @@ templates, and legacy-safe isolated validation required for a normal
 The already registered Development manual-dispatch entry SHALL call one
 same-revision reusable read-only workflow that builds the accepted Product once
 for `linux/amd64` and uploads one short-lived bundle containing API and updater
-OCI archives, the Backend tool bundle, frontend static archive, minimal Archive
-fixture, source/version metadata, and SHA-256 inventory. Push and pull-request
+OCI archives, frontend static archive, minimal Archive fixture, source/version
+metadata, and SHA-256 inventory. Push and pull-request
 runs SHALL NOT call the bundle workflow. It SHALL NOT publish a registry image,
 release, tag, deployment, credential, receipt, attestation graph, or second
-reproducibility build.
+reproducibility build, or Backend command/tool payload.
 
 The Development workflow policy SHALL continue to require exactly five
 reviewed SHA-pinned external Actions and SHALL admit exactly one local
@@ -114,14 +114,16 @@ installation SHALL verify checksums, install versioned bytes, start and verify
 API, and switch frontend last. Archive update SHALL keep the updater one-shot,
 atomically switch `current.json`, restart/verify API, and restore the previous
 pointer on failure. Application and data rollback SHALL remain separate and
-health checks SHALL be read-only.
+health checks SHALL be read-only. Application deployment and rollback SHALL
+operate on release env/frontend state without any Backend command/tool payload,
+tool link, executable argument, or tool mount.
 
 Deploy SHALL accept only the root, bundle, version, project, loopback ports,
 pinned Prometheus image, and reviewed profile inputs. It SHALL NOT accept,
 preserve, or write application proxy mode/URL/network inputs. Root/project/
 ports/Prometheus/profile topology SHALL remain immutable, and application
-rollback SHALL restore the exact previous release env and links without
-introducing proxy state.
+rollback SHALL restore the exact previous accepted env/frontend state without
+introducing proxy or tool state.
 
 As a one-time upgrade input only, an existing current env MAY contain the exact
 closed retired `proxy` transport trio with a canonical URL/network pair. Deploy
@@ -194,6 +196,24 @@ proxy, or otherwise noncanonical legacy state SHALL fail before the lock.
 - **WHEN** another deployment, update, or rollback owns the lock
 - **THEN** the new command SHALL exit without changing application, frontend,
   or data state
+
+### Requirement: Operations topology SHALL not carry Archive smoke tools
+
+New deployment bundles, release directories, Compose definitions, updater
+arguments/mounts, application links, rollback transactions, isolated
+validation, and host checks SHALL contain no dedicated Archive smoke command or
+Backend tool payload. Existing live legacy tool links/releases are not writable
+under this development change and SHALL NOT be treated as proof that a new
+smoke-free revision can safely cross the breaking updater interface.
+
+#### Scenario: A clean smoke-free bundle is assembled
+- **WHEN** Operations assembles and validates a new deployment bundle
+- **THEN** its closed inventory SHALL contain no Backend tool archive, release `tools` directory, tool symlink, executable mount, or smoke argument
+
+#### Scenario: A live pre-removal topology is encountered
+- **WHEN** a future activation sees a current or rollback updater revision that requires the removed command
+- **THEN** activation SHALL stop until a separately authorized migration binds exact rollback and retirement behavior
+- **AND** this development change SHALL not delete or rewrite those live legacy bytes
 
 ### Requirement: Host templates SHALL provide only the planned observability
 
@@ -281,10 +301,14 @@ publication transaction SHALL remain unchanged.
 
 ### Requirement: Live traffic SHALL require a real Archive
 
-The public V2 runtime SHALL use a contract-valid, non-fixture Archive. API
-readiness, catalog, metrics, and the Prometheus scrape SHALL agree on its
-current data version. Update failure SHALL retain or restore the last accepted
-pointer rather than activate partial or fixture data.
+The public V2 runtime SHALL use a non-fixture Archive published by the
+producer after all producer-owned validation. API readiness, catalog, metrics,
+and the Prometheus scrape SHALL agree on the opened SQLite
+`archive_meta.data_version`. API startup/readiness SHALL prove contained
+read-only open and the fixed business probe only; it SHALL NOT repeat or claim
+Archive manifest/digest/integrity/foreign-key/schema/table-count admission.
+Update or direct-open failure SHALL retain or restore the prior pointer rather
+than activate partial, fixture, or unusable data.
 
 Updater and API acquisition traffic SHALL use the host-transparent egress
 authority. The project SHALL retain only its base Compose topology and SHALL
@@ -292,18 +316,19 @@ receive no dedicated or generic proxy variable, proxy overlay, or proxy
 network. The intentionally stopped legacy loader SHALL remain stopped and
 SHALL NOT be treated as a rollback dependency.
 
-#### Scenario: Real Archive is active
+#### Scenario: Real producer-published Archive is active
 
 - **WHEN** public V2 traffic is enabled
-- **THEN** the current Archive SHALL be contract-valid and non-fixture
+- **THEN** the current Archive SHALL be non-fixture and traceable to a
+  successful producer publication
 - **AND** readiness, catalog, metrics, and Prometheus SHALL report the same
-  data version
+  opened dataVersion without a Backend Archive admission pass
 
-#### Scenario: Update fails or remains invalid
+#### Scenario: Update, open, or business readiness fails
 
-- **WHEN** updater execution fails, publishes no valid terminal result, or
-  runtime observers disagree
-- **THEN** the last accepted Archive pointer SHALL remain or be restored
+- **WHEN** updater execution publishes no valid terminal result, direct open or
+  fixed readiness probe fails, or runtime observers disagree
+- **THEN** the prior Archive pointer SHALL remain or be restored
 - **AND** public routing and the stopped legacy loader SHALL remain unchanged
 
 #### Scenario: Host egress remains external to the project
@@ -515,3 +540,15 @@ SPA-entry policy.
   root, API, or browser acceptance fails
 - **THEN** the exact repair backup SHALL be restored and reloaded
 - **AND** no unrelated vhost or application state SHALL be changed
+
+### Requirement: The repository proxy template SHALL accommodate query budgets
+
+The repository Nginx location for `/v2/api/v1/` SHALL use a 130-second
+`proxy_read_timeout`, leaving room for the backend's 120-second request and
+125-second HTTP write bounds. Connection timeout and the accepted legacy-root
+and `/v2/` route contract SHALL remain unchanged. Updating this template SHALL
+NOT imply that a production vhost has been modified or deployed.
+
+#### Scenario: A valid query takes longer than the old proxy wait
+- **WHEN** an operator later deploys this reviewed template and an otherwise valid API response takes longer than 35 seconds but less than the backend request budget
+- **THEN** the proxy SHALL not interrupt it because of the old 35-second upstream read timeout

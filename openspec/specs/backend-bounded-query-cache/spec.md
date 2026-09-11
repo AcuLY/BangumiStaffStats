@@ -75,6 +75,11 @@ SHALL fail promptly with typed `SERVER_BUSY` and retry guidance. Production
 SHALL NOT construct one executor per service. All computation and loading SHALL
 occur outside cache locks.
 
+The production collection worker SHALL have a 90-second timeout including
+all pagination, limiter waits and retries. Every shared result worker SHALL
+have a 20-second timeout starting before executor admission, including queue
+waiting, Archive reads and computation. Cache TTLs SHALL remain unchanged.
+
 #### Scenario: One of two same-key waiters cancels
 - **WHEN** two callers share a load and one caller cancels
 - **THEN** the cancelled caller SHALL return its context cause while the other caller may receive the shared result
@@ -91,6 +96,14 @@ occur outside cache locks.
 - **WHEN** a focused service test uses the compatibility constructor without app assembly
 - **THEN** it SHALL receive one valid private owner with the same timeout, cancellation, queue, and cache semantics
 
+#### Scenario: Collection pagination outlasts thirty seconds
+- **WHEN** a complete collection load requires more than 30 but less than 90 seconds and no other failure occurs
+- **THEN** its worker SHALL remain eligible to return a complete snapshot within the 120-second request budget
+
+#### Scenario: A result worker exhausts its budget while queued
+- **WHEN** executor waiting consumes a result worker's full 20-second budget
+- **THEN** the worker SHALL fail with the existing timeout classification without starting computation or caching a partial result
+
 ### Requirement: Collection cache SHALL implement exact freshness semantics
 
 The five production query services SHALL share the process owner's one
@@ -105,13 +118,13 @@ The collection digest SHALL deterministically cover subject ID/type, status,
 rate, comment, tags, volume/episode progress, private, and updatedAt evidence in
 stable order. Public empty collections SHALL be positive values.
 
-A normal request SHALL use a positive value until freshUntil. Explicit refresh
-SHALL bypass only the fresh hit and SHALL not clear either cache. Only timeout,
-network, upstream 429, and upstream 5xx failures MAY fall back to a positive
-value before staleUntil, which is 30 minutes after fresh expiry. Not-found and
-not-public outcomes SHALL never use stale. Negative not-found SHALL live two
-minutes and negative forbidden SHALL live 30 seconds; other failures SHALL not
-be negative-cached.
+A request SHALL use a positive value until freshUntil. A missing or expired
+value SHALL load through the collection detached-load path without clearing
+either cache. Only timeout, network, upstream 429, and upstream 5xx failures MAY
+fall back to a positive value before staleUntil, which is 30 minutes after fresh
+expiry. Not-found and not-public outcomes SHALL never use stale. Negative
+not-found SHALL live two minutes and negative forbidden SHALL live 30 seconds;
+other failures SHALL not be negative-cached.
 
 The process defaults SHALL remain one 64 MiB/4096-entry positive cache with an
 8 MiB per-item limit and one 2 MiB/4096-entry negative cache; they SHALL NOT be
@@ -123,12 +136,16 @@ absence SHALL NOT cause the process resources to be duplicated.
 - **WHEN** two production services concurrently request the same collection key
 - **THEN** one process collection cache and detached load SHALL supply both without duplicate retained positive or negative entries
 
-#### Scenario: Explicit refresh returns unchanged content
-- **WHEN** refresh bypasses a fresh collection and the upstream digest is unchanged
-- **THEN** the new collection metadata SHALL publish and existing result cores MAY be reused by collection digest
+#### Scenario: A fresh collection is requested again
+- **WHEN** a positive collection value has not reached freshUntil
+- **THEN** the cache SHALL return that value without loading the upstream collection
 
-#### Scenario: Temporary refresh failure has eligible stale data
-- **WHEN** a temporary upstream failure occurs before staleUntil
+#### Scenario: An expired collection loads unchanged content
+- **WHEN** a positive collection reaches freshUntil and the upstream digest is unchanged
+- **THEN** new collection metadata SHALL publish and existing result cores MAY be reused by collection digest
+
+#### Scenario: Temporary expired-load failure has eligible stale data
+- **WHEN** an expired collection load has a temporary upstream failure before staleUntil
 - **THEN** the prior value SHALL be returned with stale true and warning code `COLLECTION_STALE`
 
 #### Scenario: A forbidden collection fails

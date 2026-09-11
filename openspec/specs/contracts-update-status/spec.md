@@ -17,8 +17,8 @@ raw exception, path, source body, secret, or entity data.
 `YYYY-MM-DDTHH:mm:ss[.1..6]Z` subset. `duration_seconds` SHALL be a finite
 non-negative JSON number. `dataVersion` SHALL be JSON null until known or an
 exact `dv1-` plus 64 lowercase hexadecimal identity. `phase` SHALL be one of
-`preflight`, `acquisition`, `identity`, `build`, `manifest`, `smoke`,
-`publication`, or `complete`.
+`preflight`, `acquisition`, `identity`, `build`, `manifest`, `publication`, or
+`complete`.
 
 #### Scenario: First valid attempt fails
 - **WHEN** no prior status exists and a run fails during an admitted phase
@@ -57,9 +57,10 @@ require null `error_code`. A non-null `last_success` SHALL allow only
 `contracts/goldens/update-status/index.json` SHALL enumerate the exact case
 inventory and expected result under the golden-index schema. Cases SHALL cover
 first failure, cancellation with retained success, no-change, publication, and
-invalid mutations. The Contracts verifier SHALL read only contained regular
-non-symlink indexed files, reject missing/extra cases, compile both schemas,
-and produce deterministic zero-network results.
+invalid mutations, including rejection of the removed `smoke` phase. The
+Contracts verifier SHALL read only contained regular non-symlink indexed files,
+reject missing/extra cases, compile both schemas, and produce deterministic
+zero-network results.
 
 #### Scenario: The closed golden bundle is verified
 - **WHEN** the verifier runs from a clean checkout

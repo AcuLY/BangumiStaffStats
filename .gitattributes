@@ -1,0 +1,19 @@
+# Preserve exact bytes required by version, Unicode, Go, and artifact checks.
+/VERSION text eol=lf
+/contracts/goldens/query/unicode/*-15.1.0.txt text eol=lf
+/backend/**/*.go text eol=lf
+/frontend/src/features/query/unicode15_1.generated.ts text eol=lf
+/contracts/schemas/archive/archive-manifest.schema.json text eol=lf
+/contracts/schemas/archive/current-pointer.schema.json text eol=lf
+/contracts/schemas/archive/data-version-input.schema.json text eol=lf
+/contracts/schemas/archive/fixture-index.schema.json text eol=lf
+/contracts/schemas/catalog/display-config.schema.json text eol=lf
+/contracts/schemas/catalog/quality-report.schema.json text eol=lf
+/contracts/schemas/catalog/staff-set-config.schema.json text eol=lf
+/contracts/artifacts/fixtures/positive/backend/artifacts/backend-fixture.txt text eol=lf
+/contracts/artifacts/fixtures/positive/backend/backend.spdx.json text eol=lf
+/contracts/artifacts/fixtures/positive/backend/SHA256SUMS text eol=lf
+/contracts/artifacts/fixtures/positive/frontend/artifacts/frontend-fixture.txt text eol=lf
+/contracts/artifacts/fixtures/positive/frontend/frontend.spdx.json text eol=lf
+/contracts/artifacts/fixtures/positive/frontend/SHA256SUMS text eol=lf
+/contracts/openapi/openapi.yaml text eol=lf

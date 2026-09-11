@@ -71,8 +71,10 @@ type SourceInput struct {
 
 // Input selects one source and optionally narrows candidate identities.
 type Input struct {
-	Source               SourceInput
-	CandidatePositionKey *string
+	CandidatePositionKeys []string `json:"-"`
+	PositionScope         string   `json:"positionScope,omitempty"`
+	Source                SourceInput
+	CandidatePositionKey  *string
 }
 
 // Sort is a partner view primary metric.
@@ -190,13 +192,14 @@ type Summary struct {
 
 // Page is one independent partner view.
 type Page struct {
-	WorkUnit statistics.UnitKind
-	Source   SourceCore
-	Summary  Summary
-	Items    []Item
-	Page     int64
-	PageSize int
-	Total    int
+	MetricScale statistics.MetricScale
+	WorkUnit    statistics.UnitKind
+	Source      SourceCore
+	Summary     Summary
+	Items       []Item
+	Page        int64
+	PageSize    int
+	Total       int
 }
 
 // CollectionFreshness is emitted only for personal scope.

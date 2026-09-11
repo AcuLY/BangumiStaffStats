@@ -12,6 +12,9 @@ const baseCss = fs.readFileSync(
   path.join(frontendRoot, 'src/shared/styles/base.css'),
   'utf8',
 );
+const viewportSource = fs.readFileSync(
+  path.join(frontendRoot, 'src/app/AppViewport.vue'), 'utf8',
+);
 const scrollbarCss = baseCss.slice(
   baseCss.indexOf('@supports not selector(::-webkit-scrollbar)'),
   baseCss.indexOf('.query-source-field'),
@@ -46,20 +49,23 @@ const partnersSource = fs.readFileSync(
 );
 
 describe('oracle scrollbar system', () => {
-  it('keeps the viewport and Query Editor on the 10px shell tier', () => {
+  it('keeps the page scroll owner while starting the shell rail below the overlay header', () => {
     expect(baseCss).toContain('--scrollbar-shell-size: 10px;');
+    expect(viewportSource).toContain('class="app-page-scroll"');
+    expect(viewportSource).toContain('railInsetVerticalRight:');
+    expect(viewportSource).toContain('shellScrollbarThemeOverrides');
     expect(baseCss).toMatch(
-      /html\s*\{[^}]*overflow-y:\s*scroll;[^}]*scrollbar-gutter:\s*auto;/s,
+      /html\s*\{[^}]*min-width:\s*min\(320px, 100%\);/s,
     );
     expect(baseCss).toMatch(
-      /:where\(html, \.query-editor__scroll\)::\-webkit-scrollbar\s*\{[^}]*width:\s*var\(--scrollbar-shell-size\);[^}]*height:\s*var\(--scrollbar-shell-size\);/s,
+      /body\s*\{[^}]*min-width:\s*min\(320px, 100%\);/s,
     );
+    expect(baseCss).not.toContain('scrollbar-gutter: stable both-edges');
     expect(baseCss).toMatch(
-      /@media \(width >= 780px\)\s*\{\s*html\s*\{[^}]*scrollbar-gutter:\s*stable both-edges;/s,
+      /\.query-editor__content\s*\{[^}]*overflow:\s*visible;[^}]*overscroll-behavior-y:\s*auto;/s,
     );
-    expect(baseCss).toMatch(
-      /\.query-editor__scroll\s*\{[^}]*overflow-y:\s*auto;[^}]*scrollbar-gutter:\s*auto;/s,
-    );
+    expect(scrollbarCss).not.toContain('.query-editor__content');
+    expect(scrollbarCss).not.toContain('.query-editor__scroll');
   });
 
   it('keeps lists, matrices, tooltips, and popovers on the 6px tier', () => {
@@ -82,19 +88,17 @@ describe('oracle scrollbar system', () => {
     );
   });
 
-  it('uses public shell overrides for both Drawer scroll owners', () => {
+  it('uses the public shell override for the page and detail Drawer', () => {
     expect(personDrawerSource).toContain(
-      ':theme-overrides="shellScrollbarThemeOverrides"',
+      ':theme-overrides="drawerScrollbarThemeOverrides"',
     );
     expect(personDrawerSource).toContain(
       'class="person-detail-drawer__scroll"',
     );
-    expect(candidateDrawerSource).toContain(
-      "containerClass: 'co-star-picker-drawer__scroll'",
-    );
-    expect(candidateDrawerSource).toContain(
-      'themeOverrides: shellScrollbarThemeOverrides',
-    );
+    expect(personDrawerSource).toContain('trigger="none"');
+    expect(candidateDrawerSource).toContain('class="co-star-picker-accordion"');
+    expect(candidateDrawerSource).not.toContain('co-star-picker-drawer__scroll');
+    expect(candidateDrawerSource).not.toContain('shellScrollbarThemeOverrides');
     expect(scrollbarCss).not.toMatch(/\.n-|--n-/);
   });
 
@@ -104,17 +108,9 @@ describe('oracle scrollbar system', () => {
     );
   });
 
-  it('reserves the viewport shell inside the portaled partners tooltip', () => {
-    expect(partnersSource).toContain(
-      'content-class="workbench-tooltip-content"',
-    );
-    expect(partnersSource).toContain(
-      'max-width: min(336px, calc(100dvw - 72px))',
-    );
-    expect(partnersSource).toContain(':width="metricTooltipWidth"');
-    expect(partnersSource).toContain(
-      'document.documentElement.clientWidth',
-    );
+  it('uses the shared ranking list for partners without a separate metric tooltip', () => {
+    expect(partnersSource).toContain('<ranked-person-list');
+    expect(partnersSource).not.toContain('metricTooltipWidth');
   });
 
   it('does not let person-detail CSS override the oracle ranking grid', () => {

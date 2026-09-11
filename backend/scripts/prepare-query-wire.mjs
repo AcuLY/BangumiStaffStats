@@ -10,7 +10,6 @@ const expectedSchemas = [
   "error-envelope-v1.schema.json",
   "operation-components-v1.schema.json",
   "query-digest-projection-v1.schema.json",
-  "share-payload-v1.schema.json",
   "shared-query-v1.schema.json",
 ];
 
@@ -29,9 +28,6 @@ const expectedPublicComponents = [
   "CoStarInputV1",
   "CoStarViewV1",
   "ErrorEnvelopeV1",
-  "SharePayloadV1",
-  "RankingShareWorkspaceV1",
-  "CoStarShareWorkspaceV1",
 ];
 
 const forbiddenBundleKeywords = [
@@ -164,8 +160,10 @@ function prepareProjection(root) {
     fs.writeFileSync(projectionPath, `${JSON.stringify(sanitized, null, 2)}\n`);
     documents.set(projectionPath, sanitized);
   }
-  assert.equal(deletedRootKeys, 14);
+  assert.equal(deletedRootKeys, 12);
   fs.writeFileSync(path.join(root, "redocly.yaml"), "{}\n");
+  fs.writeFileSync(path.join(root, "oapi-codegen.yaml"),
+    "package: wire\ngenerate:\n  models: true\noutput-options:\n  skip-prune: true\ncompatibility:\n  always-prefix-enum-values: true\n");
 
   const referenceCount = auditReferences(documents, path.join(root, "source"));
   assert(referenceCount > expectedPublicComponents.length);

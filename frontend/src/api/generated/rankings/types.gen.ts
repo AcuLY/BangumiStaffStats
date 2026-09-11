@@ -20,6 +20,7 @@ export type RankingsViewV1 = {
     order?: SortOrderV1;
     page?: PageV1;
     pageSize?: PageSizeV1;
+    locatePersonId?: JsonSafePositiveIntegerV1;
 };
 
 export type SearchTextV1 = string;
@@ -40,7 +41,7 @@ export type CommonFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type GlobalSharedQueryV1 = {
+export type GlobalSharedQueryFieldsV1 = {
     scope: 'global';
     subjectType: SubjectTypeV1;
     positionKeys: Array<PositionKeyV1>;
@@ -48,6 +49,12 @@ export type GlobalSharedQueryV1 = {
     mergeSeries?: boolean;
     filters?: CommonFiltersInputV1;
 };
+
+export type GlobalSharedQueryV1 = GlobalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
+};
+
+export type JsonSafePositiveIntegerV1 = number;
 
 export type MonthRangeV1 = {
     min?: MonthV1;
@@ -66,7 +73,7 @@ export type PersonalFiltersInputV1 = {
     tags?: TagFilterInputV1;
 };
 
-export type PersonalSharedQueryV1 = {
+export type PersonalSharedQueryFieldsV1 = {
     scope: 'personal';
     uid: string;
     collectionStatuses: Array<CollectionStatusV1>;
@@ -75,6 +82,10 @@ export type PersonalSharedQueryV1 = {
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: PersonalFiltersInputV1;
+};
+
+export type PersonalSharedQueryV1 = PersonalSharedQueryFieldsV1 & {
+    positionKeys?: Array<unknown>;
 };
 
 export type PositionKeyV1 = unknown | unknown | unknown;
@@ -117,7 +128,6 @@ export type TagTokenInputV1 = string;
 export type RequestV1Schema = {
     query: SharedQueryV1Schema;
     view?: RankingsViewV1;
-    refreshCollection?: boolean;
 };
 
 /**
@@ -178,7 +188,7 @@ export type FreshCollectionV1 = {
 };
 
 export type GlobalRankingItemV1 = {
-    rank: JsonSafePositiveIntegerV1;
+    rank: SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1;
     person: PersonReferenceV1;
     workCount: JsonSafeNonNegativeIntegerV1;
     average: HundredthsV1 | null;
@@ -189,6 +199,7 @@ export type GlobalRankingsDataV1 = {
     summary: RankingsSummaryV1;
     metricScale: GlobalRankingsMetricScaleV1;
     items: Array<GlobalRankingItemV1>;
+    location?: RankingLocationV1;
 };
 
 export type GlobalRankingsMetaV1 = {
@@ -214,7 +225,7 @@ export type HundredthsV1 = number;
 
 export type JsonSafeNonNegativeIntegerV1 = number;
 
-export type JsonSafePositiveIntegerV1 = number;
+export type SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1 = number;
 
 export type NonNegativeRationalV1 = {
     numerator: CanonicalNonNegativeIntegerStringV1;
@@ -224,19 +235,19 @@ export type NonNegativeRationalV1 = {
 export type SuccessEnvelopeV1SchemaOpaqueIdentifierV1 = string;
 
 export type PaginationV1 = {
-    page: JsonSafePositiveIntegerV1;
+    page: SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1;
     pageSize: 5 | 10 | 20;
     total: JsonSafeNonNegativeIntegerV1;
 };
 
 export type PersonReferenceV1 = {
-    id: JsonSafePositiveIntegerV1;
+    id: SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1;
     name: string;
     nameCN: string | null;
 };
 
 export type PersonalRankingItemV1 = {
-    rank: JsonSafePositiveIntegerV1;
+    rank: SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1;
     person: PersonReferenceV1;
     workCount: JsonSafeNonNegativeIntegerV1;
     average: HundredthsV1 | null;
@@ -248,6 +259,7 @@ export type PersonalRankingsDataV1 = {
     summary: RankingsSummaryV1;
     metricScale: RankingsMetricScaleV1;
     items: Array<PersonalRankingItemV1>;
+    location?: RankingLocationV1;
 };
 
 export type PersonalRankingsMetaV1 = {
@@ -275,6 +287,12 @@ export type PreferenceV1 = {
     mean: RationalV1;
     evidenceWeight: NonNegativeRationalV1;
     score: RationalV1;
+};
+
+export type RankingLocationV1 = {
+    personId: SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1;
+    rank: number | null;
+    page: number | null;
 };
 
 export type RankingsMetricScaleV1 = CountMetricScaleV1 | HundredthsMetricScaleV1 | PreferenceMetricScaleV1;

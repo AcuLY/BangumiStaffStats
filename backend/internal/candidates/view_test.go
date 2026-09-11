@@ -52,14 +52,6 @@ func TestNormalizeOperationCapabilities(t *testing.T) {
 		candidateError.Path() != "/input/positionKey" {
 		t.Fatalf("unknown position = %v", err)
 	}
-	_, err = NormalizeOperation(effective, OperationInput{
-		PositionKey:       "staff:anime:2",
-		RefreshCollection: true,
-	})
-	if !errors.As(err, &candidateError) ||
-		candidateError.Path() != "/refreshCollection" {
-		t.Fatalf("global refresh = %v", err)
-	}
 	globalAverage := SortGlobalAverage
 	_, err = NormalizeOperation(effective, OperationInput{
 		PositionKey: "staff:anime:2",
@@ -72,9 +64,8 @@ func TestNormalizeOperationCapabilities(t *testing.T) {
 
 	effective.Scope = "personal"
 	if _, err := NormalizeOperation(effective, OperationInput{
-		PositionKey:       "staff:anime:2",
-		View:              &ViewInput{Sort: &globalAverage},
-		RefreshCollection: true,
+		PositionKey: "staff:anime:2",
+		View:        &ViewInput{Sort: &globalAverage},
 	}); err != nil {
 		t.Fatalf("personal capabilities: %v", err)
 	}

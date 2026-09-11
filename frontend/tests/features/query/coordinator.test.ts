@@ -1,6 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import {
   createQueryCoordinator,
   type OperationRequest,
@@ -84,6 +83,172 @@ beforeEach(() => {
 });
 
 describe('query coordinator', () => {
+  it('applies a first all-position query without a synthetic key and blocks ranking until positions are chosen', async () => {
+    const store = readyStore();
+    store.draft.positionKeys = [];
+    store.draft.includeNSFW = true;
+    store.setCoStarPositionScope('all');
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'all' }, requestId: 'server-all',
+      transactionId: request.transactionId,
+    }));
+    const rankingExecute = vi.fn();
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute },
+      rankings: { execute: rankingExecute },
+    });
+    const catalog = catalogFixture();
+
+    await expect(coordinator.execute({ catalog, mode: 'co-star' })).resolves.toBe(true);
+    expect(candidateExecute.mock.calls[0]![0]).toMatchObject({
+      input: { positionKey: null, positionScope: 'all' },
+      query: { uid: 'luca', positionKeys: [], includeNSFW: true },
+    });
+    expect(store.applied?.positionKeys).toEqual([]);
+    expect(store.appliedCoStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+    expect(store.dirty).toBe(false);
+    await expect(coordinator.executeApplied({ catalog, mode: 'ranking' })).resolves.toBe(false);
+    await expect(coordinator.execute({ catalog, mode: 'ranking' })).resolves.toBe(false);
+    expect(rankingExecute).not.toHaveBeenCalled();
+    expect(coordinator.candidates.payload).toEqual({ id: 'all' });
+  });
+
+  it('executes a scope-only apply after view broadening and restores accepted scope on undo', async () => {
+    const store = readyStore();
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: snapshotPayload('candidates', 'dv1-same', '2026-09-10T00:00:00Z'),
+      requestId: 'server-candidates', transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: vi.fn() },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    await coordinator.executeCandidateView(
+      { positionKey: null, positionScope: 'all' },
+      { order: 'desc', page: 1, pageSize: 10, search: '', sort: 'count' },
+    );
+    expect(store.appliedCoStarPositionScope).toBe('query');
+    store.setCoStarPositionScope('all');
+    expect(store.dirty).toBe(false);
+    expect(store.coStarScopeDirty).toBe(true);
+
+    await expect(coordinator.execute({ catalog, mode: 'co-star' })).resolves.toBe(true);
+
+    expect(candidateExecute).toHaveBeenCalledTimes(3);
+    expect(store.appliedCoStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    store.setCoStarPositionScope('query');
+    store.draft.includeNSFW = true;
+    store.restoreDraft();
+    expect(store.coStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+    expect(store.draft.includeNSFW).toBe(false);
+    expect(store.dirty).toBe(false);
+  });
+
+  it.each(['failure', 'cancel'] as const)('keeps accepted scope and result on scope-only %s', async (outcome) => {
+    const store = readyStore();
+    const pending = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'prior' }, requestId: 'server-prior',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: vi.fn() },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    candidateExecute.mockImplementationOnce(() => pending.promise);
+    store.setCoStarPositionScope('all');
+    const appliedBefore = store.applied;
+    const running = coordinator.execute({ catalog, mode: 'co-star' });
+    if (outcome === 'cancel') coordinator.cancel('co-star');
+    pending.reject(new Error('unavailable'));
+
+    await expect(running).resolves.toBe(false);
+    expect(store.applied).toEqual(appliedBefore);
+    expect(store.appliedCoStarPositionScope).toBe('query');
+    expect(store.coStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(true);
+    expect(coordinator.candidates.payload).toEqual({ id: 'prior' });
+    expect(coordinator.candidates.acceptedInput).toEqual({ positionKey: null });
+    store.restoreDraft();
+    expect(store.coStarPositionScope).toBe('query');
+  });
+
+  it('preserves draft edits made while accepting all and during automatic scope promotion', async () => {
+    const store = readyStore();
+    const pending = deferred<OperationResponse<Payload>>();
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'prior' }, requestId: 'server-prior',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: vi.fn() },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'co-star' });
+    candidateExecute.mockImplementationOnce(() => pending.promise);
+    store.setCoStarPositionScope('all');
+    const running = coordinator.execute({ catalog, mode: 'co-star' });
+    store.setCoStarPositionScope('query');
+    store.draft.includeNSFW = true;
+    pending.resolve({
+      payload: { id: 'all' }, requestId: 'server-all',
+      transactionId: candidateExecute.mock.calls[1]![0].transactionId,
+    });
+
+    await expect(running).resolves.toBe(true);
+    expect(store.appliedCoStarPositionScope).toBe('all');
+    expect(store.coStarPositionScope).toBe('query');
+    expect(store.coStarScopeDirty).toBe(true);
+    expect(store.applied?.includeNSFW).toBe(false);
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    store.acceptCoStarPositionScope('all', 'all');
+    expect(store.coStarPositionScope).toBe('query');
+    store.restoreDraft();
+    expect(store.coStarPositionScope).toBe('all');
+    store.setCoStarPositionScope('query', true);
+    store.acceptCoStarPositionScope('all', 'query');
+    expect(store.coStarPositionScope).toBe('all');
+    expect(store.coStarScopeDirty).toBe(false);
+  });
+
+  it('uses accepted all scope with Applied Query while preserving ranking keys and unrelated draft edits', async () => {
+    const store = readyStore();
+    const rankingExecute = vi.fn(async (request: RankingRequest) => ({
+      payload: { id: 'ranking' }, requestId: 'server-ranking',
+      transactionId: request.transactionId,
+    }));
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { id: 'candidates' }, requestId: 'server-candidates',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute: rankingExecute },
+    });
+    const catalog = catalogFixture();
+    await coordinator.execute({ catalog, mode: 'ranking' });
+    const applied = store.applied;
+    store.draft.includeNSFW = true;
+    store.draft.uid = 'unapplied-user';
+    store.setCoStarPositionScope('all', true);
+
+    await expect(coordinator.executeApplied({ catalog, mode: 'co-star' })).resolves.toBe(true);
+
+    expect(candidateExecute.mock.calls[0]![0].input).toEqual({ positionKey: null, positionScope: 'all' });
+    expect(candidateExecute.mock.calls[0]![0].query).toEqual(applied);
+    expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
+    expect(store.draft.uid).toBe('unapplied-user');
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    expect(store.coStarScopeDirty).toBe(false);
+  });
+
   it('commits resource, applied query, and monotonic revision together', async () => {
     const store = readyStore();
     const execute = vi.fn(
@@ -125,6 +290,51 @@ describe('query coordinator', () => {
     ).toBe(true);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(store.revision).toBe(1);
+    expect(coordinator.lastOperationFeedback.value).toBeNull();
+    expect(coordinator.rankings.feedback).toBeNull();
+  });
+
+  it('loads a missing mode from Applied Query without submitting a dirty Draft', async () => {
+    const store = readyStore();
+    const sharedVersion = `dv1-${'a'.repeat(64)}`;
+    const sharedFetchedAt = '2026-07-25T00:00:00Z';
+    const rankingExecute = vi.fn(async (request: RankingRequest) => ({
+      payload: snapshotPayload('ranking', sharedVersion, sharedFetchedAt),
+      requestId: 'server-ranking',
+      transactionId: request.transactionId,
+    }));
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => ({
+      payload: snapshotPayload('candidates', sharedVersion, sharedFetchedAt),
+      requestId: 'server-candidates',
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute },
+      rankings: { execute: rankingExecute },
+    });
+    const catalog = catalogFixture();
+
+    await expect(
+      coordinator.execute({ catalog, mode: 'ranking' }),
+    ).resolves.toBe(true);
+    store.draft.includeNSFW = true;
+    expect(store.dirty).toBe(true);
+
+    await expect(
+      coordinator.executeApplied({ catalog, mode: 'co-star' }),
+    ).resolves.toBe(true);
+
+    expect(candidateExecute).toHaveBeenCalledOnce();
+    expect(candidateExecute.mock.calls[0]![0].query.includeNSFW).toBe(false);
+    expect(store.draft.includeNSFW).toBe(true);
+    expect(store.dirty).toBe(true);
+    expect(store.revision).toBe(1);
+    expect(coordinator.candidates).toMatchObject({
+      acceptedQuery: { includeNSFW: false },
+      payload: { id: 'candidates' },
+      phase: 'ready',
+      revision: 1,
+    });
   });
 
   it('accepts only the latest of two explicitly deferred responses', async () => {
@@ -572,7 +782,7 @@ describe('query coordinator', () => {
     );
   });
 
-  it('restores prior usable data after refresh failure and commits stale warning', async () => {
+  it('restores prior usable data after a changed-query failure and commits an ordinary stale warning', async () => {
     const store = readyStore();
     const execute = vi
       .fn()
@@ -592,17 +802,17 @@ describe('query coordinator', () => {
     const catalog = catalogFixture();
 
     await coordinator.execute({ catalog, mode: 'ranking' });
+    store.draft.includeNSFW = true;
     expect(
       await coordinator.execute({
         catalog,
         mode: 'ranking',
-        refreshCollection: true,
       }),
     ).toBe(false);
     expect(coordinator.rankings.payload).toEqual({ id: 'old' });
     expect(coordinator.rankings.phase).toBe('ready');
     expect(store.revision).toBe(1);
-    expect(store.dirty).toBe(false);
+    expect(store.dirty).toBe(true);
     expect(coordinator.lastOperationFeedback.value).toMatchObject({
       kind: 'error',
       message: '查询暂时无法完成，请稍后重试',
@@ -613,7 +823,6 @@ describe('query coordinator', () => {
       await coordinator.execute({
         catalog,
         mode: 'ranking',
-        refreshCollection: true,
       }),
     ).toBe(true);
     expect(coordinator.rankings.payload).toEqual({ id: 'stale' });
@@ -623,7 +832,7 @@ describe('query coordinator', () => {
       kind: 'warning',
       operation: 'rankings',
     });
-    expect(store.revision).toBe(1);
+    expect(store.revision).toBe(2);
   });
 
   it('clears transient operation feedback when a newer request starts and succeeds cleanly', async () => {
@@ -654,9 +863,9 @@ describe('query coordinator', () => {
     expect(coordinator.lastOperationFeedback.value).toBeNull();
   });
 
-  it('atomically restores the last ready resource when refresh is cancelled', async () => {
+  it('atomically restores the last ready resource when a changed query is cancelled', async () => {
     const store = readyStore();
-    const refresh = deferred<OperationResponse<Payload>>();
+    const changedQuery = deferred<OperationResponse<Payload>>();
     const execute = vi
       .fn()
       .mockImplementationOnce(async (request: RankingRequest) => ({
@@ -664,17 +873,17 @@ describe('query coordinator', () => {
         requestId: `server-${request.transactionId}`,
         transactionId: request.transactionId,
       }))
-      .mockImplementationOnce(() => refresh.promise);
+      .mockImplementationOnce(() => changedQuery.promise);
     const coordinator = createQueryCoordinator(store, drivers(execute));
     const catalog = catalogFixture();
 
     await coordinator.execute({ catalog, mode: 'ranking' });
-    const pendingRefresh = coordinator.execute({
+    store.draft.includeNSFW = true;
+    const pendingQuery = coordinator.execute({
       catalog,
       mode: 'ranking',
-      refreshCollection: true,
     });
-    const refreshRequest = execute.mock.calls[1]![0] as RankingRequest;
+    const changedRequest = execute.mock.calls[1]![0] as RankingRequest;
 
     expect(coordinator.rankings.phase).toBe('pending');
     expect(coordinator.rankings.payload).toEqual({ id: 'ready' });
@@ -688,12 +897,12 @@ describe('query coordinator', () => {
     });
     expect(coordinator.pending.value).toBe(false);
 
-    refresh.resolve({
+    changedQuery.resolve({
       payload: { id: 'too-late' },
       requestId: 'server-too-late',
-      transactionId: refreshRequest.transactionId,
+      transactionId: changedRequest.transactionId,
     });
-    await expect(pendingRefresh).resolves.toBe(false);
+    await expect(pendingQuery).resolves.toBe(false);
     expect(coordinator.rankings.payload).toEqual({ id: 'ready' });
   });
 
@@ -714,10 +923,10 @@ describe('query coordinator', () => {
     const catalog = catalogFixture();
 
     await coordinator.execute({ catalog, mode: 'ranking' });
-    const refresh = coordinator.execute({
+    store.draft.includeNSFW = true;
+    const first = coordinator.execute({
       catalog,
       mode: 'ranking',
-      refreshCollection: true,
     });
     store.draft.positionKeys = ['staff:anime:101'];
     const superseding = coordinator.execute({ catalog, mode: 'ranking' });
@@ -732,11 +941,11 @@ describe('query coordinator', () => {
     });
 
     firstPending.resolve({
-      payload: { id: 'stale-refresh' },
-      requestId: 'server-stale-refresh',
+      payload: { id: 'late-first' },
+      requestId: 'server-late-first',
       transactionId: firstRequest.transactionId,
     });
-    await expect(refresh).resolves.toBe(false);
+    await expect(first).resolves.toBe(false);
     expect(coordinator.rankings.payload).toEqual({ id: 'stable' });
     expect(store.applied?.positionKeys).toEqual(['staff:anime:2']);
     expect(store.dirty).toBe(true);
@@ -854,141 +1063,6 @@ describe('query coordinator', () => {
     expect(store.applied).toBeNull();
   });
 
-  it('records only the latest candidate view intent during refresh and replays it on the refreshed snapshot', async () => {
-    const store = readyStore();
-    const versionA = `dv1-${'a'.repeat(64)}`;
-    const versionB = `dv1-${'b'.repeat(64)}`;
-    const fetchedAtA = '2026-07-25T08:00:00Z';
-    const fetchedAtB = '2026-07-25T08:05:00Z';
-    const staleView = deferred<OperationResponse<SnapshotPayload>>();
-    const refresh = deferred<OperationResponse<SnapshotPayload>>();
-    const replay = deferred<OperationResponse<SnapshotPayload>>();
-    const candidateExecute = vi
-      .fn()
-      .mockImplementationOnce(async (request: CandidateRequest) => ({
-        payload: snapshotPayload(
-          'accepted',
-          versionA,
-          fetchedAtA,
-        ),
-        requestId: 'server-candidate-accepted',
-        transactionId: request.transactionId,
-      }))
-      .mockImplementationOnce(() => staleView.promise)
-      .mockImplementationOnce(() => refresh.promise)
-      .mockImplementationOnce(() => replay.promise);
-    const coordinator = createQueryCoordinator<
-      SnapshotPayload,
-      SnapshotPayload
-    >(store, {
-      rankings: {
-        async execute(): Promise<never> {
-          throw new Error('rankings are outside this test');
-        },
-      },
-      candidates: { execute: candidateExecute },
-    });
-    const catalog = catalogFixture();
-
-    await coordinator.execute({ catalog, mode: 'co-star' });
-    const staleResult = coordinator.executeCandidateView(
-      coordinator.candidates.input,
-      {
-        ...coordinator.candidates.view,
-        search: '刷新前',
-      } as never,
-    );
-    const staleRequest = candidateExecute.mock
-      .calls[1]![0] as CandidateRequest;
-    const refreshResult = coordinator.execute({
-      candidateInput: coordinator.candidates.input,
-      catalog,
-      mode: 'co-star',
-      refreshCollection: true,
-    });
-    const refreshRequest = candidateExecute.mock
-      .calls[2]![0] as CandidateRequest;
-
-    expect(staleRequest.signal.aborted).toBe(true);
-    await expect(
-      coordinator.executeCandidateView(
-        coordinator.candidates.input,
-        {
-          ...coordinator.candidates.view,
-          search: '中间意图',
-        } as never,
-      ),
-    ).resolves.toBe(true);
-    const latestView = {
-      ...coordinator.candidates.view,
-      order: 'asc' as const,
-      page: 2,
-      pageSize: 20 as const,
-      search: '最终意图',
-      sort: 'globalAverage' as const,
-    };
-    await expect(
-      coordinator.executeCandidateView(
-        coordinator.candidates.input,
-        latestView,
-      ),
-    ).resolves.toBe(true);
-
-    expect(candidateExecute).toHaveBeenCalledTimes(3);
-    expect(coordinator.candidates.error).toBeNull();
-    expect(coordinator.lastOperationFeedback.value).toBeNull();
-
-    refresh.resolve({
-      payload: snapshotPayload(
-        'refreshed-primary',
-        versionB,
-        fetchedAtB,
-      ),
-      requestId: 'server-candidate-refresh',
-      transactionId: refreshRequest.transactionId,
-    });
-    await Promise.resolve();
-
-    expect(candidateExecute).toHaveBeenCalledTimes(4);
-    const replayRequest = candidateExecute.mock
-      .calls[3]![0] as CandidateRequest;
-    expect(replayRequest).toMatchObject({
-      refreshCollection: false,
-      view: latestView,
-    });
-    replay.resolve({
-      payload: snapshotPayload(
-        'latest-view',
-        versionB,
-        fetchedAtB,
-      ),
-      requestId: 'server-candidate-replay',
-      transactionId: replayRequest.transactionId,
-    });
-    await expect(refreshResult).resolves.toBe(true);
-
-    staleView.resolve({
-      payload: snapshotPayload(
-        'stale-view',
-        versionA,
-        fetchedAtA,
-      ),
-      requestId: 'server-candidate-stale',
-      transactionId: staleRequest.transactionId,
-    });
-    await expect(staleResult).resolves.toBe(false);
-
-    expect(candidateExecute).toHaveBeenCalledTimes(4);
-    expect(coordinator.candidates).toMatchObject({
-      error: null,
-      payload: { id: 'latest-view' },
-      requestId: 'server-candidate-replay',
-      view: latestView,
-      viewPending: false,
-    });
-    expect(store.revision).toBe(2);
-  });
-
   it('runs a candidate view transaction without changing Applied or revision', async () => {
     const store = readyStore();
     store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];
@@ -1027,7 +1101,6 @@ describe('query coordinator', () => {
     const request = candidateExecute.mock.calls[1]![0] as CandidateRequest;
 
     expect(request.query).toBe(coordinator.candidates.acceptedQuery);
-    expect(request.refreshCollection).toBe(false);
     expect(request.input.positionKey).toBe('staff:anime:101');
     expect(request.view).toEqual({
       order: 'asc',
@@ -1055,7 +1128,7 @@ describe('query coordinator', () => {
     });
     await expect(viewRequest).resolves.toBe(true);
     expect(coordinator.candidates).toMatchObject({
-      feedback: '收藏刷新未完成，当前显示最近一次可用数据',
+      feedback: '收藏数据暂时无法更新，当前显示最近一次可用数据',
       input: { positionKey: 'staff:anime:101' },
       payload: { id: 'searched' },
       requestId: 'server-candidate-view',
@@ -1247,7 +1320,7 @@ describe('query coordinator', () => {
     ).resolves.toBe(false);
     expect(coordinator.candidates).toMatchObject({
       error: '候选人物服务正在准备，请稍后重试',
-      input: { positionKey: 'staff:anime:2' },
+      input: { positionKey: null },
       payload: { id: 'global' },
       requestId: 'server-candidate-not-ready',
       view: { page: 1 },
@@ -1281,7 +1354,6 @@ describe('query coordinator', () => {
     const request = execute.mock.calls[1]![0] as RankingRequest;
 
     expect(request.query).toBe(coordinator.rankings.acceptedQuery);
-    expect(request.refreshCollection).toBe(false);
     expect(request.view.search).toBe('林');
     expect(coordinator.rankings).toMatchObject({
       payload: { id: 'core' },
@@ -1543,7 +1615,7 @@ async function readyCoStarCoordinator(
 }
 
 describe('co-star coordinator resource', () => {
-  it('runs independently with canonical ordered identities and never refreshes collection', async () => {
+  it('runs independently with canonical ordered identities', async () => {
     const pending = deferred<OperationResponse<Payload>>();
     const execute = vi.fn((_request: CoStarRequest) => pending.promise);
     const { coordinator, store } = await readyCoStarCoordinator(execute);
@@ -1554,10 +1626,8 @@ describe('co-star coordinator resource', () => {
     expect(request).toMatchObject({
       input: coStarInput,
       query: coordinator.candidates.acceptedQuery,
-      refreshCollection: false,
       view: coStarView,
     });
-    expect(request.input).not.toHaveProperty('refreshCollection');
     expect(coordinator.coStar).toMatchObject({
       input: coStarInput,
       phase: 'pending',
@@ -1700,7 +1770,6 @@ describe('co-star coordinator resource', () => {
       search: '共同',
     });
     const request = execute.mock.calls[1]![0] as CoStarRequest;
-    expect(request.refreshCollection).toBe(false);
     expect(coordinator.coStar).toMatchObject({
       payload: { id: 'stable-core' },
       requestId: 'server-stable-core',
@@ -1829,79 +1898,6 @@ describe('co-star coordinator resource', () => {
     expect(store.revision).toBe(revision);
   });
 
-  it('queues compound co-star view controls without transport and restores them after refresh failure', async () => {
-    const refresh = deferred<OperationResponse<Payload>>();
-    const coStarExecute = vi.fn(
-      async (request: CoStarRequest) => ({
-        payload: { id: 'accepted-analysis' },
-        requestId: 'server-accepted-analysis',
-        transactionId: request.transactionId,
-      }),
-    );
-    const candidateExecute = vi
-      .fn()
-      .mockImplementationOnce(
-        async (request: CandidateRequest) => ({
-          payload: { id: 'initial-candidates' },
-          requestId: 'server-initial-candidates',
-          transactionId: request.transactionId,
-        }),
-      )
-      .mockImplementationOnce(() => refresh.promise);
-    const { coordinator } = await readyCoStarCoordinator(
-      coStarExecute,
-      candidateExecute,
-    );
-    const catalog = catalogFixture();
-    await coordinator.executeCoStar(coStarInput, {
-      ...coStarView,
-      search: 'accepted',
-    });
-    const acceptedView = coordinator.coStar.view;
-
-    const primary = coordinator.execute({
-      catalog,
-      mode: 'co-star',
-      refreshCollection: true,
-    });
-    await expect(
-      coordinator.executeCoStarView({
-        ...coordinator.coStar.view,
-        search: 'queued search',
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      coordinator.executeCoStarView({
-        ...coordinator.coStar.view,
-        order: 'asc',
-      }),
-    ).resolves.toBe(true);
-
-    expect(coStarExecute).toHaveBeenCalledOnce();
-    expect(coordinator.coStar).toMatchObject({
-      error: null,
-      view: {
-        order: 'asc',
-        search: 'queued search',
-      },
-    });
-    expect(coordinator.lastOperationFeedback.value).toBeNull();
-
-    refresh.reject(new Error('refresh failed'));
-    await expect(primary).resolves.toBe(false);
-    expect(coStarExecute).toHaveBeenCalledOnce();
-    expect(coordinator.coStar.view).toBe(acceptedView);
-    expect(coordinator.coStar).toMatchObject({
-      error: null,
-      payload: { id: 'accepted-analysis' },
-      phase: 'ready',
-      view: {
-        order: 'desc',
-        search: 'accepted',
-      },
-    });
-  });
-
   it('rejects invalid identities and scope/work-unit sorts before transport', async () => {
     const execute = vi.fn();
     const { coordinator } = await readyCoStarCoordinator(execute);
@@ -1933,5 +1929,73 @@ describe('co-star coordinator resource', () => {
     ).resolves.toBe(false);
     expect(coordinator.coStar.error).toBe('共同作品视图参数无效');
     expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('independent operation position scope', () => {
+  function harness() {
+    const store = readyStore();
+    const catalog = catalogFixture();
+    const execute = vi.fn(async (request: OperationRequest<unknown, unknown>) => ({
+      payload: { id: request.transactionId }, requestId: request.transactionId,
+      transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, {
+      rankings: { execute }, candidates: { execute },
+      partners: { execute }, coStar: { execute },
+    }, undefined, { getCatalog: () => catalog });
+    return { store, catalog, execute, coordinator };
+  }
+
+  it('isolates query/all candidate and partner reuse while keeping the ranking Query', async () => {
+    const h = harness();
+    await h.coordinator.execute({ catalog: h.catalog, mode: 'co-star' });
+    const query = h.store.applied;
+    const view = { search: '', sort: 'count', order: 'desc', page: 1, pageSize: 10 } as const;
+    expect(await h.coordinator.executeCandidateView({ positionKey: null, positionScope: 'all' }, view)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(2);
+    expect(await h.coordinator.executeCandidateView({ positionKey: null, positionScope: 'all' }, view)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(2);
+    expect(await h.coordinator.executeCandidateView({ positionKey: 'staff:anime:101', positionScope: 'all' }, view)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(3);
+    expect(await h.coordinator.executeCandidateView({ positionKey: 'staff:anime:101' }, view)).toBe(false);
+    const source = { personId: 1, positionKeys: ['staff:anime:2'] } as const;
+    expect(await h.coordinator.executePartners({ source } as never)).toBe(true);
+    expect(await h.coordinator.executePartners({ source, positionScope: 'all' } as never)).toBe(true);
+    expect(h.execute).toHaveBeenCalledTimes(5);
+    expect(h.coordinator.partners.acceptedInput?.positionScope).toBe('all');
+    expect(h.store.applied).toBe(query);
+  });
+
+  it('accepts exact cross-role identities only in all scope and refuses unknown/type/capability mismatches', async () => {
+    const h = harness();
+    await h.coordinator.execute({ catalog: h.catalog, mode: 'co-star' });
+    const participants = [
+      { personId: 1, positionKeys: ['staff:anime:2'] },
+      { personId: 2, positionKeys: ['staff:anime:101'] },
+    ];
+    expect(await h.coordinator.executeCoStar({ participants } as never)).toBe(false);
+    expect(await h.coordinator.executeCoStar({ participants, positionScope: 'all' } as never)).toBe(true);
+    expect(h.coordinator.coStar.acceptedInput).toEqual({ participants, positionScope: 'all' });
+    expect(await h.coordinator.executePartners({ source: participants[1], positionScope: 'all' } as never)).toBe(true);
+    for (const key of ['staff:anime:999999', 'staff:book:1']) {
+      expect(await h.coordinator.executeCoStar({ participants: [participants[0], { personId: 2, positionKeys: [key] }], positionScope: 'all' } as never)).toBe(false);
+    }
+    const position = h.catalog.positionsByKey.get('staff:anime:101')!;
+    (h.catalog.positionsByKey as Map<string, typeof position>).set(position.key, { ...position, capabilities: ['rankings'] });
+    expect(await h.coordinator.executeCoStar({ participants, positionScope: 'all' } as never)).toBe(false);
+  });
+
+  it('rejects unsupported positions returned by an all-position candidate response', async () => {
+    const store = readyStore();
+    const catalog = catalogFixture();
+    const execute = vi.fn(async (request: CandidateRequest) => ({
+      payload: { items: [{ positionKeys: ['staff:book:1'] }], positionCounts: [{ positionKey: 'staff:book:1' }] },
+      requestId: request.transactionId, transactionId: request.transactionId,
+    }));
+    const coordinator = createQueryCoordinator(store, { candidates: { execute }, rankings: { execute: execute as never } });
+    expect(await coordinator.execute({ catalog, mode: 'co-star', candidateInput: { positionKey: null, positionScope: 'all' } })).toBe(false);
+    expect(store.applied).toBeNull();
   });
 });

@@ -40,30 +40,29 @@ func TestProductionPackageDependencies(t *testing.T) {
 	packages := listPackages(t, moduleRoot)
 
 	allowedInternalImports := map[string][]string{
-		modulePath + "/cmd/api":                       {modulePath + "/internal/app"},
-		modulePath + "/cmd/archive-smoke":             {modulePath + "/internal/archive", modulePath + "/internal/releaseinfo"},
-		modulePath + "/internal/app":                  {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/costar", modulePath + "/internal/httpapi", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/publiccollection", modulePath + "/internal/ranking", modulePath + "/internal/runtimecache"},
-		modulePath + "/internal/candidates":           {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
-		modulePath + "/internal/catalog":              {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
-		modulePath + "/internal/costar":               {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
-		modulePath + "/internal/httpapi":              {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/catalog", modulePath + "/internal/costar", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/querytiming", modulePath + "/internal/ranking", modulePath + "/internal/releaseinfo"},
-		modulePath + "/internal/httpapi/wire":         {},
-		modulePath + "/internal/imageproxy":           {},
-		modulePath + "/internal/observability":        {},
-		modulePath + "/internal/partners":             {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
-		modulePath + "/internal/persondetail":         {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
-		modulePath + "/internal/publiccollection":     {modulePath + "/internal/runtimecache"},
-		modulePath + "/internal/query":                {modulePath + "/internal/archive"},
-		modulePath + "/internal/querytiming":          {},
-		modulePath + "/internal/ranking":              {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
-		modulePath + "/internal/releaseinfo":          {},
-		modulePath + "/internal/runtimecache":         {modulePath + "/internal/querytiming"},
-		modulePath + "/internal/statistics":           {modulePath + "/internal/archive", modulePath + "/internal/query"},
-		modulePath + "/internal/archive":              {},
-		modulePath + "/internal/archive/contracttest": {},
-		modulePath + "/internal/cache":                {},
-		modulePath + "/internal/collection":           {},
-		modulePath + "/internal/architecture":         {},
+		modulePath + "/cmd/api":                   {modulePath + "/internal/app"},
+		modulePath + "/internal/app":              {modulePath + "/internal/archive", modulePath + "/internal/archivebuild", modulePath + "/internal/candidates", modulePath + "/internal/costar", modulePath + "/internal/httpapi", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/publiccollection", modulePath + "/internal/ranking", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/archivebuild":     {},
+		modulePath + "/internal/candidates":       {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/catalog":          {modulePath + "/internal/archive", modulePath + "/internal/httpapi/wire"},
+		modulePath + "/internal/costar":           {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/httpapi":          {modulePath + "/internal/archive", modulePath + "/internal/candidates", modulePath + "/internal/catalog", modulePath + "/internal/costar", modulePath + "/internal/httpapi/wire", modulePath + "/internal/imageproxy", modulePath + "/internal/observability", modulePath + "/internal/partners", modulePath + "/internal/persondetail", modulePath + "/internal/querytiming", modulePath + "/internal/ranking", modulePath + "/internal/releaseinfo"},
+		modulePath + "/internal/httpapi/wire":     {},
+		modulePath + "/internal/imageproxy":       {},
+		modulePath + "/internal/observability":    {},
+		modulePath + "/internal/partners":         {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/persondetail":     {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/publiccollection": {modulePath + "/internal/runtimecache"},
+		modulePath + "/internal/query":            {modulePath + "/internal/archive"},
+		modulePath + "/internal/querytiming":      {},
+		modulePath + "/internal/ranking":          {modulePath + "/internal/archive", modulePath + "/internal/query", modulePath + "/internal/querytiming", modulePath + "/internal/runtimecache", modulePath + "/internal/statistics"},
+		modulePath + "/internal/releaseinfo":      {},
+		modulePath + "/internal/runtimecache":     {modulePath + "/internal/querytiming"},
+		modulePath + "/internal/statistics":       {modulePath + "/internal/archive", modulePath + "/internal/query"},
+		modulePath + "/internal/archive":          {},
+		modulePath + "/internal/cache":            {},
+		modulePath + "/internal/collection":       {},
+		modulePath + "/internal/architecture":     {},
 	}
 
 	for _, pkg := range packages {
@@ -92,6 +91,8 @@ func TestProductionPackageDependencies(t *testing.T) {
 						imported == "github.com/oapi-codegen/runtime"
 					archiveSQLite := pkg.ImportPath == modulePath+"/internal/archive" &&
 						(imported == "modernc.org/sqlite" || imported == "modernc.org/sqlite/vfs")
+					archiveBuilder := pkg.ImportPath == modulePath+"/internal/archivebuild" &&
+						(imported == "modernc.org/sqlite" || imported == "go.yaml.in/yaml/v3")
 					queryNormalization := pkg.ImportPath == modulePath+"/internal/query" &&
 						(imported == "github.com/gowebpki/jcs" ||
 							strings.HasPrefix(imported, "golang.org/x/text/"))
@@ -109,7 +110,7 @@ func TestProductionPackageDependencies(t *testing.T) {
 						imported == "golang.org/x/sync/singleflight"
 					publicCollection := pkg.ImportPath == modulePath+"/internal/publiccollection" &&
 						imported == "github.com/AcuLY/bangumi-collection-go"
-					if !wireRuntime && !archiveSQLite && !queryNormalization &&
+					if !wireRuntime && !archiveSQLite && !archiveBuilder && !queryNormalization &&
 						!rankingNormalization && !candidatesNormalization &&
 						!personDetailNormalization && !partnersNormalization &&
 						!coStarNormalization && !runtimeCache && !publicCollection {
@@ -179,11 +180,12 @@ func TestPinnedModuleDeclaration(t *testing.T) {
 		}
 	}
 	wantDirect := map[string]string{
-		"github.com/AcuLY/bangumi-collection-go": "v0.1.1",
+		"github.com/AcuLY/bangumi-collection-go": "v0.1.2",
 		"github.com/oapi-codegen/runtime":        "v1.1.2",
 		"github.com/gowebpki/jcs":                "v1.0.1",
 		"golang.org/x/sync":                      "v0.22.0",
 		"golang.org/x/text":                      "v0.40.0",
+		"go.yaml.in/yaml/v3":                     "v3.0.4",
 		"modernc.org/sqlite":                     "v1.54.0",
 	}
 	if !mapsEqual(direct, wantDirect) {

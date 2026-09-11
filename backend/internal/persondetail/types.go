@@ -38,8 +38,7 @@ func (function CollectionProviderFunc) Fetch(
 	return function(ctx, uid, subjectType, statuses)
 }
 
-// Request contains preserved operation documents. Person detail never accepts
-// refreshCollection.
+// Request contains preserved operation documents.
 type Request struct {
 	Query json.RawMessage
 	Input json.RawMessage
@@ -48,7 +47,9 @@ type Request struct {
 
 // Input is the closed semantic input.
 type Input struct {
-	PersonID int64 `json:"personId"`
+	PositionScope string   `json:"positionScope,omitempty"`
+	PersonID      int64    `json:"personId"`
+	PositionKeys  []string `json:"positionKeys,omitempty"`
 }
 
 // ViewInput represents optional request members before defaults.
@@ -177,10 +178,16 @@ type RatingBucket struct {
 }
 
 type RatingTimelinePoint struct {
-	Year    int   `json:"year"`
-	Quarter int   `json:"quarter"`
-	Average int64 `json:"average"`
-	Count   int   `json:"count"`
+	Year    int                  `json:"year"`
+	Quarter int                  `json:"quarter"`
+	Average int64                `json:"average"`
+	Count   int                  `json:"count"`
+	Works   []RatingTimelineWork `json:"works"`
+}
+
+type RatingTimelineWork struct {
+	Subject SubjectReference `json:"subject"`
+	Score   int64            `json:"score"`
 }
 
 type RatingDistribution struct {
@@ -262,6 +269,7 @@ type SeriesWork struct {
 	Key                       string           `json:"key"`
 	SeriesID                  int64            `json:"seriesId"`
 	Representative            SubjectReference `json:"representative"`
+	MetaTags                  []string         `json:"metaTags"`
 	MatchedWorkCount          int              `json:"matchedWorkCount"`
 	MemberCount               int              `json:"memberCount"`
 	Members                   []SeriesMember   `json:"members"`

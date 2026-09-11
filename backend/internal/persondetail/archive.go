@@ -23,7 +23,7 @@ LEFT JOIN catalog_capability AS capability
   ON capability.position_key = position.position_key
  AND capability.capability = 'personDetail'
 ORDER BY position.subject_type, position.display_order, position.position_key`
-	selectDetailPerson = `SELECT person_id, name, name_cn
+	selectDetailPerson = `SELECT person_id, name, name_cn, summary
 FROM person
 WHERE person_id = ?`
 	selectDetailCareers = `SELECT career
@@ -182,12 +182,15 @@ func loadPerson(
 		return PersonProfile{}, false, nil
 	}
 	var result PersonProfile
-	var nameCN sql.NullString
-	if err := rows.Scan(&result.ID, &result.Name, &nameCN); err != nil {
+	var nameCN, summary sql.NullString
+	if err := rows.Scan(&result.ID, &result.Name, &nameCN, &summary); err != nil {
 		return PersonProfile{}, false, sourceFailure(ctx, err)
 	}
 	if nameCN.Valid {
 		result.NameCN = cloneString(&nameCN.String)
+	}
+	if summary.Valid {
+		result.Summary = cloneString(&summary.String)
 	}
 	if rows.Next() {
 		return PersonProfile{}, false, sourceFailure(

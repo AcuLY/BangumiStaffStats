@@ -160,7 +160,7 @@ func DefaultResultConfig() ResultConfig {
 			MaxItems:    512,
 			MaxItemCost: 32 * megabyte,
 		},
-		LoadTimeout: 2 * time.Minute,
+		LoadTimeout: 20 * time.Second,
 	}
 }
 

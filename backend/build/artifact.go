@@ -40,18 +40,22 @@ const (
 	domainRulesVersion             = "domain-raw-v1"
 	castRulesVersion               = "cast-exact-v1"
 	compatibilityMatrixInputPath   = "contracts/schemas/archive/compatibility-matrix.json"
-	compatibilityMatrixDigest      = "sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac"
+	compatibilityMatrixDigest      = "sha256:7677bf83d62f38e9ac9d7af5eab2e37342a110533b63ce6f6a940d8607b84bd9"
 	requiredBuildkitVersion        = "0.27.1"
 	requiredBuildxVersion          = "0.34.1"
 	requiredBuildkitImageDigest    = "sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368"
 	requiredBuildkitImageInputPath = "toolchain/buildkit-image"
+	producerRuntimeInputPath       = "contracts/producer-runtime-inputs-v1"
+	producerRuntimeInputDigest     = "sha256:aaffa81b36992189c991f2de2158d2baa45335b11d679e087f1c82567889993d"
+	archiveSchemaAssetInputPath    = "backend/internal/archivebuild/assets/schema.sql"
+	displayCatalogAssetInputPath   = "backend/internal/archivebuild/assets/display-v1.yaml"
+	staffSetsAssetInputPath        = "backend/internal/archivebuild/assets/staff-sets-v1.yaml"
+	displayCatalogAssetDigest      = "sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8"
+	staffSetsAssetDigest           = "sha256:df2ad5c80add8898ebf61a0eced86f608374e528b34b881c3fe741b177be8dae"
 	requiredGoVersion              = "go1.26.5"
 	apiModulePath                  = "github.com/AcuLY/BangumiStaffStats/backend/cmd/api"
-	archiveSmokeModulePath         = "github.com/AcuLY/BangumiStaffStats/backend/cmd/archive-smoke"
 	apiBundlePath                  = "bin/bgmss-api"
-	archiveSmokeBundlePath         = "bin/archive-smoke"
 	apiExecutableRole              = "api-runtime"
-	archiveSmokeExecutableRole     = "archive-validation"
 	releaseinfoVersionSymbol       = "github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Version"
 	releaseinfoCommitSymbol        = "github.com/AcuLY/BangumiStaffStats/backend/internal/releaseinfo.Commit"
 	checksumFileName               = "checksums.sha256"
@@ -310,7 +314,6 @@ func exitError(err error) {
 
 type packageOptions struct {
 	APIBinaryPath               string
-	ArchiveSmokeBinaryPath      string
 	ImageArchivePath            string
 	OutputPath                  string
 	SourceRevision              string
@@ -384,34 +387,7 @@ func packageCommand(arguments []string) error {
 	if err := validateELFFile(options.APIBinaryPath, "API"); err != nil {
 		return err
 	}
-	archiveSmokeBuild, err := buildinfo.ReadFile(options.ArchiveSmokeBinaryPath)
-	if err != nil {
-		return fmt.Errorf("read Archive smoke build info: %w", err)
-	}
-	if err := validateBuildInfo(
-		archiveSmokeBuild,
-		"Archive smoke",
-		archiveSmokeModulePath,
-		options.TargetOS,
-		options.TargetArchitecture,
-	); err != nil {
-		return err
-	}
-	if err := validateLinkedReleaseIdentity(
-		options.ArchiveSmokeBinaryPath,
-		"Archive smoke",
-		options.ApplicationVersion,
-		options.SourceRevision,
-	); err != nil {
-		return err
-	}
-	if err := validateELFFile(options.ArchiveSmokeBinaryPath, "Archive smoke"); err != nil {
-		return err
-	}
-	executables, err := executableFacts(
-		options.APIBinaryPath,
-		options.ArchiveSmokeBinaryPath,
-	)
+	executables, err := executableFacts(options.APIBinaryPath)
 	if err != nil {
 		return err
 	}
@@ -467,7 +443,7 @@ func packageCommand(arguments []string) error {
 		Compatibility: compatibilityFacts{
 			Archive: archiveCompatibility{
 				ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
-				SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+				SQLiteSchemaVersion:       versionRange{Minimum: 2, Maximum: 2},
 				ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
 				SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
 				DomainRulesVersion:        options.ArchiveDomainRulesVersion,
@@ -487,7 +463,6 @@ func packageCommand(arguments []string) error {
 	bundlePath := filepath.Join(options.OutputPath, bundleName)
 	if err := writeBundle(
 		options.APIBinaryPath,
-		options.ArchiveSmokeBinaryPath,
 		bundlePath,
 		metadata,
 	); err != nil {
@@ -511,7 +486,7 @@ func packageCommand(arguments []string) error {
 		sbomPath,
 		inventoryDigest,
 		records,
-		[]*buildinfo.BuildInfo{apiBuild, archiveSmokeBuild},
+		[]*buildinfo.BuildInfo{apiBuild},
 		options.ApplicationVersion,
 	)
 	if err != nil {
@@ -547,7 +522,7 @@ func packageCommand(arguments []string) error {
 		Compatibility: compatibilityFacts{
 			Archive: archiveCompatibility{
 				ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
-				SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+				SQLiteSchemaVersion:       versionRange{Minimum: 2, Maximum: 2},
 				ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
 				SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
 				DomainRulesVersion:        options.ArchiveDomainRulesVersion,
@@ -593,12 +568,6 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 	flags := flag.NewFlagSet("package", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&options.APIBinaryPath, "api-binary", "", "built API executable")
-	flags.StringVar(
-		&options.ArchiveSmokeBinaryPath,
-		"archive-smoke-binary",
-		"",
-		"built Archive smoke executable",
-	)
 	flags.StringVar(
 		&options.ImageArchivePath,
 		"image-archive",
@@ -671,16 +640,15 @@ func parsePackageOptions(arguments []string) (packageOptions, error) {
 
 func validatePackageOptions(options packageOptions) error {
 	for name, value := range map[string]string{
-		"api-binary":           options.APIBinaryPath,
-		"archive-smoke-binary": options.ArchiveSmokeBinaryPath,
-		"image-archive":        options.ImageArchivePath,
-		"output":               options.OutputPath,
-		"go-image":             options.GoImageReference,
-		"runtime-image":        options.RuntimeImageReference,
-		"target-arch":          options.TargetArchitecture,
-		"source-revision":      options.SourceRevision,
-		"source-tree":          options.SourceTree,
-		"application-version":  options.ApplicationVersion,
+		"api-binary":          options.APIBinaryPath,
+		"image-archive":       options.ImageArchivePath,
+		"output":              options.OutputPath,
+		"go-image":            options.GoImageReference,
+		"runtime-image":       options.RuntimeImageReference,
+		"target-arch":         options.TargetArchitecture,
+		"source-revision":     options.SourceRevision,
+		"source-tree":         options.SourceTree,
+		"application-version": options.ApplicationVersion,
 	} {
 		if value == "" {
 			return fmt.Errorf("%s is required", name)
@@ -735,6 +703,12 @@ func validatePackageOptions(options packageOptions) error {
 	foundBuildkitImage := false
 	foundVersion := false
 	foundCompatibilityMatrix := false
+	requiredProducerInputs := map[string]string{
+		producerRuntimeInputPath:     producerRuntimeInputDigest,
+		archiveSchemaAssetInputPath:  options.ArchiveSchemaSQLDigest,
+		displayCatalogAssetInputPath: displayCatalogAssetDigest,
+		staffSetsAssetInputPath:      staffSetsAssetDigest,
+	}
 	for index, input := range options.Inputs {
 		if index > 0 && options.Inputs[index-1].Path == input.Path {
 			return fmt.Errorf("duplicate declared input %q", input.Path)
@@ -765,6 +739,12 @@ func validatePackageOptions(options packageOptions) error {
 				)
 			}
 		}
+		if requiredDigest, required := requiredProducerInputs[input.Path]; required {
+			if input.SHA256 != requiredDigest {
+				return fmt.Errorf("producer input %q digest = %q, want %q", input.Path, input.SHA256, requiredDigest)
+			}
+			delete(requiredProducerInputs, input.Path)
+		}
 	}
 	if !foundBuildkitImage {
 		return fmt.Errorf("declared inputs omit %q", requiredBuildkitImageInputPath)
@@ -774,6 +754,14 @@ func validatePackageOptions(options packageOptions) error {
 	}
 	if !foundCompatibilityMatrix {
 		return fmt.Errorf("declared inputs omit %q", compatibilityMatrixInputPath)
+	}
+	if len(requiredProducerInputs) != 0 {
+		missing := make([]string, 0, len(requiredProducerInputs))
+		for inputPath := range requiredProducerInputs {
+			missing = append(missing, inputPath)
+		}
+		sort.Strings(missing)
+		return fmt.Errorf("declared inputs omit producer authority: %s", strings.Join(missing, ", "))
 	}
 	if options.CompatibilityMatrixDigest != compatibilityMatrixDigest {
 		return fmt.Errorf(
@@ -903,20 +891,12 @@ func validateELFPolicy(reader io.ReaderAt, label string) error {
 	return nil
 }
 
-func executableFacts(
-	apiBinaryPath string,
-	archiveSmokeBinaryPath string,
-) ([]executableFact, error) {
+func executableFacts(apiBinaryPath string) ([]executableFact, error) {
 	specifications := []struct {
 		Role       string
 		BundlePath string
 		SourcePath string
 	}{
-		{
-			Role:       archiveSmokeExecutableRole,
-			BundlePath: archiveSmokeBundlePath,
-			SourcePath: archiveSmokeBinaryPath,
-		},
 		{
 			Role:       apiExecutableRole,
 			BundlePath: apiBundlePath,
@@ -1708,7 +1688,6 @@ func normalizedTarHeader(name string, mode int64, size int64) *tar.Header {
 
 func writeBundle(
 	apiBinaryPath string,
-	archiveSmokeBinaryPath string,
 	outputPath string,
 	metadata bundleMetadata,
 ) error {
@@ -1732,11 +1711,6 @@ func writeBundle(
 			Path string
 		}{
 			{Name: "bin/", Mode: 0o555},
-			{
-				Name: archiveSmokeBundlePath,
-				Mode: 0o555,
-				Path: archiveSmokeBinaryPath,
-			},
 			{Name: apiBundlePath, Mode: 0o555, Path: apiBinaryPath},
 			{Name: "metadata/", Mode: 0o555},
 			{Name: "metadata/build.json", Mode: 0o444, Data: metadataBytes},
@@ -2218,6 +2192,13 @@ func verifyStatement(
 	foundBuildkitImage := false
 	foundVersion := false
 	foundCompatibilityMatrix := false
+	compatibility := statement.Compatibility
+	requiredProducerInputs := map[string]string{
+		producerRuntimeInputPath:     producerRuntimeInputDigest,
+		archiveSchemaAssetInputPath:  compatibility.Archive.SchemaSQLDigest,
+		displayCatalogAssetInputPath: displayCatalogAssetDigest,
+		staffSetsAssetInputPath:      staffSetsAssetDigest,
+	}
 	for _, input := range statement.Inputs {
 		if !safeRelativePath(input.Path) || !digestPattern.MatchString(input.SHA256) ||
 			input.Path <= previous {
@@ -2235,6 +2216,12 @@ func verifyStatement(
 		if input.Path == compatibilityMatrixInputPath {
 			foundCompatibilityMatrix = input.SHA256 == compatibilityMatrixDigest
 		}
+		if requiredDigest, required := requiredProducerInputs[input.Path]; required {
+			if input.SHA256 != requiredDigest {
+				return fmt.Errorf("component statement producer input %q digest is invalid", input.Path)
+			}
+			delete(requiredProducerInputs, input.Path)
+		}
 		previous = input.Path
 	}
 	if !foundBuildkitImage {
@@ -2243,9 +2230,11 @@ func verifyStatement(
 	if !foundVersion || !foundCompatibilityMatrix {
 		return errors.New("component statement omits a release authority input")
 	}
-	compatibility := statement.Compatibility
+	if len(requiredProducerInputs) != 0 {
+		return errors.New("component statement omits a producer authority input")
+	}
 	if compatibility.Archive.ManifestSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
-		compatibility.Archive.SQLiteSchemaVersion != (versionRange{Minimum: 1, Maximum: 1}) ||
+		compatibility.Archive.SQLiteSchemaVersion != (versionRange{Minimum: 2, Maximum: 2}) ||
 		!digestPattern.MatchString(compatibility.Archive.ManifestSchemaDigest) ||
 		!digestPattern.MatchString(compatibility.Archive.SchemaSQLDigest) ||
 		compatibility.Archive.DomainRulesVersion != domainRulesVersion ||
@@ -2289,9 +2278,8 @@ func verifyStatement(
 }
 
 type verifiedBundleContents struct {
-	Metadata     bundleMetadata
-	API          []byte
-	ArchiveSmoke []byte
+	Metadata bundleMetadata
+	API      []byte
 }
 
 type bundleMemberSpecification struct {
@@ -2347,12 +2335,6 @@ func verifyBundle(
 
 	expectedExecutables := []executableFact{
 		{
-			Role:   archiveSmokeExecutableRole,
-			Path:   archiveSmokeBundlePath,
-			Size:   int64(len(contents.ArchiveSmoke)),
-			SHA256: "sha256:" + hashBytes(contents.ArchiveSmoke),
-		},
-		{
 			Role:   apiExecutableRole,
 			Path:   apiBundlePath,
 			Size:   int64(len(contents.API)),
@@ -2387,31 +2369,7 @@ func verifyBundle(
 	if err := validateELFPolicy(bytes.NewReader(contents.API), "bundled API"); err != nil {
 		return err
 	}
-	archiveSmokeBuild, err := buildinfo.Read(bytes.NewReader(contents.ArchiveSmoke))
-	if err != nil {
-		return fmt.Errorf("read bundled Archive smoke build info: %w", err)
-	}
-	if err := validateBuildInfo(
-		archiveSmokeBuild,
-		"bundled Archive smoke",
-		archiveSmokeModulePath,
-		statement.Target.OS,
-		statement.Target.Architecture,
-	); err != nil {
-		return err
-	}
-	if err := validateLinkedReleaseIdentityBytes(
-		contents.ArchiveSmoke,
-		"bundled Archive smoke",
-		statement.ApplicationVersion,
-		statement.Source.Revision,
-	); err != nil {
-		return err
-	}
-	return validateELFPolicy(
-		bytes.NewReader(contents.ArchiveSmoke),
-		"bundled Archive smoke",
-	)
+	return nil
 }
 
 func findArtifactRecord(records []fileRecord, path string) (fileRecord, bool) {
@@ -2561,12 +2519,6 @@ func readVerifiedBundle(path string) (verifiedBundleContents, error) {
 	specifications := []bundleMemberSpecification{
 		{Name: "bin/", Type: tar.TypeDir, Mode: 0o555},
 		{
-			Name:    archiveSmokeBundlePath,
-			Type:    tar.TypeReg,
-			Mode:    0o555,
-			MaxSize: maxExecutableSize,
-		},
-		{
 			Name:    apiBundlePath,
 			Type:    tar.TypeReg,
 			Mode:    0o555,
@@ -2655,9 +2607,8 @@ func readVerifiedBundle(path string) (verifiedBundleContents, error) {
 		return verifiedBundleContents{}, errors.New("bundle metadata is not canonical JSON")
 	}
 	return verifiedBundleContents{
-		Metadata:     metadata,
-		API:          members[apiBundlePath],
-		ArchiveSmoke: members[archiveSmokeBundlePath],
+		Metadata: metadata,
+		API:      members[apiBundlePath],
 	}, nil
 }
 

@@ -21,23 +21,19 @@ contradict the application version.
 
 ### Requirement: Backend binary and artifact identities SHALL agree
 
-Distributable `bgmss-api` and `archive-smoke` binaries SHALL contain link-time
-`Version=v0.1.0` and the exact 40-hex source revision. Source/development
-execution MAY use `dev` and `unknown`. API observability build metadata, bundle
-metadata, OCI version/revision labels, Backend component statement, and SPDX
-package `versionInfo` SHALL agree with the binary identity.
+The distributable `bgmss-api` binary SHALL contain link-time `Version=v0.1.0`
+and the exact 40-hex source revision. Source/development execution MAY use
+`dev` and `unknown`. API observability build metadata, bundle metadata, OCI
+version/revision labels, Backend component statement, and SPDX package
+`versionInfo` SHALL agree with the binary identity. No second distributable
+Backend command identity SHALL be required or emitted.
 
-`archive-smoke --build-info` SHALL be an exclusive, side-effect-free mode that
-emits one canonical JSON object containing version and revision. It SHALL
-reject Archive-validation arguments in the same invocation. Normal
-Archive-validation mode and API behavior SHALL remain unchanged.
-
-#### Scenario: Packaged binaries are inspected
-- **WHEN** both binaries and the OCI image are read from a Backend artifact
-- **THEN** binary inspection, build-info output, labels, metadata, statement, and SPDX SHALL agree on version/revision
+#### Scenario: Packaged binary is inspected
+- **WHEN** the API binary and OCI image are read from a Backend artifact
+- **THEN** binary inspection, labels, metadata, statement, and SPDX SHALL agree on version/revision
 
 #### Scenario: Build flags or evidence disagree
-- **WHEN** either binary lacks identity or any label/metadata/evidence value differs
+- **WHEN** the API binary lacks identity or any label/metadata/evidence value differs
 - **THEN** Backend artifact verification SHALL fail
 
 ### Requirement: Updater and Frontend artifacts SHALL bind version without UI change

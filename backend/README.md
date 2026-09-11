@@ -1,12 +1,16 @@
 # Backend
 
 This directory is the production backend module. Startup requires an explicit
-immutable Archive root and attempts the accepted one-shot load before serving.
-A successful load publishes the validated read-only SQLite store. A load
-failure emits one bounded `archive_load_failed` JSON event. A non-cancellation
-failure serves only the runtime surface permanently not-ready; cancellation
-during loading returns without serving. Neither path retries, falls back,
-reloads, or exposes a business route.
+writable Archive root, reads `current.json` once, and minimally opens the
+selected immutable SQLite Store before starting the in-process Go Archive
+scheduler/builder. Runtime opening does not read `manifest.json`, hash or
+recount SQLite, run integrity/foreign-key/schema checks, or perform Archive
+admission; the Go builder completes those producer checks before inactive
+publication. A successful initial open publishes the contained root-bound,
+read-only/query-only Store. A non-cancellation open failure emits one bounded
+`archive_load_failed` event and begins degraded serving; the asynchronous
+freshness check can later build and activate a complete Store without
+restarting the process or listener.
 If the mandatory event writer fails or short-writes, startup closes the owned
 Archive state and returns without serving.
 
@@ -46,11 +50,9 @@ single process `QueryRuntime.Stats` snapshot once per scrape. Collection and
 image upstream metrics describe per-request experiences; coalesced collection
 waiters are therefore not presented as additional physical fetches.
 
-An optional `-update-status /absolute/path/update-status.json` flag enables a
-strict read-only metrics projection of the shared v1 updater terminal status.
-The source must be a non-symlink regular file, is capped at 64 KiB, and never
-changes readiness or ordinary API behavior. Its `dataVersion`, error code,
-path, and content never become labels.
+Archive update events and `bgmss_archive_update_*` metrics come directly from
+bounded in-process state. There is no Python updater, `update-status.json`
+reader/writer, or external scheduler handoff.
 
 The image route starts only at fixed `https://api.bgm.tv/v0/...` requests. It
 ignores generic `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY`
@@ -72,6 +74,22 @@ publication it returns the catalog-specific `NOT_READY` envelope.
 
 The module pins Go 1.26.5 and keeps downloaded toolchains, module/build caches,
 temporary files, and binaries below ignored backend-local directories.
+
+Public collections use the immutable `bangumi-collection-go` v0.1.2 release.
+Same-ID nested subject metadata may have a different supported subject type;
+the adapter preserves the top-level collection type and all collection fields.
+Statistical inclusion continues to use the existing Archive/query authority.
+
+Query timeout budgets are 10 seconds per outbound collection HTTP attempt,
+90 seconds for a complete collection load (pagination, rate-limiter waits and
+retries included), and 20 seconds for a shared result worker (executor queue,
+Archive reads and computation included). The outer API request has 120 seconds
+and the HTTP server write timeout is 125 seconds. The process-shared anonymous
+collection client uses five requests per second with burst ten. These limits
+preserve existing retry, cancellation, singleflight and cache-TTL behavior;
+they do not guarantee that an upstream response is valid or available. The
+repository Nginx template waits 130 seconds; an existing deployed vhost needs
+its own authorized rollout to receive that setting.
 
 `internal/query` is the production, pre-statistics query authority. It
 normalizes preserved raw `SharedQueryV1` JSON into the accepted Effective Query
@@ -148,31 +166,11 @@ go test ./internal/httpapi -run '^$' \
 ./scripts/check.sh
 ```
 
-Run the API against a separately approved local Archive root:
+Run the API against a separately approved writable local Archive root:
 
 ```sh
 go run ./cmd/api -archive-root /absolute/path/to/archive
 ```
-
-Optionally include the local read-only updater terminal status:
-
-```sh
-go run ./cmd/api \
-  -archive-root /absolute/path/to/archive \
-  -update-status /absolute/path/to/update-status.json
-```
-
-Validate one inactive producer candidate without reading, creating, or
-publishing `current.json`:
-
-```sh
-go run ./cmd/archive-smoke \
-  -archive-root /absolute/path/to/staging \
-  -data-version dv1-<64-lowercase-hex>
-```
-
-The smoke emits one bounded JSON result and closes the candidate. It does not
-activate a version or perform any production/operations work.
 
 To intentionally refresh the generated query transport models after the shared
 contract changes:

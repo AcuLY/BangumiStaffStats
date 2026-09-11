@@ -92,6 +92,14 @@ func cloneRatingDistribution(value RatingDistribution) RatingDistribution {
 		}
 	}
 	value.Timeline = cloneSlice(value.Timeline)
+	for index := range value.Timeline {
+		value.Timeline[index].Works = cloneSlice(value.Timeline[index].Works)
+		for workIndex := range value.Timeline[index].Works {
+			value.Timeline[index].Works[workIndex].Subject = cloneSubjectReference(
+				value.Timeline[index].Works[workIndex].Subject,
+			)
+		}
+	}
 	return value
 }
 
@@ -174,6 +182,7 @@ func cloneWorkItem(value WorkItem) WorkItem {
 	if value.Series != nil {
 		series := *value.Series
 		series.Representative = cloneSubjectReference(series.Representative)
+		series.MetaTags = cloneSlice(series.MetaTags)
 		series.Members = cloneSlice(series.Members)
 		for index := range series.Members {
 			series.Members[index].SubjectReference = cloneSubjectReference(

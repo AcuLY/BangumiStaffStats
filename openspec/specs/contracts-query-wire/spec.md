@@ -2,7 +2,7 @@
 
 ## Purpose
 Define the single language-neutral v1 authority for query input, normalization,
-view and operation state, error/share formats, golden cases, and locked
+view and operation state, error formats, golden cases, and locked
 consumer generation across the frontend and backend.
 ## Requirements
 ### Requirement: Versioned single-authority contract bundle
@@ -12,7 +12,7 @@ draft 2020-12 files under `contracts/schemas/query/**`, referenced by stable
 named components in `contracts/openapi/openapi.yaml` using OpenAPI 3.1 and the
 2020-12 dialect. Stable components SHALL include `SharedQueryV1`,
 `EffectiveQueryV1`, and `QueryDigestProjectionV1` in addition to the named
-input/view/error/share components. Every schema object SHALL reject undeclared
+input/view/error components. Every schema object SHALL reject undeclared
 properties, every `$ref` SHALL resolve within the approved contract roots, and
 the initial OpenAPI document SHALL define no business endpoint path or result
 DTO.
@@ -23,18 +23,17 @@ directly. A generator that cannot consume its external JSON Schema references
 MAY instead use a deterministic consumer-local projection that copies the
 authority, removes only proven generator-incompatible schema metadata, and
 fully dereferences it with a pinned tool. Every projection SHALL be disposable,
-shall preserve the exact 17-component semantic inventory, and shall neither
+shall preserve the exact 14-component semantic inventory, and shall neither
 modify `contracts/**` nor be committed.
 
 API query version selection SHALL be the `/api/v1` family plus versioned schema
 IDs/component names; a query-body `schemaVersion` or other undeclared version
-field SHALL be rejected. Share version selection SHALL use its explicit outer
-`v1` marker.
+field SHALL be rejected.
 
 #### Scenario: Both generators consume one authority
 
 - **WHEN** the TypeScript 6 frontend generator reads the referenced authority directly and the Go foundation generates from its deterministic disposable projection
-- **THEN** both types-only outputs SHALL cover all 17 named component schemas without unresolved references or schema-level errors
+- **THEN** both types-only outputs SHALL cover all 14 named component schemas without unresolved references or schema-level errors
 - **AND** no projection, schema copy, temporary tool installation, or generated consumer file outside its approved owner path SHALL persist
 
 #### Scenario: An undeclared body version is submitted
@@ -52,9 +51,9 @@ field SHALL be rejected. Share version selection SHALL use its explicit outer
 
 `SharedQueryV1` SHALL be a closed `scope`-discriminated union for `personal` and `global`.
 
-A personal query SHALL require a TrimV1-normalized, case-preserving, non-empty public `uid`, non-empty collection statuses, a subject type, and non-empty ordered PositionKeys. TrimV1 SHALL remove only maximal leading/trailing runs of the Unicode 15.1 `White_Space` property set `U+0009..U+000D`, `U+0020`, `U+0085`, `U+00A0`, `U+1680`, `U+2000..U+200A`, `U+2028`, `U+2029`, `U+202F`, `U+205F`, and `U+3000`; `U+FEFF` SHALL be preserved and runtime-native trim predicates SHALL NOT define the contract. Submitted collection-status and PositionKey arrays MAY contain repetitions so normalization can produce one canonical value; the closed Effective Query SHALL require both arrays unique. It SHALL permit personal-only filters.
+An ordinary shared personal query SHALL require a TrimV1-normalized, case-preserving, non-empty public `uid`, non-empty collection statuses, a subject type, and non-empty ordered PositionKeys. TrimV1 SHALL remove only maximal leading/trailing runs of the Unicode 15.1 `White_Space` property set `U+0009..U+000D`, `U+0020`, `U+0085`, `U+00A0`, `U+1680`, `U+2000..U+200A`, `U+2028`, `U+2029`, `U+202F`, `U+205F`, and `U+3000`; `U+FEFF` SHALL be preserved and runtime-native trim predicates SHALL NOT define the contract. Submitted collection-status and PositionKey arrays MAY contain repetitions so normalization can produce one canonical value; the closed Effective Query SHALL require both arrays unique. It SHALL permit personal-only filters.
 
-A global query SHALL require a subject type and non-empty ordered PositionKeys and SHALL structurally forbid `uid`, `collectionStatuses`, `collectionUpdatedAt`, `personalScore`, and `scoreDifference`, including null or empty forms. Both variants SHALL accept only subject types `book`, `anime`, `music`, `game`, and `real`, SHALL default `includeNSFW` and `mergeSeries` to false, and SHALL allow `mergeSeries=true` only for `anime`.
+An ordinary shared global query SHALL require a subject type and non-empty ordered PositionKeys and SHALL structurally forbid `uid`, `collectionStatuses`, `collectionUpdatedAt`, `personalScore`, and `scoreDifference`, including null or empty forms. Both variants SHALL accept only subject types `book`, `anime`, `music`, `game`, and `real`, SHALL default `includeNSFW` and `mergeSeries` to false, and SHALL allow `mergeSeries=true` only for `anime`.
 
 UID SHALL reject control/NUL characters and exceed neither 256 Unicode code points nor 256 UTF-8 bytes after trimming. This contract SHALL NOT impose a guessed ASCII username grammar or lowercase conversion.
 
@@ -106,7 +105,7 @@ The wire SHALL NOT contain prototype `{enabled,value}` wrappers. An inactive fil
 - `cast:{anime|game}:{main|all}`;
 - `staffset:{book|anime|music|game|real}:{lower-kebab-slug}`.
 
-Consumers SHALL treat the full key as opaque and SHALL NOT infer capability from a localized label, naked integer, legacy 168-item value, or runtime prefix parsing. Every normalized query PositionKey SHALL be selectable in the supplied catalog context and match the query subject type. Submitted arrays MAY repeat a key; normalization SHALL retain its first occurrence and remove later occurrences without moving any other key. The resulting ordered array SHALL remain non-empty and ordered because its first entry is the default co-star candidate group.
+Consumers SHALL treat the full key as opaque and SHALL NOT infer capability from a localized label, naked integer, legacy 168-item value, or runtime prefix parsing. Every normalized query PositionKey SHALL be selectable in the supplied catalog context and match the query subject type. Submitted arrays MAY repeat a key; normalization SHALL retain its first occurrence and remove later occurrences without moving any other key. The resulting ordinary shared-query array SHALL remain non-empty and preserve first-occurrence order. Candidate mixed browsing is defined by the candidate operation, not by implicitly selecting the first key. The operation-specific query bodies in contracts-co-star-position-scope are the sole empty-position exception: explicit all-scope candidates, partners, co-star and identity-scoped detail may use positionKeys=[]; rankings and query-scope requests remain non-empty.
 
 No arbitrary `maxItems` SHALL shrink the dynamic exact-position catalog beyond the 64 KiB request limit and general resource validation. `cast:{type}:main` and `cast:{type}:all` for the same type SHALL be mutually exclusive.
 
@@ -191,7 +190,7 @@ There SHALL be at most 32 include groups, 32 exclude groups, 16 tokens per group
 
 #### Scenario: Input is outside the Unicode 15.1 scalar boundary
 - **WHEN** a tag contains a post-15.1/unassigned code point, or any JSON key/value contains an unpaired high or low surrogate
-- **THEN** validation fails before NFKC, RFC 8785, digest, or share encoding
+- **THEN** validation fails before NFKC, RFC 8785, or digest computation
 
 #### Scenario: UI delimiter syntax crosses the wire
 - **WHEN** a caller submits `/` or `+` as structural syntax, an empty token, an empty group, or a prototype `enabled` wrapper
@@ -219,7 +218,13 @@ queryDigest = "q1:" || lowercase_hex(SHA-256(preimage))
 
 `QueryDigestProjectionV1` SHALL contain exactly effective `scope`, `subjectType`, ordered unique `positionKeys`, personal `collectionStatuses`, explicit `includeNSFW`/`mergeSeries`, and normalized active filters; it SHALL omit personal `uid`. The fixed prefix SHALL be 15 bytes total: the 14 ASCII bytes for `bgmss.query.v1` followed by exactly one NUL octet `0x00`, never the printable characters backslash and zero. Every successful digest golden SHALL record the projection, separator, and complete preimage as lowercase hexadecimal and unpadded base64url so Go, TypeScript, and the contract verifier compare exact bytes without source-language escape ambiguity.
 
-`uid`, `dataVersion`, operation, operation input, view, `refreshCollection`, share path/workspace, search, sort, order, page, pageSize, section, query revision, input digest, collection digest, result, rank, and statistic SHALL NOT enter the digest projection, canonical bytes, or queryDigest preimage. The path/operation determines mode. The digest is a shared contract output but SHALL NOT by itself implement a runtime cache key or lookup; a later backend cache capability composes it with separately owned dimensions.
+`uid`, `dataVersion`, operation, operation input, view,
+search, sort, order, page, pageSize, section, query revision, input digest,
+collection digest, result, rank, and statistic SHALL NOT enter the digest
+projection, canonical bytes, or queryDigest preimage. The path/operation
+determines mode. The digest is a shared contract output but SHALL NOT by itself
+implement a runtime cache key or lookup; a later backend cache capability
+composes it with separately owned dimensions.
 
 #### Scenario: Two semantically equivalent submissions normalize
 - **WHEN** two valid inputs differ only in default omission, repeated PositionKeys after the same first occurrence, collection-status order/duplicates, or tag token/group order/duplicates
@@ -232,7 +237,7 @@ queryDigest = "q1:" || lowercase_hex(SHA-256(preimage))
 - **AND** the exact preimage and queryDigest remain unchanged
 
 #### Scenario: Digest exclusion field changes
-- **WHEN** only personal UID, dataVersion, operation, input, view, refreshCollection, share state, search, sort, order, page, pageSize, section, query revision, input digest, or collection digest changes outside the digest projection
+- **WHEN** only personal UID, dataVersion, operation, input, view, search, sort, order, page, pageSize, section, query revision, input digest, or collection digest changes outside the digest projection
 - **THEN** the queryDigest remains unchanged
 - **AND** a later cache key may still differ when its owning capability composes those dimensions
 
@@ -242,12 +247,12 @@ queryDigest = "q1:" || lowercase_hex(SHA-256(preimage))
 - **AND** any non-finite or non-JSON numeric input fails before canonicalization
 
 #### Scenario: Mode or digest field is submitted
-- **WHEN** `mode`, `operation`, `queryDigest`, `inputDigest`, `dataVersion`, `queryRevision`, or `refreshCollection` appears inside the shared query
+- **WHEN** `mode`, `operation`, `queryDigest`, `inputDigest`, `dataVersion`, or `queryRevision` appears inside the shared query
 - **THEN** strict validation rejects it as the wrong layer or an unknown field
 
 ### Requirement: Search, sort, order, and pagination are strict view values
 
-The contract SHALL define closed v1 primitives: search defaults to `""` and is bounded to 256 Unicode code points/UTF-8 bytes; order is `asc|desc` and defaults `desc`; page is a positive JSON-safe integer and defaults `1`; pageSize is exactly `5|10|20` and defaults `10`. Submitted views MAY omit defaulted fields, but normalized views and share payloads SHALL materialize them.
+The contract SHALL define closed v1 primitives: search defaults to `""` and is bounded to 256 Unicode code points/UTF-8 bytes; order is `asc|desc` and defaults `desc`; page is a positive JSON-safe integer and defaults `1`; pageSize is exactly `5|10|20` and defaults `10`. Submitted views MAY omit defaulted fields, but normalized views SHALL materialize them.
 
 The named components SHALL have exactly this field/default matrix:
 
@@ -263,7 +268,7 @@ The named components SHALL have exactly this field/default matrix:
 | `CoStarInputV1` | required ordered `participants` | 2–10 unique positive JSON-safe person IDs; each has non-empty ordered unique query keys; at most 20 total person/key identities |
 | `CoStarViewV1` | optional `search`, `sort`, `order`, `page`, `pageSize` | `""`, personal `personalScore` or global `globalScore`, `desc`, `1`, `10`; global permits `globalScore`, personal adds `personalScore|collectionUpdatedAt`, series adds `seriesSize` |
 
-Sort, search, order, page, pageSize, and section SHALL be view state, not shared-query filters and SHALL NOT enter the queryDigest projection. Operation-input arrays SHALL already be normalized and reject duplicates, unlike submitted query arrays. These components SHALL validate request/share state but SHALL NOT perform searching, sorting, rank assignment, or pagination. Future endpoint request schemas and the share workspace SHALL reuse the exact named components by `$ref`; neither SHALL introduce loose JSON or a competing input/view schema. Changing a field, optionality, enum, or default SHALL first modify this capability through OpenSpec.
+Sort, search, order, page, pageSize, and section SHALL be view state, not shared-query filters and SHALL NOT enter the queryDigest projection. Operation-input arrays SHALL already be normalized and reject duplicates, unlike submitted query arrays. These components SHALL validate request state but SHALL NOT perform searching, sorting, rank assignment, or pagination. Future endpoint request schemas SHALL reuse the exact named components by `$ref`; they SHALL NOT introduce loose JSON or a competing input/view schema. Changing a field, optionality, enum, or default SHALL first modify this capability through OpenSpec.
 
 #### Scenario: View defaults are applied
 - **WHEN** a view omits optional search/order/page/pageSize values
@@ -281,8 +286,8 @@ Sort, search, order, page, pageSize, and section SHALL be view state, not shared
 - **WHEN** search, sort, order, page, pageSize, or section appears inside `SharedQueryV1`
 - **THEN** validation fails rather than changing the query's result-set identity
 
-#### Scenario: Endpoint or share defines a competing view
-- **WHEN** a future endpoint wrapper or the v1 share workspace copies, loosens, or independently redefines an operation input/view instead of referencing the named component
+#### Scenario: Endpoint defines a competing view
+- **WHEN** a future endpoint wrapper copies, loosens, or independently redefines an operation input/view instead of referencing the named component
 - **THEN** contract acceptance fails until the schema uses the shared `$ref` or this capability is explicitly modified
 
 ### Requirement: Operation input remains distinct from query and view
@@ -298,7 +303,7 @@ This capability SHALL NOT define endpoint wrappers, handler behavior, response b
 
 #### Scenario: Identity is outside the Applied Query
 - **WHEN** a person identity uses a PositionKey absent from the effective query
-- **THEN** semantic validation fails before an endpoint request or share replay
+- **THEN** semantic validation fails before an endpoint request
 
 #### Scenario: Endpoint result is proposed in this change
 - **WHEN** apply introduces a rankings/candidates/detail/partners/co-star response DTO, handler, store, cache, or statistical expected result
@@ -328,89 +333,21 @@ The initial shared code set SHALL include at least `INVALID_JSON`, `INVALID_REQU
 - **WHEN** only `error.message` wording changes while stable codes and fields remain the same
 - **THEN** client logic classification remains unchanged
 
-### Requirement: Share fragment v1 is self-contained, canonical, and bounded
-
-The exact v1 share form SHALL be `/ranking#q=v1.<payload>` or `/co-star#q=v1.<payload>`, where `<payload>` is unpadded base64url of uncompressed RFC 8785 canonical UTF-8 JSON.
-
-The strict payload SHALL contain only a normalized successful Effective Query and one closed workspace:
-
-- ranking is `{kind:"ranking", rankingsView, detail?}`; `rankingsView` references normalized `RankingsViewV1`, and optional `detail` contains exactly `PersonDetailInputV1` plus normalized `PersonDetailViewV1`;
-- `/co-star` uses `kind:"co-star"` and a closed `state` union:
-  - `empty` contains exactly normalized `candidates {input: CandidatesInputV1, view: CandidatesViewV1}` and represents zero selected people;
-  - `partners` contains that candidates object plus normalized `partners {input: PartnersInputV1, view: PartnersViewV1}` and represents exactly one selected person through `partners.input.source`;
-  - `analysis` contains that candidates object plus normalized `coStar {input: CoStarInputV1, view: CoStarViewV1}` and represents exactly 2–10 selected people through `coStar.input.participants`.
-
-The share schema SHALL reuse those exact named components by `$ref`, not open JSON or copied alternatives. It SHALL contain no parallel loose people/identity array: the applicable operation input is the selected-state authority, and its ordered people/PositionKeys SHALL agree exactly with the visible selected state. Every identity PositionKey SHALL belong to the Effective Query; people SHALL be unique and co-star identities SHALL not exceed twenty. Payload/workspace/path, co-star state, selected-person count, and applicable operation input SHALL agree, while inapplicable operation objects SHALL be forbidden. The payload SHALL exclude Draft, responses, requestId, queryRevision, dataVersion, query/input digests, refreshCollection, theme, Drawer, scroll, Skeleton, cache outcome, and server session identifiers.
-
-The encoded base64url part SHALL not exceed 16,384 ASCII bytes. The decoder SHALL enforce a 65,536-byte decoded cap before JSON parsing. Padding, non-base64url characters, malformed UTF-8/JSON, unknown properties, unsupported outer version, duplicate identities, person/identity overflow, and path/workspace mismatch SHALL fail before any business request.
-
-#### Scenario: Ranking share round-trips exactly
-- **WHEN** a valid ranking golden is RFC 8785-canonicalized, base64url encoded without padding, decoded, and validated
-- **THEN** it matches the declared exact fragment and normalized payload byte-for-byte
-
-#### Scenario: Co-star share preserves identities
-- **WHEN** a valid co-star golden contains multiple people and ordered identity PositionKeys within the limits
-- **THEN** round-trip preserves person and identity order exactly
-- **AND** every identity remains a subset of the effective query positions
-
-#### Scenario: Co-star workspace topology follows selected count
-- **WHEN** the selected state has zero, one, or 2–10 people
-- **THEN** the only valid workspace state is respectively `empty`, `partners`, or `analysis`
-- **AND** its applicable operation input is the sole exact representation of those selected identities
-
-#### Scenario: Co-star state and operation input disagree
-- **WHEN** a state carries an inapplicable operation object, duplicates selected identities outside the operation input, or its operation input count/order/keys disagree with the declared state
-- **THEN** share validation fails before replay
-
-#### Scenario: Share contains excluded state
-- **WHEN** a share payload contains Draft, response, request/version/digest/cache, appearance, Drawer/scroll/Skeleton, or server-session state
-- **THEN** strict validation rejects the payload as unknown or forbidden
-
-#### Scenario: Share is malformed or unsupported
-- **WHEN** prefix/version/encoding/UTF-8/JSON/schema/size/path/identity validation fails
-- **THEN** no business request is authorized
-- **AND** the failure maps to a stable local share error vector
-
-#### Scenario: Personal share is generated
-- **WHEN** the user explicitly shares a successful personal Applied Query
-- **THEN** the public UID and personal filters are present as required to replay it
-- **AND** the contract identifies the fragment as unencrypted, untrusted user-disclosed data
-
-### Requirement: Share replay is one-time and uses ordinary query application
-
-On first document load the future frontend consumer SHALL attempt to consume at most one share payload. A valid payload SHALL take precedence over `?user=`, invoke the ordinary typed Query Application Service exactly once, and use ordinary operation inputs/views. Success or failure SHALL remove the fragment with history replacement so remount/hashchange cannot replay it.
-
-An invalid share SHALL preserve the safe first-query UI, expose a stable error, issue no business query, and SHALL NOT silently fall back to an automatic UID query. There SHALL be no share API, short-code table, server-side query session, response snapshot, request-ID mapping, or share-specific backend/cache key.
-
-#### Scenario: Valid share and user query parameter coexist
-- **WHEN** a document opens with both a valid share fragment and `?user=other`
-- **THEN** the share payload is the only automatically applied query
-- **AND** replay uses the ordinary normalization/application path
-
-#### Scenario: Invalid share and user query parameter coexist
-- **WHEN** share validation fails while `?user=` is present
-- **THEN** the fragment is removed, a stable error is shown, and no business query starts
-- **AND** `?user=` may only remain as a non-applied Draft according to the later frontend contract
-
-#### Scenario: Document remounts after consumption
-- **WHEN** the application remounts or receives a hashchange after fragment removal
-- **THEN** the original share is not applied again
-
 ### Requirement: Language-neutral goldens cover positive, negative, normalization, digest, and canonical bytes
 
-`contracts/goldens/query/**` SHALL be data-first and consumable without JavaScript-specific value encodings. A manifest SHALL identify each case, schema, catalog/path context, expected accept/reject result, stable error code/field path, normalized output, digest projection, exact RFC 8785 projection JSON, exact queryDigest separator/preimage/digest, and exact share text when applicable. Its code-generation evidence SHALL additionally record exact generator identity/version/command, OpenAPI path count, authoritative component-schema count and sorted names, generated byte length and SHA-256, and the sorted generated declaration inventory. For Go, every authoritative component name SHALL occur as a generated type declaration; byte-positive comment/package output SHALL fail.
+`contracts/goldens/query/**` SHALL be data-first and consumable without JavaScript-specific value encodings. A manifest SHALL identify each case, schema, catalog/path context, expected accept/reject result, stable error code/field path, normalized output, digest projection, exact RFC 8785 projection JSON, exact queryDigest separator/preimage/digest. Its code-generation evidence SHALL additionally record exact generator identity/version/command, OpenAPI path count, authoritative component-schema count and sorted names, generated byte length and SHA-256, and the sorted generated declaration inventory. For Go, every authoritative component name SHALL occur as a generated type declaration; byte-positive comment/package output SHALL fail.
 
-Positive vectors SHALL cover both scopes, every PositionKey family, repeated-position first-occurrence normalization, all range/tag forms, every operation component/default, JSON-safe integer boundaries, a valid error envelope, ranking share, and all three co-star workspace states. Negative vectors SHALL cover unknown fields at every object layer, scope leakage, malformed/conflicting/catalog-invalid positions, invalid/empty ranges and tags, post-15.1/unassigned scalars, lone high/low surrogates in JSON keys/values, non-finite/non-JSON or unsafe integers via textual fixtures where required, invalid pages/sorts/sections, error-envelope failures, and share version/encoding/size/topology/identity/path failures. Normalization/digest vectors SHALL prove UID exclusion, canonical equivalence, idempotence, excluded-field invariance, exact projection/separator/preimage, and exact lowercase SHA-256 output. Official RFC 8785 and pinned Unicode 15.1 normalization/age/folding vectors SHALL be represented with source/version provenance.
+Positive vectors SHALL cover both scopes, every PositionKey family, repeated-position first-occurrence normalization, all range/tag forms, every operation component/default, JSON-safe integer boundaries, a valid error envelope. Negative vectors SHALL cover unknown fields at every object layer, scope leakage, malformed/conflicting/catalog-invalid positions, invalid/empty ranges and tags, post-15.1/unassigned scalars, lone high/low surrogates in JSON keys/values, non-finite/non-JSON or unsafe integers via textual fixtures where required, invalid pages/sorts/sections, error-envelope failures. Normalization/digest vectors SHALL prove UID exclusion, canonical equivalence, idempotence, excluded-field invariance, exact projection/separator/preimage, and exact lowercase SHA-256 output. Official RFC 8785 and pinned Unicode 15.1 normalization/age/folding vectors SHALL be represented with source/version provenance.
 
 Oracle-derived limit evidence SHALL record commit/path provenance and measured UID/tag byte lengths without copying the bulk personal fixture. The Contracts verifier is a test oracle only; it SHALL NOT become a runtime query/statistical implementation.
 
 #### Scenario: Every manifest case is executed
 - **WHEN** `verify.mjs` runs from a locked clean install
-- **THEN** every declared positive, negative, normalization, queryDigest, Unicode, RFC 8785, and share case is discovered exactly once
+- **THEN** every declared positive, negative, normalization, queryDigest, Unicode, and RFC 8785 case is discovered exactly once
 - **AND** missing files, extra undeclared case files, duplicate IDs, or expectation mismatches fail
 
 #### Scenario: Unknown fields are injected at all layers
-- **WHEN** the negative matrix adds an unknown field to query, nested filter/range/tag, input/view, error/meta, share payload, workspace, and identity objects
+- **WHEN** the negative matrix adds an unknown field to query, nested filter/range/tag, input/view, error/meta, and operation identity objects
 - **THEN** each case fails at the declared boundary
 
 #### Scenario: Future consumers run the same files
@@ -419,6 +356,8 @@ Oracle-derived limit evidence SHALL record commit/path provenance and measured U
 - **AND** neither rewrites expected outcomes into language-specific fixtures
 
 ### Requirement: Contract tooling is locked, development-only, and removable
+
+> Historical platform and cleanup evidence: current Query execution is governed by “Current Query verification SHALL retain semantic and deterministic acceptance”. The platform-specific controls and completed one-time freezes below SHALL be interpreted only as archived evidence, never as a requirement to re-execute or claim that historical run. Retained semantic, dependency and ownership invariants continue to apply.
 
 The only committed Node tooling files SHALL be `contracts/goldens/query/package.json`, `contracts/goldens/query/package-lock.json`, and `contracts/goldens/query/verify.mjs`. Root `.gitignore` SHALL be exact UTF-8/LF bytes, including its final LF: `# macOS\n.DS_Store\n\n# Local secrets and environment overrides\n.env\n.env.*\n!.env.example\n!.env.*.example\n\n# Query contract tool state; physically absent at candidate handoff\n/contracts/goldens/query/node_modules/\n/contracts/goldens/query/.cache/npm/\n/contracts/goldens/query/.cache/go-build/\n/contracts/goldens/query/.cache/go-mod/\n/contracts/goldens/query/.cache/go-path/\n/contracts/goldens/query/.tmp/\n`. It SHALL remove broad Node/Vite/Python/Go/log/scratch patterns that hide another owner's escape. Positive `git check-ignore --no-index -v` probes SHALL cover `.DS_Store`, `.env`, a representative `.env.*`, and all six Query transient classes; `.env.example` and `.env.*.example` SHALL be visible exceptions. It SHALL ignore no persistent contract/product/lock/source/test/OpenSpec/editor/foreign probe outside the exact preserved macOS/environment classes, and ignored state never satisfies physical cleanup. Development dependencies SHALL be exactly justified and locked: `ajv@8.20.0`, `ajv-formats@3.0.1`, `@redocly/cli@2.40.0`, `openapi-typescript@7.13.0`, and `canonicalize@3.0.0`. The package and acceptance gate SHALL enforce `node >=20.19.0 <21.0.0 || >=22.12.0` and `npm >=10`; npm engine mismatches SHALL fail rather than warn. Package lifecycle scripts SHALL be disabled during installation. Locked Redocly SHALL only lint authority with `--extends recommended` or fully dereference the two sanitized codegen-only projections through its exact sealed CLI under telemetry/config/network isolation; plain/unsanitized bundles, import mappings, and a committed projection/bundle are forbidden. `oapi-codegen/v2@v2.8.0` SHALL be invoked at that exact version against proven bundle A with exact generation selection `models,skip-prune`; default component pruning is forbidden for this zero-path contract document.
 
@@ -438,13 +377,13 @@ The live cleanup allowlist SHALL contain only exact `node_modules`, `.cache/npm`
 
 After the four exact `.cache/*` leaves are `ENOENT`, cleanup SHALL also prune exact container `contracts/goldens/query/.cache` without treating arbitrary content as removable. It SHALL reuse `path.relative` containment and segment-by-segment `lstat`; accept only initial exact `ENOENT` or a real non-symlink directory; and require `readdir` to return zero entries. It SHALL use one initial non-recursive exact-target removal plus at most five retries. Only removal errors `EBUSY`, `EMFILE`, `ENFILE`, or `EPERM` MAY wait exactly 100 ms and retry, and every retry SHALL first repeat exact-parent `lstat` and zero-entry `readdir`. `ENOTEMPTY`, an `ENOENT` race after initial presence, link/type/entry/identity drift, escape, another error, retry exhaustion, or a non-`ENOENT` postcondition SHALL fail immediately without recursive deletion and preserve any observed child. Evidence SHALL report exact stable `emptyParents.removed` and `emptyParents.alreadyAbsent` separately from the six-leaf result.
 
-The first six-leaf cleanup already completed once but left this empty parent, so one correction apply is authorized only after this amended OpenSpec passes independent review. It may modify only `verify.mjs`, exactly `acceptanceEvidence.projectionTool.verifier.{bytes,sha256}` in `manifest.json`, and its own task checkbox. The other 22 Query product files SHALL remain byte-identical, and the verifier diff SHALL be limited to generated-root/empty-parent cleanup helpers, cleanup-safety cases/lifecycle, cleanup dispatch, and cleanup evidence output; schema/vector/normalization/Unicode/share/codegen/Go-stderr-admission and every other path SHALL remain unchanged.
+The first six-leaf cleanup already completed once but left this empty parent, so one correction apply is authorized only after this amended OpenSpec passes independent review. It may modify only `verify.mjs`, exactly `acceptanceEvidence.projectionTool.verifier.{bytes,sha256}` in `manifest.json`, and its own task checkbox. The other 22 Query product files SHALL remain byte-identical, and the verifier diff SHALL be limited to generated-root/empty-parent cleanup helpers, cleanup-safety cases/lifecycle, cleanup dispatch, and cleanup evidence output; schema/vector/normalization/Unicode/codegen/Go-stderr-admission and every other path SHALL remain unchanged.
 
 Safety preflight SHALL require exact `.tmp` `ENOENT`; the revised mode MAY create only exact `.tmp` as its synthetic container, SHALL remove all fixtures/children, and SHALL then non-recursively remove that exact `.tmp` through the bounded primitive with a fresh `lstat -> ENOENT`. The owner may then run one corrected cleanup invocation against the already-absent leaves and exact empty parent, followed only by read-only gates. It SHALL NOT rerun npm/install, Redocly, TypeScript/Go generation, compile, schema/vector/full verifier work, recreate another product/cache root, or edit other OpenSpec status text. The corrected invocation SHALL report all six leaves `alreadyAbsent`, report `.cache` under `emptyParents.removed`, and leave no cache/temp/generated/symlink or fixture residue.
 
 #### Scenario: Locked tooling verifies the bundle
-- **WHEN** a clean locked install runs schema compilation, OpenAPI lint, Unicode/RFC 8785/normalization/queryDigest/share vectors, TS generation, and Go model-only generation with all cache paths redirected into the owned root
-- **THEN** every command exits zero with deterministic generation output, the Go output is longer than the 190-byte rejected baseline and contains actual declarations for all 17 authoritative component-schema names, and temporary Go syntax/`gofmt`/compile smoke passes
+- **WHEN** a clean locked install runs schema compilation, OpenAPI lint, Unicode/RFC 8785/normalization/queryDigest vectors, TS generation, and Go model-only generation with all cache paths redirected into the owned root
+- **THEN** every command exits zero with deterministic generation output, the Go output is longer than the 190-byte rejected baseline and contains actual declarations for all 14 authoritative component-schema names, and temporary Go syntax/`gofmt`/compile smoke passes
 - **AND** the manifest's exact commands, versions, path/component counts, declaration inventories, byte lengths, hashes, dependency versions, and lock integrity match the observed outputs
 
 #### Scenario: Default pruning returns a header-only Go file
@@ -597,10 +536,10 @@ without writing the root ignore file.
 ### Requirement: Query authority evidence SHALL use one closed owned projection
 
 The Query golden verifier SHALL derive its authority from one deterministic
-projection of the shared OpenAPI document containing zero paths, exactly the 17
+projection of the shared OpenAPI document containing zero paths, exactly the 14
 accepted Query component schemas, exactly the nine accepted shared error
 responses, and the accepted fixed Query description. It SHALL audit and copy
-only that projected OpenAPI plus the seven Query schema files. Endpoint paths,
+only that projected OpenAPI plus the six Query schema files. Endpoint paths,
 endpoint-only components, and rankings/candidates/person-detail/partners/co-star
 schema roots SHALL remain outside Query ownership and generated-tree inventory.
 
@@ -917,6 +856,8 @@ Statistics index bytes.
 
 ### Requirement: Query Go codegen children SHALL deny network without sandbox nesting
 
+> Historical platform and cleanup evidence: current Query execution is governed by “Current Query verification SHALL retain semantic and deterministic acceptance”. The platform-specific controls and completed one-time freezes below SHALL be interpreted only as archived evidence, never as a requirement to re-execute or claim that historical run. Retained semantic, dependency and ownership invariants continue to apply.
+
 The Query verifier SHALL remain the sole executor of its exact primary
 generation, deterministic replay, formatting and compile-smoke Go children.
 Every one of those four children SHALL run through the same exact
@@ -968,3 +909,75 @@ the sealed module cache with checksum policy unchanged. The gate SHALL reject
 - **THEN** the Query owner gate SHALL fail under the inner network-denial
   profile
 - **AND** the accepted generated-output seal SHALL remain unchanged
+
+### Requirement: Query contracts SHALL exclude sharing
+The active contract bundle SHALL contain no share payload schema, share workspace components or sharing golden cases. Go and TypeScript consumers SHALL be regenerated from the remaining query authority. Ordinary SharedQueryV1, query normalization, operation inputs/views and errors SHALL remain semantically unchanged. Generated manifests SHALL describe current bytes and inventories reproducibly; historical platform acceptance SHALL not be presented as newly executed evidence.
+
+#### Scenario: Regenerated consumers
+- **WHEN** the pinned query generators run against the revised authority
+- **THEN** they SHALL produce no SharePayload or ShareWorkspace declarations
+- **AND** ordinary query and operation types SHALL remain valid consumers of the same authority
+
+### Requirement: Current Query verification SHALL retain semantic and deterministic acceptance
+
+`contracts/goldens/query/verify.mjs` SHALL delegate to the active
+`verify-current.mjs`. Current acceptance SHALL validate the remaining closed
+Query authority, strict positive and negative cases, normalization, digest,
+RFC 8785, pinned Unicode behavior, malformed input rejection, and input
+immutability. It SHALL independently validate authority, both metadata-only
+projections, and both dereferenced bundles against the same cases, proving
+that projections remove only root `$id`/`$schema` metadata and preserve every
+remaining public component and reusable response. Query sharing cases and
+schemas SHALL not participate in current acceptance.
+
+The verifier SHALL derive its canonical repository root from its own fixed
+`contracts/goldens/query/verify-current.mjs` location. It SHALL use the existing
+pinned Go 1.26.5, oapi-codegen 2.8.0, Redocly 2.40.0 and
+openapi-typescript 7.13.0 tools and the existing frontend generator/check.
+It SHALL generate two independently prepared bundles and Go/TypeScript outputs,
+require deterministic bytes after the documented LF normalization, check all
+14 public Query declarations, compare production consumers, and run the Go
+wire consumer tests. Disposable projection/output work SHALL remain below
+`backend/.tmp/query-wire/current`, with containment and symlink checks before
+creation and cleanup. Existing backend tool-module locks and installed
+contract/frontend dependencies SHALL remain the execution inputs; this change
+SHALL not upgrade dependencies or change runtime statistical semantics.
+
+The current manifest SHALL record actual runtime/tool versions, closed
+Query authority evidence, bundle and output byte lengths/digests,
+public/helper declaration inventories, cross-validation counts, and production
+consumer evidence. Check mode SHALL reject drift and SHALL not rewrite expected
+evidence. Explicit refresh mode MAY update only the admitted generated consumers
+and current manifest after successful semantic and determinism checks.
+
+For current Query acceptance only, this requirement SHALL supersede the
+historical platform-specific execution, exact machine-path/tool-file seals,
+macOS `sandbox-exec`/telemetry profiles, six-leaf-only cache/output placement,
+old smoke-module seals, execution transcript encoding, and one-time cleanup or
+file-byte freezes in “Contract tooling is locked, development-only, and
+removable”, “Apply is workspace-safe and path-exact”, “Development completion
+is staged, accepted, committed, and archived without operations”, “Query golden
+path evidence SHALL be relocatable and closed”, “Relocation SHALL preserve
+exact Query execution authority”, and “Query Go codegen children SHALL deny
+network without sandbox nesting”. Those completed host-specific controls are
+historical evidence, not current portable-generator preconditions. Their
+original verifier and manifest SHALL remain byte-for-byte historical artifacts
+under `contracts-remove-query-sharing/evidence/historical-query/` (inside its
+active or archived change directory). They SHALL not be executed, edited, or
+reported as new evidence by current acceptance. All unrelated ownership,
+contract strictness, closed inventory, dependency-pin, input-immutability and
+production-safety requirements SHALL remain in force.
+
+#### Scenario: Current portable verification runs
+- **WHEN** current check mode runs with the pinned tools against the remaining Query authority
+- **THEN** semantic cases, all five validation contexts, deterministic generation, 14 public declarations and production consumer comparisons SHALL pass
+- **AND** current evidence SHALL match the manifest without relying on a previous host transcript
+
+#### Scenario: Historical platform proof is unavailable
+- **WHEN** current verification runs on a host without the historical macOS sandbox or absolute tool locations
+- **THEN** it SHALL use the current bounded verification flow and retained semantic/determinism gates
+- **AND** it SHALL not claim that historical network-denial or telemetry-isolation checks ran on that host
+
+#### Scenario: A current semantic or generation invariant fails
+- **WHEN** a case changes outcome, input is mutated, projection changes semantics, a Query declaration is missing, or deterministic/committed bytes drift
+- **THEN** current acceptance SHALL fail even if historical archived acceptance was successful

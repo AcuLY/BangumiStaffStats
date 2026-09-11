@@ -47,6 +47,16 @@ func TestResultKeyContainsPositionAndExcludesView(t *testing.T) {
 	if first != same || first == other {
 		t.Fatalf("position key identity: first=%s same=%s other=%s", first.String(), same.String(), other.String())
 	}
+	all, err := ResultKey("global", testDataVersion, queryDigest, "", "")
+	if err != nil {
+		t.Fatalf("all key: %v", err)
+	}
+	if all == first || !strings.Contains(
+		all.String(),
+		runtimecache.DigestInput([]byte(`{"positionKey":null}`)),
+	) {
+		t.Fatalf("all position key identity = %s", all.String())
+	}
 	expectedInputDigest := runtimecache.DigestInput(
 		[]byte(`{"positionKey":"staff:anime:2"}`),
 	)
@@ -162,5 +172,24 @@ func TestPersonalResultKeyRequiresCollectionDigest(t *testing.T) {
 		"c1:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
 	); err != nil {
 		t.Fatalf("personal key: %v", err)
+	}
+}
+
+func TestAllPositionScopeSeparatesIdenticalInputCacheKeys(t *testing.T) {
+	digest := "q1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	legacy, err := ResultKey("global", testDataVersion, digest, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	broad, err := ResultKey("global", testDataVersion, digest, "", "", "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := ResultKey("global", testDataVersion, digest, "", "", "query")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy == broad || legacy != explicit {
+		t.Fatal("operation scope cache identity is incorrect")
 	}
 }

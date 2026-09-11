@@ -96,8 +96,10 @@ export function rankingErrorMessage(code: ErrorCodeV1): string {
   if (code === 'NOT_READY' || code === 'SERVER_BUSY') {
     return '排行服务正在准备，请稍后重试';
   }
+  if (code === 'UPSTREAM_TIMEOUT') {
+    return '人物排行查询超时，请重试';
+  }
   if (
-    code === 'UPSTREAM_TIMEOUT' ||
     code === 'UPSTREAM_UNAVAILABLE' ||
     code === 'UPSTREAM_PROTOCOL_ERROR'
   ) {
@@ -126,7 +128,6 @@ export function rankingErrorMessage(code: ErrorCodeV1): string {
 
 export interface RankingsDriverRequest {
   readonly query: DeepReadonly<SharedQueryV1Schema>;
-  readonly refreshCollection: boolean;
   readonly signal: AbortSignal;
   readonly transactionId: string;
   readonly view: Readonly<RankingsViewV1>;
@@ -157,7 +158,6 @@ export function createRankingsDriver(client: ApiClient): RankingsDriver {
     async execute(request): Promise<RankingsDriverResponse> {
       const body: RankingsRequestV1 = {
         query: structuredClone(request.query) as SharedQueryV1Schema,
-        refreshCollection: request.refreshCollection,
         view: structuredClone(request.view),
       };
       const payload = await client.request({

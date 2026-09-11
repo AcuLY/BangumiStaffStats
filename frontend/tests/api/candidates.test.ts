@@ -41,9 +41,8 @@ function golden(filename: 'global.json' | 'personal.json') {
     cases: Array<{
       expected: { body: unknown };
       request: {
-        input: { positionKey: string };
+        input: { positionKey: string | null };
         query: Record<string, unknown>;
-        refreshCollection?: boolean;
         view?: Record<string, unknown>;
       };
     }>;
@@ -97,6 +96,16 @@ describe('candidates response adapter', () => {
     expect(global).not.toHaveProperty('collection');
     expect(Object.isFrozen(global.items)).toBe(true);
     expect(Object.isFrozen(global.items[0]!.person)).toBe(true);
+    expect(Object.isFrozen(global.items[0]!.positionKeys)).toBe(true);
+
+    const all = decodeCandidatePayload(
+      golden('global.json').cases[0]!.expected.body,
+    );
+    expect(all.positionKey).toBeNull();
+    expect(all.items[1]!.positionKeys).toEqual([
+      'staff:anime:2',
+      'cast:anime:all',
+    ]);
   });
 
   it('rejects extra members, global collection metadata, and malformed errors', () => {
@@ -140,7 +149,31 @@ describe('candidates response adapter', () => {
 });
 
 describe('candidates native-fetch driver', () => {
-  it('uses same-origin fetch, omits a false/global refresh, and correlates projection metadata', async () => {
+  it('sends empty query positions only with explicit all scope', async () => {
+    const fixture = golden('global.json').cases[0]!;
+    const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(fixture.expected.body));
+    const driver = createCandidatesDriver(createApiClient(fetchImplementation));
+    const request = {
+      ...fixture.request,
+      input: { ...fixture.request.input, positionScope: 'all' },
+      query: { ...fixture.request.query, positionKeys: [] },
+      signal: new AbortController().signal, transactionId: 'all-candidates',
+      view: fixture.request.view ?? {},
+    };
+    await driver.execute(request as never);
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(fetchImplementation.mock.calls[0]![1]?.body))).toMatchObject({
+      query: { positionKeys: [] }, input: { positionScope: 'all' },
+    });
+    for (const positionScope of ['query', undefined]) {
+      await expect(driver.execute({ ...request,
+        input: { ...request.input, positionScope },
+      } as never)).rejects.toBeInstanceOf(ApiDecodeError);
+    }
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it('uses same-origin fetch and correlates projection metadata', async () => {
     const fixture = golden('global.json').cases[1]!;
     const fetchImplementation = vi.fn<FetchImplementation>(async () =>
       jsonResponse(fixture.expected.body),
@@ -153,7 +186,6 @@ describe('candidates native-fetch driver', () => {
     const response = await driver.execute({
       input: fixture.request.input,
       query: fixture.request.query as never,
-      refreshCollection: true,
       signal: controller.signal,
       transactionId: 'candidates-local-4',
       view: fixture.request.view ?? {},
@@ -177,31 +209,6 @@ describe('candidates native-fetch driver', () => {
       query: fixture.request.query,
       view: fixture.request.view,
     });
-    expect(body).not.toHaveProperty('refreshCollection');
-  });
-
-  it('sends refresh only for personal primary requests', async () => {
-    const fixture = golden('personal.json').cases[2]!;
-    const fetchImplementation = vi.fn<FetchImplementation>(async () =>
-      jsonResponse(fixture.expected.body),
-    );
-    const driver = createCandidatesDriver(
-      createApiClient(fetchImplementation),
-    );
-
-    await driver.execute({
-      input: fixture.request.input,
-      query: fixture.request.query as never,
-      refreshCollection: true,
-      signal: new AbortController().signal,
-      transactionId: 'candidates-personal-refresh',
-      view: fixture.request.view ?? {},
-    });
-
-    const body = JSON.parse(
-      String(fetchImplementation.mock.calls[0]![1]!.body),
-    ) as Record<string, unknown>;
-    expect(body.refreshCollection).toBe(true);
   });
 
   it('accepts only status/code pairs declared by candidates', () => {
@@ -217,6 +224,13 @@ describe('candidates native-fetch driver', () => {
     });
     expect(accepted.message).not.toContain('backend display text');
     expect(Object.isFrozen(accepted.fieldErrors)).toBe(true);
+    expect(
+      decodeCandidatesApiError(errorEnvelope('UPSTREAM_TIMEOUT'), 504).message,
+    ).toBe('候选人物查询超时，请重试');
+    expect(
+      decodeCandidatesApiError(errorEnvelope('UPSTREAM_UNAVAILABLE'), 503)
+        .message,
+    ).toBe('收藏数据暂时不可用，请稍后重试');
 
     expect(() =>
       decodeCandidatesApiError(errorEnvelope('INTERNAL_ERROR'), 400),
@@ -243,7 +257,6 @@ describe('candidates native-fetch driver', () => {
       driver.execute({
         input: { positionKey: 'staff:anime:2' },
         query: fixture.request.query as never,
-        refreshCollection: false,
         signal: new AbortController().signal,
         transactionId: 'candidates-projection-mismatch',
         view: {},
@@ -253,4 +266,17 @@ describe('candidates native-fetch driver', () => {
       name: 'ApiDecodeError',
     });
   });
+});
+
+
+it('accepts all-position response ordering independently of the original query and still enforces query scope', async () => {
+  const fixture = golden('global.json').cases[0]!;
+  const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(fixture.expected.body));
+  const driver = createCandidatesDriver(createApiClient(fetchImplementation));
+  const query = { ...fixture.request.query, positionKeys: ['staff:anime:2'] };
+  const request = { query: query as never, input: { positionKey: null, positionScope: 'all' as const },
+    signal: new AbortController().signal, transactionId: 'broad-candidates', view: fixture.request.view ?? {} };
+  await expect(driver.execute(request)).resolves.toBeDefined();
+  expect(JSON.parse(String(fetchImplementation.mock.calls[0]![1]!.body))).toMatchObject({ input: { positionScope: 'all' }, query });
+  await expect(driver.execute({ ...request, input: { positionKey: null } })).rejects.toBeInstanceOf(ApiDecodeError);
 });

@@ -22,18 +22,18 @@ groups:
       - alert: BgmssCacheOversizeRejects
         expr: sum(increase(bgmss_query_cache_oversize_values_total[15m])) > 0
         for: 5m
-      - alert: BgmssUpdaterFailed
-        expr: bgmss_updater_last_attempt_info{status=~"failed|canceled"} == 1
+      - alert: BgmssArchiveUpdateFailed
+        expr: bgmss_archive_update_last_attempt_info{status=~"failed|canceled"} == 1
         for: 5m
-      - alert: BgmssUpdaterStatusUnavailable
-        expr: bgmss_updater_status_configured != 1 or bgmss_updater_status_valid != 1
+      - alert: BgmssArchiveUpdateStateUnavailable
+        expr: bgmss_archive_update_state_configured != 1 or bgmss_archive_update_state_valid != 1
         for: 5m
-      - alert: BgmssUpdaterNeverSucceeded
-        expr: (bgmss_updater_status_configured == 1 and bgmss_updater_status_valid == 1) unless bgmss_updater_last_success_time_seconds
+      - alert: BgmssArchiveUpdateNeverSucceeded
+        expr: (bgmss_archive_update_state_configured == 1 and bgmss_archive_update_state_valid == 1) unless bgmss_archive_update_last_success_time_seconds
         for: 30m
-      - alert: BgmssUpdaterSuccessTooOld
-        expr: time() - bgmss_updater_last_success_time_seconds > 777600
+      - alert: BgmssArchiveUpdateSuccessTooOld
+        expr: time() - bgmss_archive_update_last_success_time_seconds > 777600
         for: 30m
-      - alert: BgmssUpdaterDurationHigh
-        expr: bgmss_updater_last_attempt_duration_seconds > 14400
+      - alert: BgmssArchiveUpdateDurationHigh
+        expr: bgmss_archive_update_last_attempt_duration_seconds > 14400
         for: 5m

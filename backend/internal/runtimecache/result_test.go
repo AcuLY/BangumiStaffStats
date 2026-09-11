@@ -475,6 +475,49 @@ func TestResultTimingSharesOrdinaryComputeFailureAcrossWaiters(t *testing.T) {
 	}
 }
 
+func TestResultWorkerBudgetIncludesExecutorQueue(t *testing.T) {
+	executor, err := NewExecutor(ExecutorConfig{RunningLimit: 1, QueueLimit: 1, RetryAfter: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(release) })
+	blockerDone := make(chan error, 1)
+	go func() {
+		blockerDone <- executor.Do(context.Background(), func(context.Context) error {
+			<-release
+			return nil
+		})
+	}()
+	waitFor(t, time.Second, func() bool { return executor.Stats().Running == 1 })
+	config := DefaultResultConfig()
+	config.LoadTimeout = 50 * time.Millisecond
+	store, err := NewResultStore(config, executor, cloneResultCore, func(resultCore) int64 { return 8 })
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := mustResultKey(t, "8")
+	var called atomic.Bool
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, err = store.GetOrCompute(ctx, key, func(context.Context) (resultCore, error) {
+		called.Store(true)
+		return resultCore{IDs: []int64{8}}, nil
+	})
+	if code, ok := ErrorCode(err); !ok || code != CodeTimeout || called.Load() {
+		t.Fatalf("queued load = %v, compute called=%v", err, called.Load())
+	}
+	if _, found := store.Get(key); found {
+		t.Fatal("timed-out queued work published a result")
+	}
+	releaseOnce.Do(func() { close(release) })
+	if err := <-blockerDone; err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, time.Second, func() bool { return executor.Stats().Queued == 0 })
+}
+
 func TestResultTimingWorkerDeadlineDropsLateExecution(t *testing.T) {
 	executor, err := NewExecutor(DefaultExecutorConfig())
 	if err != nil {
@@ -1143,10 +1186,10 @@ func TestQueryRuntimeSharesCollectionPositiveNegativeAndDetachedLoad(t *testing.
 		calls.Add(1)
 		return CollectionSnapshot{Items: []CollectionItem{}}, nil
 	}
-	if _, err := cache.Get(context.Background(), key, false, fetch); err != nil {
+	if _, err := cache.Get(context.Background(), key, fetch); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := alias.Get(context.Background(), key, false, fetch); err != nil {
+	if _, err := alias.Get(context.Background(), key, fetch); err != nil {
 		t.Fatal(err)
 	}
 	notFoundKey, err := NewCollectionKey(
@@ -1166,7 +1209,6 @@ func TestQueryRuntimeSharesCollectionPositiveNegativeAndDetachedLoad(t *testing.
 		_, callErr := []*CollectionCache{cache, alias}[index].Get(
 			context.Background(),
 			notFoundKey,
-			false,
 			func(context.Context) (CollectionSnapshot, error) {
 				notFoundCalls.Add(1)
 				return CollectionSnapshot{}, notFound

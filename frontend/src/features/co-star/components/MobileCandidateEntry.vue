@@ -1,29 +1,29 @@
 <script setup lang="ts">
+import AppIcon from '../../../shared/components/AppIcon.vue';
 import type { CoStarSelection } from '../selection';
-import CoStarIcon from './CoStarIcon.vue';
 
-const props = defineProps<{
-  drawerOpen: boolean;
+defineProps<{
+  expanded: boolean;
   selection: CoStarSelection;
 }>();
 const emit = defineEmits<{
-  open: [trigger: HTMLElement];
+  toggle: [trigger: HTMLElement];
 }>();
 
-function open(event: MouseEvent): void {
+function toggle(event: MouseEvent): void {
   if (event.currentTarget instanceof HTMLElement) {
-    emit('open', event.currentTarget);
+    emit('toggle', event.currentTarget);
   }
 }
 </script>
 
 <template>
   <button
+    id="co-star-mobile-picker-toggle"
     class="co-star-mobile-entry"
     type="button"
-    aria-haspopup="dialog"
-    :aria-expanded="drawerOpen"
-    aria-controls="co-star-mobile-picker"
+    :aria-expanded="expanded"
+    aria-controls="co-star-mobile-picker-panel"
     :aria-label="`${selection.personCount.value ? '调整人物选择' : '选择人物'}。${
       selection.personCount.value
         ? `已选 ${selection.personCount.value} 人、${selection.identityCount.value} 个身份：${selection.people.value
@@ -35,8 +35,8 @@ function open(event: MouseEvent): void {
             )
             .join('；')}`
         : '尚未选择人物'
-    }`"
-    @click="open"
+    }${!expanded && selection.personCount.value === 1 ? '。可继续选择人物，进行多人共演分析' : ''}`"
+    @click="toggle"
   >
     <span class="co-star-mobile-entry__copy" aria-hidden="true">
       <span
@@ -59,9 +59,10 @@ function open(event: MouseEvent): void {
         </span>
       </span>
       <small v-else>尚未选择人物</small>
+      <small v-if="!expanded && selection.personCount.value === 1" class="co-star-multi-person-hint">可继续选择人物，进行多人共演分析</small>
     </span>
     <span class="co-star-mobile-entry__action" aria-hidden="true">
-      <co-star-icon name="edit" :size="18" />
+      <app-icon name="chevron-down" :size="18" />
     </span>
   </button>
 </template>

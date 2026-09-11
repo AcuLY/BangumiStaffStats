@@ -179,6 +179,8 @@ for (const filename of files) {
   }
 }
 
+verifySeriesMetadata();
+
 console.log(
   JSON.stringify({
     schemaVersion: 1,
@@ -186,6 +188,31 @@ console.log(
     projectionSha256,
   }),
 );
+
+function verifySeriesMetadata() {
+  const globalSeries = readJson("contracts/goldens/api/co-star/cases/global.json")
+    .cases[0].expected.body.data.items[0];
+  assert.deepEqual(globalSeries.metaTags, ["TV", "原创"]);
+  const personalSeries = { ...structuredClone(globalSeries), personalScore: null, latestCollectionUpdatedAt: null };
+  for (const [name, example] of [
+    ["GlobalSeriesWorkV1", globalSeries],
+    ["PersonalSeriesWorkV1", personalSeries],
+  ]) {
+    const validate = ajv.compile({ $ref: `${successSchema.$id}#/$defs/${name}` });
+    assert(validate(example), `${name}: representative metadata`);
+    assert(validate({ ...example, metaTags: [] }), `${name}: empty metadata`);
+    assert(validate({ ...example, metaTags: ["😀".repeat(255)] }), `${name}: Unicode scalar bound`);
+    for (const [label, metaTags] of [
+      ["missing", undefined], ["null", null], ["duplicate", ["TV", "TV"]],
+      ["empty string", [""]], ["oversized string", ["😀".repeat(256)]],
+      ["too many", Array.from({ length: 17 }, (_, index) => `tag-${index}`)],
+    ]) {
+      const invalid = { ...example, metaTags };
+      if (metaTags === undefined) delete invalid.metaTags;
+      assert(!validate(invalid), `${name}: ${label} metadata must be rejected`);
+    }
+  }
+}
 
 function verifySuccess(testCase) {
   const request = testCase.request;
@@ -201,7 +228,6 @@ function verifySuccess(testCase) {
     `${testCase.id}: participant/identity order`,
   );
   assert.equal(data.kind, requested.length === 2 ? "pair" : "group");
-  assert.equal(Object.hasOwn(request, "refreshCollection"), false);
   if (data.kind === "pair") {
     assert.equal(Object.hasOwn(data, "matrix"), false);
   } else {
@@ -377,4 +403,29 @@ function readRegular(filename) {
   const metadata = fs.lstatSync(filename);
   assert(metadata.isFile() && !metadata.isSymbolicLink(), `${filename}: regular`);
   return fs.readFileSync(filename);
+}
+
+// Independent operation scope is explicit, closed, and optional.
+const positionScopeRequest = {"query": {"scope": "global", "subjectType": "anime", "positionKeys": ["staff:anime:2"]}, "input": {"participants": [{"personId": 1, "positionKeys": ["staff:anime:2"]}, {"personId": 2, "positionKeys": ["staff:anime:3"]}]}};
+for (const scope of [undefined, 'query', 'all']) {
+  const request = structuredClone(positionScopeRequest);
+  if (scope !== undefined) request.input.positionScope = scope;
+  assert(validateRequest(request), `positionScope ${scope}: ${ajv.errorsText(validateRequest.errors)}`);
+}
+for (const scope of [null, '', 'unknown', true, []]) {
+  const request = structuredClone(positionScopeRequest);
+  request.input.positionScope = scope;
+  assert.equal(validateRequest(request), false, `invalid positionScope ${JSON.stringify(scope)}`);
+}
+
+// Empty positions are an explicit operation scope, never an ordinary SharedQuery.
+for (const scope of [undefined, "query", "all"]) {
+  for (const queryScope of ["global", "personal"]) {
+    const request = structuredClone(positionScopeRequest);
+    request.query.positionKeys = [];
+    request.query.scope = queryScope;
+    if (queryScope === "personal") { request.query.uid = "lucay126"; request.query.collectionStatuses = ["completed"]; }
+    if (scope !== undefined) request.input.positionScope = scope;
+    assert.equal(validateRequest(request), scope === "all", `empty ${queryScope} query with ${scope}: ${ajv.errorsText(validateRequest.errors)}`);
+  }
 }

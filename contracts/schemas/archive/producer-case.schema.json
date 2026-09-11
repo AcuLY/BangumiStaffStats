@@ -474,7 +474,8 @@
               "personId",
               "name",
               "nameCn",
-              "careers"
+              "careers",
+              "summary"
             ],
             "properties": {
               "personId": {
@@ -510,6 +511,14 @@
                   "pattern": "^[a-z][a-z0-9-]*$"
                 },
                 "uniqueItems": true
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 8192
               }
             }
           }

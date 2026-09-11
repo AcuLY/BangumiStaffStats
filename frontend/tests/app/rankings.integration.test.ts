@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { NSelect } from 'naive-ui';
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,15 +13,21 @@ import type {
   QueryDrivers,
 } from '../../src/features/query/coordinator';
 import type { AppliedQuery } from '../../src/features/query/model';
-import {
-  createShareUrl,
-  readShare,
-  type ShareWorkspace,
-} from '../../src/features/query/share';
+import { createQuerySessionOwner, QUERY_SESSION_STORAGE_KEY } from '../../src/features/query/session';
+import type { RecoveryWorkspace } from '../../src/features/query/recovery';
 import { useQueryStore } from '../../src/features/query/store';
 import { catalogFixture } from '../features/query/fixtures';
 
 const rankingDataVersion = `dv1-${'d'.repeat(64)}`;
+
+async function waitForRankingSurface(wrapper: VueWrapper): Promise<void> {
+  await vi.waitFor(() => {
+    expect(
+      wrapper.findComponent({ name: 'RankingResults' }).exists() ||
+      wrapper.find('.ranking-page-empty-state').exists(),
+    ).toBe(true);
+  }, { timeout: 10000 });
+}
 
 function rankingPayload(
   requestId: string,
@@ -66,6 +72,27 @@ function rankingPayload(
       personCount: 8,
       workCount: 21,
       workUnit: 'subject',
+    }),
+  });
+}
+
+function emptyRankingPayload(): RankingPayload {
+  const payload = rankingPayload('server-ranking-empty', 'count');
+  return Object.freeze({
+    ...payload,
+    items: Object.freeze([]),
+    metricScale: Object.freeze({
+      ...payload.metricScale,
+      max: null,
+    }),
+    pagination: Object.freeze({
+      ...payload.pagination,
+      total: 0,
+    }),
+    summary: Object.freeze({
+      ...payload.summary,
+      personCount: 0,
+      workCount: 0,
     }),
   });
 }
@@ -126,18 +153,18 @@ function detailPayload(
   });
 }
 
-function installCompactLayout(initialMatches: boolean): {
+function installCompactLayout(initialMatches: boolean, wideControls = false): {
   setMatches: (matches: boolean) => void;
 } {
   let matches = initialMatches;
-  const listeners = new Set<() => void>();
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
   const media = {
-    addEventListener(_type: string, listener: () => void) {
+    addEventListener(_type: string, listener: (event: MediaQueryListEvent) => void) {
       listeners.add(listener);
     },
     dispatchEvent() {
       for (const listener of listeners) {
-        listener();
+        listener({ matches } as MediaQueryListEvent);
       }
       return true;
     },
@@ -146,11 +173,15 @@ function installCompactLayout(initialMatches: boolean): {
     },
     media: '(width < 780px)',
     onchange: null,
-    removeEventListener(_type: string, listener: () => void) {
+    removeEventListener(_type: string, listener: (event: MediaQueryListEvent) => void) {
       listeners.delete(listener);
     },
   } as unknown as MediaQueryList;
-  vi.stubGlobal('matchMedia', vi.fn(() => media));
+  vi.stubGlobal('matchMedia', vi.fn((query: string) =>
+    wideControls && query === '(width < 780px)'
+      ? { ...media, matches: false, addEventListener() {}, removeEventListener() {} }
+      : media,
+  ));
   return {
     setMatches(nextMatches: boolean) {
       matches = nextMatches;
@@ -169,39 +200,46 @@ function deferred<T>() {
   return { promise, reject, resolve };
 }
 
-function canonicalJson(value: unknown): string {
-  if (
-    value === null ||
-    typeof value === 'boolean' ||
-    typeof value === 'number' ||
-    typeof value === 'string'
-  ) {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJson).join(',')}]`;
-  }
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
-    .join(',')}}`;
-}
-
-function uncheckedFragment(payload: unknown): string {
-  const bytes = new TextEncoder().encode(canonicalJson(payload));
-  let binary = '';
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return `#q=v1.${btoa(binary)
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/u, '')}`;
-}
-
 describe('App ranking production slice', () => {
-  it('replays and re-shares one authoritative detail with its exact view', async () => {
+  it.each([false, true])('keeps submitted labels in a deferred ranking shell (mergeSeries=%s)', async (mergeSeries) => {
+    installCompactLayout(false);
+    const query: AppliedQuery = {
+      scope: 'personal', uid: 'luca', collectionStatuses: ['completed'],
+      subjectType: 'anime', positionKeys: ['staff:anime:2'],
+      includeNSFW: false, mergeSeries,
+    };
+    window.history.replaceState({}, '', '/ranking');
+    expect(createQuerySessionOwner(window).write('/ranking', query,
+      { kind: 'ranking', rankingsView: { order: 'desc', page: 1, pageSize: 5, search: '', sort: 'count' } },
+    )).toBe(true);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const execute = vi.fn(() => new Promise<never>(() => {}));
+    const wrapper = mount(App, {
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: {
+        catalogApi: { async load() { return catalogFixture(); } },
+        drivers: { rankings: { execute }, candidates: { execute } },
+        surfaceLoaders: { ranking: () => new Promise(() => {}) },
+        targetWindow: window,
+      } },
+    });
+    try {
+      await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+      expect(wrapper.findAll('.ranking-row-skeleton')).toHaveLength(5);
+      expect(wrapper.get('.ranking-columns').text()).toContain(mergeSeries ? '系列' : '作品');
+      expect(wrapper.find('.person-detail-skeleton').exists()).toBe(true);
+      const store = useQueryStore(pinia);
+      store.draft.mergeSeries = !mergeSeries;
+      store.draft.scope = 'global';
+      await nextTick();
+      expect(wrapper.get('.ranking-columns').text()).toContain(mergeSeries ? '系列' : '作品');
+      expect(wrapper.get('.ranking-columns').text()).toContain('偏好');
+      expect(wrapper.find('.ranking-pagination-skeleton').exists()).toBe(false);
+    } finally { wrapper.unmount(); }
+  });
+
+  it('replays and persists one authoritative detail with its exact view', async () => {
     const query: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
@@ -211,7 +249,7 @@ describe('App ranking production slice', () => {
       includeNSFW: false,
       mergeSeries: false,
     };
-    const workspace: ShareWorkspace = {
+    const workspace: RecoveryWorkspace = {
       detail: {
         input: { personId: 12 },
         view: {
@@ -232,26 +270,18 @@ describe('App ranking production slice', () => {
         sort: 'average',
       },
     };
-    window.history.replaceState(
-      {},
-      '',
-      createShareUrl(
-        new URL(`${window.location.origin}/ranking`),
-        '/ranking',
-        query,
-        workspace,
-      ),
-    );
+    window.history.replaceState({}, '', '/ranking');
+    expect(createQuerySessionOwner(window).write('/ranking', query, workspace)).toBe(true);
     const pinia = createPinia();
     setActivePinia(pinia);
     const rankingExecute = vi.fn(async (request) => ({
-      payload: rankingPayload('server-ranking-share', 'average'),
-      requestId: 'server-ranking-share',
+      payload: rankingPayload('server-ranking-recovery', 'average'),
+      requestId: 'server-ranking-recovery',
       transactionId: request.transactionId,
     }));
     const detailExecute = vi.fn(async (request) => ({
       payload: detailPayload(),
-      requestId: 'server-detail-share',
+      requestId: 'server-detail-recovery',
       transactionId: request.transactionId,
     }));
     const wrapper = mount(App, {
@@ -281,6 +311,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(rankingExecute).toHaveBeenCalledOnce();
     expect(rankingExecute.mock.calls[0]![0].view).toEqual(
@@ -298,25 +329,40 @@ describe('App ranking production slice', () => {
       expect(wrapper.find('.person-detail-surface').exists()).toBe(true);
     });
     expect(wrapper.find('.person-detail-surface').exists()).toBe(true);
+    const main = wrapper.get('.app-main');
+    const queryWorkspace = wrapper.get('.query-workspace');
+    expect(main.element.firstElementChild).toBe(queryWorkspace.element);
+    expect(wrapper.find('.app-header .query-workspace').exists()).toBe(false);
+    expect(wrapper.find('.query-editor-panel').exists()).toBe(false);
     expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
     expect(window.location.hash).toBe('');
 
-    await wrapper
-      .get('button[aria-label="复制当前查询链接"]')
-      .trigger('click');
-    await flushPromises();
-    const link = (
-      wrapper.get(
-      '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    expect(readShare('/ranking', new URL(link).hash).workspace).toEqual(
-      workspace,
-    );
+    await queryWorkspace.get('.query-summary').trigger('click');
+    await nextTick();
+    expect(queryWorkspace.find('.query-editor-panel').exists()).toBe(true);
+    expect(queryWorkspace.attributes('aria-labelledby')).toBe('query-title');
+    expect(queryWorkspace.get('#query-title').text()).toBe('编辑查询参数');
+    expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
+    const wheelEvent = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 120,
+    });
+    expect(
+      queryWorkspace.get('.query-editor__content').element.dispatchEvent(
+        wheelEvent,
+      ),
+    ).toBe(true);
+    expect(wheelEvent.defaultPrevented).toBe(false);
+    await queryWorkspace.get('.query-summary').trigger('click');
+    await nextTick();
+    expect(queryWorkspace.find('.query-editor-panel').exists()).toBe(false);
+
+    expect(createQuerySessionOwner(window).read('/ranking')?.workspace).toEqual(workspace);
     wrapper.unmount();
   });
 
-  it('replays a ranking share without detail without starting an Inspector request', async () => {
+  it('replays a ranking session without detail without starting an Inspector request', async () => {
     const query: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
@@ -326,7 +372,7 @@ describe('App ranking production slice', () => {
       includeNSFW: false,
       mergeSeries: false,
     };
-    const workspace: ShareWorkspace = {
+    const workspace: RecoveryWorkspace = {
       kind: 'ranking',
       rankingsView: {
         order: 'desc',
@@ -336,16 +382,8 @@ describe('App ranking production slice', () => {
         sort: 'count',
       },
     };
-    window.history.replaceState(
-      {},
-      '',
-      createShareUrl(
-        new URL(`${window.location.origin}/ranking`),
-        '/ranking',
-        query,
-        workspace,
-      ),
-    );
+    window.history.replaceState({}, '', '/ranking');
+    expect(createQuerySessionOwner(window).write('/ranking', query, workspace)).toBe(true);
     const pinia = createPinia();
     setActivePinia(pinia);
     const detailExecute = vi.fn();
@@ -381,6 +419,7 @@ describe('App ranking production slice', () => {
       },
     });
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(detailExecute).not.toHaveBeenCalled();
     expect(wrapper.find('.query-editor-overlay').exists()).toBe(false);
@@ -389,7 +428,7 @@ describe('App ranking production slice', () => {
     wrapper.unmount();
   });
 
-  it('keeps deferred Inspector state invisible until a person is selected', async () => {
+  it('shows the companion detail skeleton and auto-selects first while the surface loads', async () => {
     installCompactLayout(false);
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
@@ -398,11 +437,121 @@ describe('App ranking production slice', () => {
     store.draft.uid = 'luca';
     store.draft.positionKeys = ['staff:anime:2'];
     const personDetailModule = deferred<never>();
-    const detailExecute = vi.fn(async (request) => ({
+    const rankingRequest = deferred<OperationResponse<RankingPayload>>();
+    const detailRequest = deferred<OperationResponse<PersonDetailPayload>>();
+    let rankingTransactionId = '';
+    let detailTransactionId = '';
+    const detailExecute = vi.fn((request) => {
+      detailTransactionId = request.transactionId;
+      return detailRequest.promise;
+    });
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: {
+        services: {
+          catalogApi: {
+            async load() {
+              return catalogFixture();
+            },
+          },
+          drivers: {
+            candidates: {
+              async execute(): Promise<never> {
+                throw new Error('not part of this test');
+              },
+            },
+            personDetail: { execute: detailExecute },
+            rankings: {
+              execute(request) {
+                rankingTransactionId = request.transactionId;
+                return rankingRequest.promise;
+              },
+            },
+          },
+          surfaceLoaders: {
+            personDetail: () => personDetailModule.promise,
+          },
+          targetWindow: window,
+        },
+      },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await nextTick();
+    await waitForRankingSurface(wrapper);
+
+    expect(wrapper.find('.ranking-surface--loading').exists()).toBe(true);
+    expect(wrapper.get('#person-detail-panel').attributes('aria-hidden')).toBe(
+      'true',
+    );
+    expect(
+      wrapper
+        .get('.ranking-workspace')
+        .findAll('[aria-live="polite"]')
+        .filter(
+          (node) =>
+            node.element.closest('[aria-hidden="true"]') === null &&
+            node.text().startsWith('正在加载'),
+        )
+        .map((node) => node.text()),
+    ).toEqual(['正在加载人物排行']);
+    expect(wrapper.text()).not.toContain('选择人物查看详情');
+    expect(detailExecute).not.toHaveBeenCalled();
+
+    rankingRequest.resolve({
+      payload: rankingPayload('server-ranking', 'count'),
+      requestId: 'server-ranking',
+      transactionId: rankingTransactionId,
+    });
+    await flushPromises();
+
+    expect(detailExecute).toHaveBeenCalledOnce();
+    expect(detailExecute.mock.calls[0]![0].input).toEqual({ personId: 12 });
+    expect(wrapper.get('.ranked-person-row').attributes('aria-current')).toBe(
+      'true',
+    );
+    expect(
+      wrapper
+        .get('.ranking-workspace')
+        .findAll('[aria-live="polite"]')
+        .filter(
+          (node) =>
+            node.element.closest('[aria-hidden="true"]') === null &&
+            node.text().startsWith('正在加载'),
+        )
+        .map((node) => node.text()),
+    ).toEqual(['正在加载人物详情']);
+    expect(wrapper.get('.ranking-workspace').classes()).not.toContain(
+      'ranking-workspace--single',
+    );
+
+    detailRequest.resolve({
       payload: detailPayload(),
       requestId: 'server-detail',
-      transactionId: request.transactionId,
-    }));
+      transactionId: detailTransactionId,
+    });
+    await flushPromises();
+
+    personDetailModule.reject(new Error('module unavailable'));
+    await flushPromises();
+    expect(wrapper.text()).toContain('人物详情加载失败');
+    expect(wrapper.find('.person-detail-placeholder').exists()).toBe(
+      false,
+    );
+    wrapper.unmount();
+    vi.unstubAllGlobals();
+  });
+
+  it('uses the full ranking width when an accepted query has no people', async () => {
+    installCompactLayout(false);
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore();
+    store.draft.uid = 'luca';
+    store.draft.positionKeys = ['staff:anime:2'];
+    const detailExecute = vi.fn();
     const wrapper = mount(App, {
       attachTo: document.body,
       global: { plugins: [pinia], stubs: { teleport: true } },
@@ -423,18 +572,12 @@ describe('App ranking production slice', () => {
             rankings: {
               async execute(request) {
                 return {
-                  payload: rankingPayload(
-                    'server-ranking',
-                    'count',
-                  ),
-                  requestId: 'server-ranking',
+                  payload: emptyRankingPayload(),
+                  requestId: 'server-ranking-empty',
                   transactionId: request.transactionId,
                 };
               },
             },
-          },
-          surfaceLoaders: {
-            personDetail: () => personDetailModule.promise,
           },
           targetWindow: window,
         },
@@ -443,34 +586,25 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
-    const placeholder = wrapper.get('.person-detail-placeholder');
-    expect(placeholder.get('h2').text()).toBe('选择人物查看详情');
-    expect(placeholder.get('p').text()).toBe(
-      '从左侧排行中选择一位人物，查看评分、证据和参与作品。',
+    expect(wrapper.get('.ranking-workspace').classes()).toContain(
+      'ranking-workspace--single',
     );
-    expect(wrapper.text()).not.toContain('正在加载人物详情');
-    expect(wrapper.text()).not.toContain('人物详情加载失败');
-
-    personDetailModule.reject(new Error('module unavailable'));
-    await flushPromises();
-    expect(wrapper.get('.person-detail-placeholder').text()).toContain(
-      '选择人物查看详情',
-    );
-    expect(wrapper.text()).not.toContain('人物详情加载失败');
-
-    await wrapper.get('.ranked-person-row').trigger('click');
-    await flushPromises();
-    expect(detailExecute).toHaveBeenCalledOnce();
-    expect(wrapper.text()).toContain('人物详情加载失败');
-    expect(wrapper.find('.person-detail-placeholder').exists()).toBe(
-      false,
-    );
+    expect(wrapper.find('#person-detail-panel').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('选择人物查看详情');
+    expect(wrapper.text()).toContain('没有符合查询条件的人物');
+    expect(wrapper.find('.ranking-controls').exists()).toBe(false);
+    expect(wrapper.find('input[name="ranking-search"]').exists()).toBe(false);
+    expect(wrapper.find('.ranking-surface__footer').exists()).toBe(false);
+    expect(wrapper.find('.ranking-pagination').exists()).toBe(false);
+    expect(wrapper.text()).not.toMatch(/共统计到|0 个人物|0 个条目/);
+    expect(detailExecute).not.toHaveBeenCalled();
     wrapper.unmount();
     vi.unstubAllGlobals();
   });
 
-  it('omits pending and failed unaccepted detail attempts from an otherwise shareable ranking', async () => {
+  it('omits pending and failed unaccepted detail attempts from a saved ranking', async () => {
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -518,47 +652,20 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
     await wrapper.get('.ranked-person-row').trigger('click');
     await nextTick();
 
-    await wrapper
-      .get('button[aria-label="复制当前查询链接"]')
-      .trigger('click');
-    await flushPromises();
-    let link = (
-      wrapper.get(
-      '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    let shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toBeUndefined();
-
+    const session = createQuerySessionOwner(window);
+    expect(session.read('/ranking')?.workspace).not.toHaveProperty('detail');
     rejectDetail(new Error('offline'));
     await flushPromises();
-    await wrapper
-      .get('button[aria-label="复制当前查询链接"]')
-      .trigger('click');
-    await flushPromises();
-    link = (
-      wrapper.get(
-      '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toBeUndefined();
+    expect(session.read('/ranking')?.workspace).not.toHaveProperty('detail');
     wrapper.unmount();
   });
 
   it('rejects an invalid detail section/sort union before rankings or Inspector requests', async () => {
-    const fragment = uncheckedFragment({
+    const invalidPayload = {
       query: {
         scope: 'personal',
         uid: 'luca',
@@ -589,12 +696,9 @@ describe('App ranking production slice', () => {
           sort: 'count',
         },
       },
-    });
-    window.history.replaceState(
-      {},
-      '',
-      `${window.location.origin}/ranking${fragment}`,
-    );
+    };
+    window.sessionStorage.setItem(QUERY_SESSION_STORAGE_KEY, JSON.stringify({version: 2, ranking: invalidPayload}));
+    window.history.replaceState({}, '', '/ranking');
     const pinia = createPinia();
     setActivePinia(pinia);
     const rankingExecute = vi.fn();
@@ -627,9 +731,8 @@ describe('App ranking production slice', () => {
     expect(rankingExecute).not.toHaveBeenCalled();
     expect(detailExecute).not.toHaveBeenCalled();
     expect(window.location.hash).toBe('');
-    expect(wrapper.get('.app-local-error').text()).toContain(
-      '分享查询无效',
-    );
+    expect(wrapper.find('.app-local-error').exists()).toBe(false);
+    expect(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)).toBeNull();
     wrapper.unmount();
   });
 
@@ -683,6 +786,7 @@ describe('App ranking production slice', () => {
 
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
     expect(wrapper.find('.ranking-surface').exists()).toBe(true);
     expect(wrapper.findAll('.ranked-person-row')).toHaveLength(1);
@@ -714,410 +818,8 @@ describe('App ranking production slice', () => {
     wrapper.unmount();
   });
 
-  it('preserves the selected Inspector and reruns it against the refreshed collection before sharing', async () => {
-    window.history.replaceState({}, '', '/ranking?user=luca');
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    const store = useQueryStore();
-    store.draft.uid = 'luca';
-    store.draft.positionKeys = ['staff:anime:2'];
-    const refreshedDataVersion = `dv1-${'f'.repeat(64)}`;
-    const refreshedFetchedAt = '2026-07-25T00:05:00Z';
-    const detailRefresh =
-      deferred<OperationResponse<PersonDetailPayload>>();
-    type Drivers = QueryDrivers<
-      RankingPayload,
-      never,
-      PersonDetailPayload
-    >;
-    type RankingRequest = Parameters<
-      Drivers['rankings']['execute']
-    >[0];
-    type DetailRequest = Parameters<
-      NonNullable<Drivers['personDetail']>['execute']
-    >[0];
-    let rankingCall = 0;
-    const rankingExecute = vi.fn(async (request: RankingRequest) => {
-      rankingCall += 1;
-      const refreshed = rankingCall > 1;
-      const requestId = refreshed
-        ? 'server-ranking-refreshed'
-        : 'server-ranking';
-      return {
-        payload: rankingPayload(
-          requestId,
-          'count',
-          refreshed ? refreshedDataVersion : rankingDataVersion,
-          refreshed
-            ? refreshedFetchedAt
-            : '2026-07-25T00:00:00Z',
-        ),
-        requestId,
-        transactionId: request.transactionId,
-      };
-    });
-    let detailCall = 0;
-    const detailExecute = vi.fn((request: DetailRequest) => {
-      detailCall += 1;
-      if (detailCall === 2) {
-        return detailRefresh.promise;
-      }
-      const refreshed = detailCall > 1;
-      return Promise.resolve({
-        payload: detailPayload(
-          refreshed ? refreshedDataVersion : rankingDataVersion,
-          refreshed
-            ? refreshedFetchedAt
-            : '2026-07-25T00:00:00Z',
-        ),
-        requestId: refreshed
-          ? 'server-detail-refreshed'
-          : 'server-detail',
-        transactionId: request.transactionId,
-      });
-    });
-    const drivers: Drivers = {
-      candidates: {
-        async execute(): Promise<never> {
-          throw new Error('not part of this test');
-        },
-      },
-      personDetail: { execute: detailExecute },
-      rankings: { execute: rankingExecute },
-    };
-    const wrapper = mount(App, {
-      attachTo: document.body,
-      global: {
-        plugins: [pinia],
-        stubs: { teleport: true },
-      },
-      props: {
-        services: {
-          catalogApi: {
-            async load() {
-              return catalogFixture();
-            },
-          },
-          drivers,
-          targetWindow: window,
-        },
-      },
-    });
-    await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
-    await flushPromises();
-    const row = wrapper.get('.ranked-person-row');
-    await row.trigger('click');
-    await flushPromises();
-    expect(detailExecute).toHaveBeenCalledOnce();
-    expect(row.attributes('aria-current')).toBe('true');
-    expect(
-      wrapper
-        .get('button[aria-label="复制当前查询链接"]')
-        .attributes('disabled'),
-    ).toBeUndefined();
-
-    await wrapper.get('.query-summary').trigger('click');
-    await nextTick();
-    const refresh = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('刷新收藏并查询'));
-    expect(refresh).toBeDefined();
-    await refresh!.trigger('click');
-    await flushPromises();
-
-    expect(rankingExecute).toHaveBeenCalledTimes(2);
-    expect(rankingExecute.mock.calls[1]![0].refreshCollection).toBe(
-      true,
-    );
-    expect(detailExecute).toHaveBeenCalledTimes(2);
-    expect(detailExecute.mock.calls[1]![0]).toMatchObject({
-      input: { personId: 12 },
-      view: detailExecute.mock.calls[0]![0].view,
-    });
-    expect(row.attributes('aria-current')).toBe('true');
-    const share = wrapper.get(
-      'button[aria-label="复制当前查询链接"]',
-    );
-    expect(share.attributes('disabled')).toBeUndefined();
-    await share.trigger('click');
-    await flushPromises();
-    let link = (
-      wrapper.get(
-        '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    let shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toBeUndefined();
-
-    detailRefresh.reject(new Error('offline'));
-    await flushPromises();
-    expect(row.attributes('aria-current')).toBe('true');
-    expect(wrapper.get('.person-inspector__state').text()).toContain(
-      '人物详情加载失败',
-    );
-    expect(share.attributes('disabled')).toBeUndefined();
-
-    await wrapper.get('.person-inspector__state button').trigger('click');
-    await flushPromises();
-    expect(detailExecute).toHaveBeenCalledTimes(3);
-    await share.trigger('click');
-    await flushPromises();
-    link = (
-      wrapper.get(
-        '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toMatchObject({
-      input: { personId: 12 },
-      view: detailExecute.mock.calls[2]![0].view,
-    });
-    expect(wrapper.text()).toContain('林明');
-    wrapper.unmount();
-  });
-
-  it('queues compound Inspector controls and replays both changed and unchanged views exactly once per ranking refresh', async () => {
-    window.history.replaceState({}, '', '/ranking?user=luca');
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    const store = useQueryStore();
-    store.draft.uid = 'luca';
-    store.draft.positionKeys = ['staff:anime:2'];
-    const versionB = `dv1-${'e'.repeat(64)}`;
-    const versionC = `dv1-${'f'.repeat(64)}`;
-    const fetchedAtB = '2026-07-25T00:05:00Z';
-    const fetchedAtC = '2026-07-25T00:10:00Z';
-    const rankingRefreshB =
-      deferred<OperationResponse<RankingPayload>>();
-    const rankingRefreshC =
-      deferred<OperationResponse<RankingPayload>>();
-    const detailRefreshB =
-      deferred<OperationResponse<PersonDetailPayload>>();
-    type Drivers = QueryDrivers<
-      RankingPayload,
-      never,
-      PersonDetailPayload
-    >;
-    type RankingRequest = Parameters<
-      Drivers['rankings']['execute']
-    >[0];
-    type DetailRequest = Parameters<
-      NonNullable<Drivers['personDetail']>['execute']
-    >[0];
-    let rankingCall = 0;
-    const rankingExecute = vi.fn((request: RankingRequest) => {
-      rankingCall += 1;
-      if (rankingCall === 2) {
-        return rankingRefreshB.promise;
-      }
-      if (rankingCall === 3) {
-        return rankingRefreshC.promise;
-      }
-      return Promise.resolve({
-        payload: rankingPayload('server-ranking', 'count'),
-        requestId: 'server-ranking',
-        transactionId: request.transactionId,
-      });
-    });
-    let detailCall = 0;
-    const detailExecute = vi.fn((request: DetailRequest) => {
-      detailCall += 1;
-      if (detailCall === 2) {
-        return detailRefreshB.promise;
-      }
-      const refreshed = detailCall === 3;
-      return Promise.resolve({
-        payload: detailPayload(
-          refreshed ? versionC : rankingDataVersion,
-          refreshed
-            ? fetchedAtC
-            : '2026-07-25T00:00:00Z',
-        ),
-        requestId: refreshed
-          ? 'server-detail-c'
-          : 'server-detail',
-        transactionId: request.transactionId,
-      });
-    });
-    const drivers: Drivers = {
-      candidates: {
-        async execute(): Promise<never> {
-          throw new Error('not part of this test');
-        },
-      },
-      personDetail: { execute: detailExecute },
-      rankings: { execute: rankingExecute },
-    };
-    const wrapper = mount(App, {
-      attachTo: document.body,
-      global: { plugins: [pinia], stubs: { teleport: true } },
-      props: {
-        services: {
-          catalogApi: {
-            async load() {
-              return catalogFixture();
-            },
-          },
-          drivers,
-          targetWindow: window,
-        },
-      },
-    });
-    await flushPromises();
-    await wrapper.get('#query-editor').trigger('submit');
-    await flushPromises();
-    await wrapper.get('.ranked-person-row').trigger('click');
-    await flushPromises();
-    expect(detailExecute).toHaveBeenCalledOnce();
-
-    await wrapper.get('.query-summary').trigger('click');
-    await nextTick();
-    let refresh = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('刷新收藏并查询'));
-    expect(refresh).toBeDefined();
-    await refresh!.trigger('click');
-    await nextTick();
-    expect(rankingExecute).toHaveBeenCalledTimes(2);
-    expect(detailExecute).toHaveBeenCalledOnce();
-
-    const search = wrapper.get<HTMLInputElement>(
-      'input[name="workSearch"]',
-    );
-    await search.setValue('刷新后作品');
-    await wrapper.get('form.person-item-toolbar').trigger('submit');
-    await flushPromises();
-    await wrapper
-      .get('.person-item-toolbar .ranking-order-button')
-      .trigger('click');
-    await flushPromises();
-    expect(detailExecute).toHaveBeenCalledOnce();
-    expect(wrapper.text()).not.toContain('请先选择排行中的人物');
-    expect(wrapper.text()).not.toContain('请先完成一次人物排行查询');
-
-    const rankingRequestB = rankingExecute.mock.calls[1]![0];
-    rankingRefreshB.resolve({
-      payload: rankingPayload(
-        'server-ranking-b',
-        'count',
-        versionB,
-        fetchedAtB,
-      ),
-      requestId: 'server-ranking-b',
-      transactionId: rankingRequestB.transactionId,
-    });
-    await flushPromises();
-    await vi.waitFor(() => {
-      expect(detailExecute).toHaveBeenCalledTimes(2);
-    });
-    const compoundView = detailExecute.mock.calls[1]![0].view;
-    expect(compoundView).toMatchObject({
-      order: 'asc',
-      search: '刷新后作品',
-    });
-
-    const share = wrapper.get(
-      'button[aria-label="复制当前查询链接"]',
-    );
-    await share.trigger('click');
-    await flushPromises();
-    let link = (
-      wrapper.get(
-        '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    let shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toBeUndefined();
-
-    const detailRequestB = detailExecute.mock.calls[1]![0];
-    detailRefreshB.resolve({
-      payload: detailPayload(versionB, fetchedAtB),
-      requestId: 'server-detail-b',
-      transactionId: detailRequestB.transactionId,
-    });
-    await flushPromises();
-    await share.trigger('click');
-    await flushPromises();
-    link = (
-      wrapper.get(
-        '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toMatchObject({
-      input: { personId: 12 },
-      view: compoundView,
-    });
-
-    await wrapper.get('.query-summary').trigger('click');
-    await nextTick();
-    refresh = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('刷新收藏并查询'));
-    expect(refresh).toBeDefined();
-    await refresh!.trigger('click');
-    await nextTick();
-    expect(rankingExecute).toHaveBeenCalledTimes(3);
-    expect(detailExecute).toHaveBeenCalledTimes(2);
-
-    const rankingRequestC = rankingExecute.mock.calls[2]![0];
-    rankingRefreshC.resolve({
-      payload: rankingPayload(
-        'server-ranking-c',
-        'count',
-        versionC,
-        fetchedAtC,
-      ),
-      requestId: 'server-ranking-c',
-      transactionId: rankingRequestC.transactionId,
-    });
-    await flushPromises();
-    await vi.waitFor(() => {
-      expect(detailExecute).toHaveBeenCalledTimes(3);
-    });
-    expect(detailExecute.mock.calls[2]![0].view).toEqual(
-      compoundView,
-    );
-    expect(detailExecute).toHaveBeenCalledTimes(3);
-
-    await share.trigger('click');
-    await flushPromises();
-    link = (
-      wrapper.get(
-        '.share-fallback__content input',
-      ).element as HTMLInputElement
-    ).value;
-    shared = readShare('/ranking', new URL(link).hash);
-    expect(
-      shared.workspace.kind === 'ranking'
-        ? shared.workspace.detail
-        : null,
-    ).toMatchObject({
-      input: { personId: 12 },
-      view: compoundView,
-    });
-    wrapper.unmount();
-  });
-
-  it('closes only the compact drawer while preserving the selected person and accepted detail', async () => {
-    const media = installCompactLayout(true);
+  it.each([false, true])('closes only the drawer while preserving selection and detail (wide controls: %s)', async (wideControls) => {
+    const media = installCompactLayout(true, wideControls);
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -1154,6 +856,7 @@ describe('App ranking production slice', () => {
       attachTo: document.body,
       global: {
         plugins: [pinia],
+        stubs: { transition: false },
       },
       props: {
         services: {
@@ -1170,29 +873,41 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
     const row = wrapper.get<HTMLButtonElement>('.ranked-person-row');
+
+    expect(personExecute).toHaveBeenCalledOnce();
+    expect(wrapper.get('.ranking-workspace').classes()).toContain('ranking-workspace--single');
+    expect(row.attributes('aria-current')).toBe('true');
+    expect(row.attributes('aria-controls')).toBeUndefined();
+    expect(row.attributes('aria-expanded')).toBeUndefined();
+    expect(
+      document.body.querySelector('.person-detail-drawer'),
+    ).toBeNull();
+    expect(
+      wrapper.get('[data-app-root]').attributes('inert'),
+    ).toBeUndefined();
+    expect(
+      wrapper.get('[data-app-root]').attributes('aria-hidden'),
+    ).toBeUndefined();
     row.element.focus();
     await row.trigger('click');
     await flushPromises();
 
-    expect(personExecute).toHaveBeenCalledOnce();
-    expect(row.attributes('aria-current')).toBe('true');
-    expect(row.attributes('aria-controls')).toBe('person-detail-panel');
-    expect(row.attributes('aria-expanded')).toBe('true');
-    expect(
-      wrapper.get('[data-app-root]').attributes(),
-    ).toMatchObject({
-      'aria-hidden': 'true',
-      inert: 'true',
-    });
-    const close = document.body.querySelector<HTMLButtonElement>(
+    const manualClose = document.body.querySelector<HTMLButtonElement>(
       '.person-detail-drawer__bar button',
     )!;
-    expect(close).not.toBeNull();
-    expect(document.activeElement).toBe(close);
-    close.click();
+    expect(manualClose).not.toBeNull();
+    expect(document.activeElement).toBe(
+      document.body.querySelector('.person-detail-drawer'),
+    );
+    manualClose.click();
     await flushPromises();
 
+    await vi.waitFor(() => {
+      expect(document.body.querySelector('.person-detail-drawer')).toBeNull();
+      expect(document.activeElement).toBe(row.element);
+    });
     expect(document.activeElement).toBe(row.element);
     expect(row.attributes('aria-current')).toBe('true');
     expect(row.attributes('aria-controls')).toBeUndefined();
@@ -1218,9 +933,7 @@ describe('App ranking production slice', () => {
     expect(
       document.body.querySelector('.person-detail-drawer'),
     ).not.toBeNull();
-    expect(
-      wrapper.get('[data-app-root]').attributes('inert'),
-    ).toBe('true');
+    expect((wrapper.get('.app-page-scroll').element as HTMLElement).inert).toBe(true);
 
     media.setMatches(false);
     await flushPromises();
@@ -1253,7 +966,7 @@ describe('App ranking production slice', () => {
     vi.unstubAllGlobals();
   });
 
-  it('preserves accepted Inspector state across modes and clears it only for a successful changed query', async () => {
+  it('preserves accepted Inspector state across modes and reselects first after a successful changed query', async () => {
     installCompactLayout(true);
     window.history.replaceState({}, '', '/ranking?user=luca');
     const pinia = createPinia();
@@ -1288,6 +1001,7 @@ describe('App ranking production slice', () => {
       attachTo: document.body,
       global: {
         plugins: [pinia],
+        stubs: { transition: false },
       },
       props: {
         services: {
@@ -1304,18 +1018,12 @@ describe('App ranking production slice', () => {
     await flushPromises();
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
 
-    await wrapper.get('.ranked-person-row').trigger('click');
-    await flushPromises();
     expect(personExecute).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => {
-      expect(
-        document.body.querySelector('.person-detail-drawer'),
-      ).not.toBeNull();
-    });
     expect(
       document.body.querySelector('.person-detail-drawer'),
-    ).not.toBeNull();
+    ).toBeNull();
 
     await wrapper.get('#mode-tab-co-star').trigger('click');
     await flushPromises();
@@ -1325,6 +1033,7 @@ describe('App ranking production slice', () => {
 
     await wrapper.get('#mode-tab-ranking').trigger('click');
     await flushPromises();
+    await waitForRankingSurface(wrapper);
     let row = wrapper.get('.ranked-person-row');
     expect(row.attributes('aria-current')).toBe('true');
     expect(row.attributes('aria-expanded')).toBeUndefined();
@@ -1333,6 +1042,20 @@ describe('App ranking production slice', () => {
     await row.trigger('click');
     await flushPromises();
     expect(personExecute).toHaveBeenCalledTimes(1);
+
+    await vi.waitFor(() => expect(document.body.querySelector('.person-detail-drawer')).not.toBeNull());
+    expect(wrapper.get('.app-header').element.closest('[inert], [aria-hidden="true"]')).toBeNull();
+    expect((wrapper.get('.app-page-scroll').element as HTMLElement).inert).toBe(true);
+    await wrapper.get('#mode-tab-co-star').trigger('click');
+    await vi.waitFor(() => {
+      expect(document.body.querySelector('.person-detail-drawer')).toBeNull();
+      expect(document.activeElement).toBe(wrapper.get('#mode-tab-co-star').element);
+      expect((wrapper.get('.app-page-scroll').element as HTMLElement).inert).toBe(false);
+    });
+    await wrapper.get('#mode-tab-ranking').trigger('click');
+    await flushPromises();
+    await wrapper.get('.ranked-person-row').trigger('click');
+    await vi.waitFor(() => expect(document.body.querySelector('.person-detail-drawer__bar button')).not.toBeNull());
 
     document.body
       .querySelector<HTMLButtonElement>(
@@ -1350,17 +1073,76 @@ describe('App ranking production slice', () => {
       );
     await flushPromises();
     expect(rankingExecute).toHaveBeenCalledTimes(2);
+    expect(personExecute).toHaveBeenCalledTimes(2);
     expect(
       document.body.querySelector('.person-detail-drawer'),
     ).toBeNull();
     row = wrapper.get('.ranked-person-row');
-    expect(row.attributes('aria-current')).toBeUndefined();
+    expect(row.attributes('aria-current')).toBe('true');
     expect(row.attributes('aria-expanded')).toBeUndefined();
-
-    await row.trigger('click');
-    await flushPromises();
-    expect(personExecute).toHaveBeenCalledTimes(2);
     wrapper.unmount();
     vi.unstubAllGlobals();
   });
+  it.each([true, false])('retries a failed chunk only after preserving recovery intent (storage=%s)', async (storageAvailable) => {
+    installCompactLayout(false);
+    window.history.replaceState({}, '', '/ranking?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore(pinia);
+    store.draft.uid = 'luca';
+    store.draft.positionKeys = ['staff:anime:2'];
+    const reload = vi.fn(() => createQuerySessionOwner(window).read('/ranking'));
+    const targetWindow = new Proxy(window, {
+      get(target, property) {
+        if (property === 'location') return {
+          href: window.location.href, pathname: window.location.pathname, reload,
+        };
+        const value = Reflect.get(target, property, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    vi.doMock('../../src/features/person-detail/components/PersonDetailSurface.vue', () => {
+      throw new Error('chunk unavailable');
+    });
+    const wrapper = mount(App, {
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: {
+        catalogApi: { async load() { return catalogFixture(); } },
+        drivers: {
+          rankings: { async execute(request) { return {
+            payload: rankingPayload('server-ranking', 'count'),
+            requestId: 'server-ranking', transactionId: request.transactionId,
+          }; } },
+          candidates: { async execute(): Promise<never> { throw new Error('not used'); } },
+          personDetail: { async execute(request) { return {
+            payload: detailPayload(), requestId: 'server-detail', transactionId: request.transactionId,
+          }; } },
+        },
+        targetWindow,
+      } },
+    });
+    try {
+      await flushPromises();
+      await wrapper.get('#query-editor').trigger('submit');
+      await vi.waitFor(() => expect(wrapper.find('#mode-panel-ranking [data-deferred-surface] button').exists()).toBe(true));
+      const retry = wrapper.get('#mode-panel-ranking [data-deferred-surface] button');
+      if (!storageAvailable) vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+      await retry.trigger('click');
+      await flushPromises();
+      expect(reload).toHaveBeenCalledTimes(storageAvailable ? 1 : 0);
+      if (storageAvailable) expect(reload.mock.results[0]?.value?.workspace).toMatchObject({
+        kind: 'ranking', detail: { input: { personId: 12 } },
+      });
+      expect(store.applied).toMatchObject({ scope: 'personal', uid: 'luca' });
+      expect(window.location.hash).toBe('');
+    } finally {
+      wrapper.unmount();
+      vi.doUnmock('../../src/features/person-detail/components/PersonDetailSurface.vue');
+      vi.unstubAllGlobals();
+      delete document.documentElement.dataset.deferredSurfaceRecovery;
+    }
+  });
+
 });

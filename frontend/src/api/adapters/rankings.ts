@@ -49,6 +49,7 @@ export type RankingMetricScale =
       metric: 'preference';
     }>;
 export interface RankingPayload {
+  readonly location?: Readonly<{ personId: number; rank: number | null; page: number | null }>;
   readonly collection?: Readonly<{
     fetchedAt: string;
     stale: boolean;
@@ -195,6 +196,7 @@ export function adaptRankingsSuccess(
 
   return Object.freeze({
     ...(collection ? { collection } : {}),
+    ...(envelope.data.location ? { location: Object.freeze({ ...envelope.data.location }) } : {}),
     dataVersion: envelope.meta.dataVersion,
     items: Object.freeze(envelope.data.items.map(adaptItem)),
     metricScale: adaptMetricScale(envelope.data.metricScale),

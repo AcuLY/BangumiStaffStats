@@ -1,4 +1,14 @@
-import { toPublicApiReference } from '../navigation/basePath';
+import { APPLICATION_BASE_PATH, toPublicApiReference } from '../navigation/basePath';
+
+const imageResourceReference = /^(?:subjects|persons|characters)\/[1-9][0-9]*\?type=(?:small|grid|large|medium|common)$/;
+
+export function isBangumiImageProxyReference(
+  reference: string,
+  basePath = APPLICATION_BASE_PATH,
+): boolean {
+  const prefix = toPublicApiReference('/api/v1/images/bangumi/', basePath);
+  return reference.startsWith(prefix) && imageResourceReference.test(reference.slice(prefix.length));
+}
 
 export type BangumiImageResource = 'characters' | 'persons' | 'subjects';
 export type BangumiImageType =

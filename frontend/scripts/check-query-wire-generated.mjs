@@ -143,7 +143,7 @@ try {
   const missing = names.filter((name) => !exports.has(name));
   if (
     manifest.openapi.paths !== 0 ||
-    names.length !== 17 ||
+    names.length !== 14 ||
     missing.length > 0
   ) {
     fail(`generated component mismatch: missing ${missing.join(', ')}`);

@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import {
   NButton,
-  NInput,
   NSelect,
-  NTooltip,
 } from 'naive-ui';
 import {
   computed,
@@ -20,14 +18,17 @@ import type {
 } from '../../../api/adapters/partners';
 import AppIcon from '../../../shared/components/AppIcon.vue';
 import SafeImage from '../../../shared/components/SafeImage.vue';
+import { useResultReveal } from '../../../shared/composables/useResultReveal';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import {
   formatHundredths,
   formatRational,
 } from '../../ranking/format';
 import AdaptivePagination from '../../ranking/components/AdaptivePagination.vue';
-import SortDirectionButton from '../../ranking/components/SortDirectionButton.vue';
+import RankedPersonList from '../../ranking/components/RankedPersonList.vue';
+import type { RankingItem } from '../../ranking/model';
+import SearchSortToolbar from '../../../shared/components/SearchSortToolbar.vue';
 import type { SelectedPerson } from '../model';
 import {
   activatePartner,
@@ -42,7 +43,8 @@ import {
   updatePartnersView,
 } from '../partners';
 import type { CoStarSelection } from '../selection';
-import CoStarIcon from './CoStarIcon.vue';
+import CoStarParticipants from './CoStarParticipants.vue';
+import PartnersSkeleton from './PartnersSkeleton.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -68,20 +70,19 @@ const props = withDefaults(
   },
 );
 const emit = defineEmits<{
-  partnerActivated: [item: PartnerCore | PartnerItem];
+  inspectPerson: [person: SelectedPerson['person'], positionKeys: readonly string[], trigger: HTMLElement];
+  partnerActivated: [item: PartnerCore | PartnerItem, trigger: HTMLElement];
 }>();
 
 const candidatePositionKey = ref(
   props.resource.input.candidatePositionKey ?? '',
 );
 const search = ref(props.resource.view.search ?? '');
-const metricTooltipVisible = ref(false);
-const metricTooltipTrigger = ref<HTMLButtonElement | null>(null);
-const metricTooltipWidth = ref<number>();
 const compactLayout = useCompactLayout();
 const controlSize = computed(() =>
   compactLayout.value ? 'small' : 'medium',
 );
+const partnerResults = useResultReveal(props.targetWindow);
 let searchTimer: number | undefined;
 let lastAttempt:
   | Readonly<{
@@ -127,6 +128,21 @@ const view = computed<Readonly<PartnersView>>(() =>
   }),
 );
 const personal = computed(() => props.scope === 'personal');
+const rankingItems = computed<readonly RankingItem[]>(() =>
+  (currentPayload.value?.items ?? []).map((item) => ({
+    ...item.metrics,
+    person: item.person,
+    rank: item.rank,
+    preference: item.preference?.score && item.preference.mean
+      ? { ...item.preference, score: item.preference.score, mean: item.preference.mean }
+      : null,
+  })),
+);
+const identityLabels = computed(() => Object.fromEntries(
+  (currentPayload.value?.items ?? []).map((item) => [
+    item.person.id, item.positionKeys.map(props.positionLabel).join(' · '),
+  ]),
+));
 const fullPending = computed(() => props.resource.phase === 'pending');
 const listPending = computed(
   () => fullPending.value || props.resource.viewPending,
@@ -141,29 +157,16 @@ const positionOptions = computed(() => [
     value: positionKey,
   })),
 ]);
+// Latin letters in mixed labels do not occupy a full ideographic character.
+const positionControlWidth = computed(() => `calc(${Math.max(...positionOptions.value.map(
+  ({ label }) => Array.from(label).reduce((width, character) => width + (/^[\x20-\x7e]$/.test(character) ? 0.5 : 1), 0),
+))}ic + 40px)`);
 const leaderMetrics = computed<
   readonly PartnerLeader['metric'][]
 >(() =>
   personal.value
     ? ['count', 'average', 'overall', 'preference']
     : ['count', 'average', 'overall'],
-);
-const rangeLabel = computed(() => {
-  const payload = currentPayload.value;
-  if (!payload || payload.pagination.total === 0 || payload.items.length === 0) {
-    return `0—0 / ${payload?.pagination.total ?? 0}`;
-  }
-  const start =
-    (payload.pagination.page - 1) * payload.pagination.pageSize + 1;
-  return `${start}—${Math.min(
-    start + payload.items.length - 1,
-    payload.pagination.total,
-  )} / ${payload.pagination.total}`;
-});
-const activePositionLabel = computed(() =>
-  candidatePositionKey.value
-    ? props.positionLabel(candidatePositionKey.value)
-    : '全部已查询职位',
 );
 const statusMessage = computed(() => {
   if (fullPending.value) {
@@ -174,15 +177,6 @@ const statusMessage = computed(() => {
   }
   return props.resource.error ?? props.resource.feedback ?? '';
 });
-const metricHelp = computed(
-  () =>
-    `作品或系列数、均分、已评分数量与综合分均由服务端返回；综合分结合有效评分证据衡量合作表现。${
-      personal.value
-        ? '相对偏好及其证据同样由服务端返回，页面不会从当前列表重新计算。'
-        : ''
-    }`,
-);
-
 function primaryName(
   person: Readonly<{ name: string; nameCN: string | null }>,
 ): string {
@@ -227,18 +221,11 @@ function metricValue(
   return formatRational(item.preference?.score);
 }
 
-function itemSummary(item: PartnerCore): string {
-  return [
-    `${item.metrics.workCount} ${
-      props.workUnit === 'series' ? '个系列' : '部作品'
-    }`,
-    `均分 ${formatHundredths(item.metrics.average)}`,
-    `综合分 ${formatHundredths(item.metrics.overall)}`,
-    ...(personal.value
-      ? [`相对偏好 ${formatRational(item.preference?.score)}`]
-      : []),
-  ].join('，');
+function activateRankedPartner(personId: number, trigger: HTMLElement): void {
+  const item = currentPayload.value?.items.find((entry) => entry.person.id === personId);
+  if (item) activateFromTrigger(item, trigger);
 }
+
 
 function selectedView(patch: Partial<PartnersView>): Readonly<PartnersView> {
   return updatePartnersView(view.value, patch);
@@ -248,6 +235,15 @@ function requestView(patch: Partial<PartnersView>): void {
   const nextView = selectedView(patch);
   lastAttempt = Object.freeze({ kind: 'view', view: nextView });
   void props.executeView(nextView);
+}
+
+async function requestPage(patch: Partial<PartnersView>): Promise<void> {
+  const nextView = selectedView(patch);
+  lastAttempt = Object.freeze({ kind: 'view', view: nextView });
+  const accepted = await props.executeView(nextView);
+  if (accepted) {
+    await partnerResults.reveal();
+  }
 }
 
 function clearSearchTimer(): void {
@@ -260,26 +256,6 @@ function clearSearchTimer(): void {
 function requestSearchNow(): void {
   clearSearchTimer();
   requestView({ search: search.value });
-}
-
-function openMetricTooltip(): void {
-  const trigger = metricTooltipTrigger.value;
-  if (compactLayout.value && trigger) {
-    const availableWidth =
-      props.targetWindow.document.documentElement.clientWidth -
-      Math.max(0, trigger.getBoundingClientRect().left);
-    metricTooltipWidth.value = Math.max(
-      160,
-      Math.min(336, Math.floor(availableWidth)),
-    );
-  } else {
-    metricTooltipWidth.value = undefined;
-  }
-  metricTooltipVisible.value = true;
-}
-
-function closeMetricTooltip(): void {
-  metricTooltipVisible.value = false;
 }
 
 function scheduleSearch(value: string): void {
@@ -310,14 +286,21 @@ function changeCandidatePosition(value: string): void {
   void props.execute(input, nextView);
 }
 
-function activate(item: PartnerCore | PartnerItem): void {
+function activate(
+  item: PartnerCore | PartnerItem,
+  event: MouseEvent,
+): void {
+  activateFromTrigger(item, event.currentTarget as HTMLElement);
+}
+
+function activateFromTrigger(item: PartnerCore | PartnerItem, trigger: HTMLElement): void {
   const result = activatePartner(
     props.selection,
     item,
     props.positionLabel,
   );
   if (result.ok) {
-    emit('partnerActivated', item);
+    emit('partnerActivated', item, trigger);
   }
 }
 
@@ -401,6 +384,7 @@ onBeforeUnmount(clearSearchTimer);
 <template>
   <article
     class="single-cooperation partners-surface surface-panel"
+    :class="{ 'is-personal': personal }"
     aria-label="单人物共演分析"
   >
     <p class="sr-only" role="status" aria-live="polite">
@@ -412,115 +396,32 @@ onBeforeUnmount(clearSearchTimer);
       aria-label="已选人物概览"
     >
       <div class="single-cooperation__selection-content">
-        <article
-          class="selected-person-card"
-          :aria-labelledby="`partners-source-${source.person.id}`"
-        >
-          <div class="selected-person-card__media">
-            <safe-image
-              class="selected-person-card__image"
-              :sources="
-                personImageCandidates(
-                  source.person.id,
-                  84,
-                  devicePixelRatio,
-                )
-              "
-              :alt="primaryName(source.person)"
-              decorative
-              loading="eager"
-              :width="84"
-            />
-          </div>
-          <div class="selected-person-card__body">
-            <header class="selected-person-card__header">
-              <span class="selected-person-card__ordinal" aria-hidden="true">
-                01
-              </span>
-              <span
-                class="selected-person-card__signature-rule"
-                aria-hidden="true"
-              />
-              <div class="selected-person-card__signature">
-                <h2
-                  :id="`partners-source-${source.person.id}`"
-                  class="selected-person-card__name"
-                  :title="primaryName(source.person)"
-                >
-                  {{ primaryName(source.person) }}
-                </h2>
-                <p
-                  class="selected-person-card__identities"
-                  :aria-label="`${primaryName(source.person)}的已选身份`"
-                >
-                  <template
-                    v-for="(identity, index) in source.identities"
-                    :key="identity.positionKey"
-                  >
-                    <span>{{ identity.positionLabel }}</span>
-                    <span
-                      v-if="index < source.identities.length - 1"
-                      class="selected-person-card__identity-separator"
-                      aria-hidden="true"
-                    >
-                      ·
-                    </span>
-                  </template>
-                </p>
-              </div>
-            </header>
-            <dl class="selected-person-card__metrics">
-              <div>
-                <dd>
-                  <span
-                    v-if="fullPending && !currentPayload"
-                    class="partners-inline-skeleton"
-                    aria-hidden="true"
-                  />
-                  <template v-else>
-                    {{ currentPayload?.source.metrics.workCount ?? '—' }}
-                  </template>
-                </dd>
-                <dt>{{ sourceWorkLabel() }}</dt>
-              </div>
-              <div>
-                <dd>
-                  <span
-                    v-if="fullPending && !currentPayload"
-                    class="partners-inline-skeleton"
-                    aria-hidden="true"
-                  />
-                  <template v-else>
-                    {{
-                      formatHundredths(
-                        currentPayload?.source.metrics.average ?? null,
-                      )
-                    }}
-                  </template>
-                </dd>
-                <dt>均分</dt>
-              </div>
-            </dl>
-          </div>
-        </article>
+        <co-star-participants
+          :participants="[{ person: source.person, positionKeys: source.identities.map(identity => identity.positionKey), metrics: currentPayload?.source.metrics ?? { workCount: null, average: null } }]"
+          :position-label="positionLabel"
+          :work-unit="workUnit"
+          :work-label="sourceWorkLabel()"
+          :partner-count="currentPayload?.summary.partnerCount ?? null"
+          :partner-count-pending="fullPending"
+          :pending="fullPending && !currentPayload"
+          :device-pixel-ratio="devicePixelRatio"
+          @inspect-person="(person, keys, trigger) => emit('inspectPerson', person, keys, trigger)"
+        />
 
         <div class="single-cooperation__profile-copy">
-          <div
+          <partners-skeleton
             v-if="fullPending"
-            class="single-cooperation__summary-grid partners-summary-skeleton"
-            aria-hidden="true"
-          >
-            <span v-for="index in personal ? 5 : 4" :key="index" />
-          </div>
+            :source="source"
+            :scope="scope"
+            :work-unit="workUnit"
+            :position-label="positionLabel"
+            section="summary"
+          />
           <div
             v-else-if="!currentPayload && !resource.error"
             class="single-cooperation__summary-grid partners-summary-placeholder"
             aria-label="合作人物分析暂无数据"
           >
-            <div class="single-cooperation__summary-cell">
-              <b>—</b>
-              <small>合作人物</small>
-            </div>
             <div
               v-for="metric in leaderMetrics"
               :key="metric"
@@ -528,9 +429,6 @@ onBeforeUnmount(clearSearchTimer);
             >
               <b>—</b>
               <small>{{ leaderLabel(metric) }}</small>
-              <span class="single-cooperation__leader-person">
-                <strong>暂无数据</strong>
-              </span>
             </div>
           </div>
           <div
@@ -538,10 +436,6 @@ onBeforeUnmount(clearSearchTimer);
             class="single-cooperation__summary-grid"
             :aria-label="`合作人物 ${currentPayload.summary.partnerCount} 位，各指标最高合作人物`"
           >
-            <div class="single-cooperation__summary-cell">
-              <b>{{ currentPayload.summary.partnerCount }}</b>
-              <small>合作人物</small>
-            </div>
             <button
               v-for="leader in currentPayload.summary.leaders"
               :key="leader.metric"
@@ -555,7 +449,7 @@ onBeforeUnmount(clearSearchTimer);
                     )}，${metricValue(leader.item, leader.metric)}`
                   : `${leaderLabel(leader.metric)}：暂无数据`
               "
-              @click="leader.item && activate(leader.item)"
+              @click="leader.item && activate(leader.item, $event)"
             >
               <b>{{
                 leader.item
@@ -563,9 +457,8 @@ onBeforeUnmount(clearSearchTimer);
                   : '—'
               }}</b>
               <small>{{ leaderLabel(leader.metric) }}</small>
-              <span class="single-cooperation__leader-person">
+              <span v-if="leader.item" class="single-cooperation__leader-person">
                 <safe-image
-                  v-if="leader.item"
                   class="single-cooperation__leader-avatar"
                   :sources="
                     personImageCandidates(
@@ -578,18 +471,8 @@ onBeforeUnmount(clearSearchTimer);
                   decorative
                   :width="28"
                 />
-                <strong
-                  :title="
-                    leader.item
-                      ? primaryName(leader.item.person)
-                      : '暂无数据'
-                  "
-                >
-                  {{
-                    leader.item
-                      ? primaryName(leader.item.person)
-                      : '暂无数据'
-                  }}
+                <strong :title="primaryName(leader.item.person)">
+                  {{ primaryName(leader.item.person) }}
                 </strong>
               </span>
             </button>
@@ -607,92 +490,44 @@ onBeforeUnmount(clearSearchTimer);
           <div>
             <div class="single-cooperation__heading-title">
               <h2 id="cooperation-people-title">合作人物</h2>
-              <n-tooltip
-                :show="metricTooltipVisible"
-                placement="top-start"
-                trigger="manual"
-                :animated="false"
-                :width="metricTooltipWidth"
-                style="max-width: min(336px, calc(100dvw - 72px));"
-                content-class="workbench-tooltip-content"
-              >
-                <template #trigger>
-                  <button
-                    ref="metricTooltipTrigger"
-                    class="partners-metric-info"
-                    type="button"
-                    :aria-expanded="metricTooltipVisible"
-                    :aria-label="`合作人物指标说明：${metricHelp}`"
-                    @mouseenter="openMetricTooltip"
-                    @mouseleave="closeMetricTooltip"
-                    @focus="openMetricTooltip"
-                    @blur="closeMetricTooltip"
-                    @click.stop="openMetricTooltip"
-                    @keydown.esc.stop.prevent="closeMetricTooltip"
-                  >
-                    <co-star-icon name="info" :size="16" />
-                  </button>
-                </template>
-                <span class="partners-metric-help">{{ metricHelp }}</span>
-              </n-tooltip>
             </div>
-            <p>{{ rangeLabel }} · {{ activePositionLabel }}</p>
           </div>
         </div>
 
-        <form
+        <search-sort-toolbar
           class="ranking-toolbar partners-toolbar"
-          role="search"
-          @submit.prevent="requestSearchNow"
+          :style="{
+            '--search-sort-controls-grow': 0,
+            '--search-sort-search-basis': '8rem',
+            '--search-sort-filter-width': positionControlWidth,
+          }"
+          :search="search"
+          :sort="view.sort"
+          :order="view.order"
+          :options="sortOptions"
+          search-label="搜索合作人物"
+          search-name="partners-search"
+          sort-label="合作人物排序规则"
+          search-icon
+          @search="scheduleSearch"
+          @sort="changeSort"
+          @order="requestView({ order: $event })"
+          @submit="requestSearchNow"
         >
-          <n-input
-            class="ranking-search-control"
-            :size="controlSize"
-            :value="search"
-            :clearable="Boolean(search)"
-            placeholder="搜索人物"
-            autocomplete="off"
-            aria-label="搜索合作人物"
-            :input-props="{
-              'aria-label': '搜索合作人物',
-              name: 'partners-search',
-              spellcheck: 'false',
-            }"
-            @update:value="scheduleSearch"
-          >
-            <template #prefix>
-              <app-icon name="search" :size="16" />
-            </template>
-          </n-input>
-
-          <n-select
-            v-if="positionKeys.length > 1"
-            class="ranking-sort-control partners-position-control"
-            :size="controlSize"
-            :menu-size="controlSize"
-            :value="candidatePositionKey"
-            :options="positionOptions"
-            :consistent-menu-width="false"
-            aria-label="按合作职位筛选"
-            @update:value="changeCandidatePosition"
-          />
-
-          <n-select
-            class="ranking-sort-control"
-            :size="controlSize"
-            :menu-size="controlSize"
-            :value="view.sort"
-            :options="sortOptions"
-            :consistent-menu-width="false"
-            aria-label="合作人物排序规则"
-            @update:value="changeSort"
-          />
-
-          <sort-direction-button
-            :order="view.order"
-            @change="requestView({ order: $event })"
-          />
-        </form>
+          <template #filters="{ size }">
+            <n-select
+              v-if="positionKeys.length > 1"
+              class="ranking-sort-control partners-position-control"
+              :size="size"
+              :menu-size="size"
+              :value="candidatePositionKey"
+              :options="positionOptions"
+              :consistent-menu-width="false"
+              aria-label="按合作职位筛选"
+              @update:value="changeCandidatePosition"
+            />
+          </template>
+        </search-sort-toolbar>
 
         <div
           v-if="resource.error && currentPayload"
@@ -712,37 +547,26 @@ onBeforeUnmount(clearSearchTimer);
         </div>
 
         <div
-          class="partners-results-boundary"
+          :ref="partnerResults.target"
+          class="partners-results-boundary ranked-person-results"
+          :class="{
+            'is-reveal-attention': partnerResults.attention.value,
+            'result-reveal-target': true,
+          }"
+          role="region"
+          aria-label="合作人物结果"
+          tabindex="-1"
           :aria-busy="listPending ? 'true' : undefined"
         >
-        <div
-          class="ranking-columns partners-columns"
-          :class="{ 'is-global': !personal }"
-          aria-hidden="true"
-        >
-          <span>#</span>
-          <span />
-          <span>人物</span>
-          <span
-            class="ranking-columns__metrics"
-            :style="{
-              '--ranking-metric-columns': personal ? 4 : 3,
-            }"
-          >
-            <span>{{ workUnit === 'series' ? '系列' : '作品' }}</span>
-            <span>均分</span>
-            <span>综合</span>
-            <span v-if="personal">偏好</span>
-          </span>
-        </div>
-
-        <div
+        <partners-skeleton
           v-if="listPending"
-          class="partners-row-skeletons"
-          aria-hidden="true"
-        >
-          <span v-for="index in view.pageSize" :key="index" />
-        </div>
+          :source="source"
+          :scope="scope"
+          :work-unit="workUnit"
+          :position-label="positionLabel"
+          :page-size="view.pageSize"
+          section="rows"
+        />
         <div
           v-else-if="resource.error && !currentPayload"
           class="partners-state"
@@ -769,77 +593,18 @@ onBeforeUnmount(clearSearchTimer);
             </n-button>
           </div>
         </div>
-        <div
+        <ranked-person-list
           v-else-if="currentPayload?.items.length"
-          class="ranked-person-list partners-person-list"
-        >
-          <button
-            v-for="item in currentPayload.items"
-            :key="item.person.id"
-            class="ranked-person-row partners-person-row"
-            type="button"
-            :data-person-id="item.person.id"
-            :aria-label="`${item.rank}. ${primaryName(
-              item.person,
-            )}，${item.positionKeys
-              .map(positionLabel)
-              .join(' / ')}，${itemSummary(item)}；选择为合作人物`"
-            @click="activate(item)"
-          >
-            <span class="ranked-person-row__rank">{{ item.rank }}</span>
-            <safe-image
-              class="ranked-person-row__avatar"
-              :sources="
-                personImageCandidates(
-                  item.person.id,
-                  36,
-                  devicePixelRatio,
-                )
-              "
-              :alt="primaryName(item.person)"
-              decorative
-              :width="36"
-            />
-            <span class="ranked-person-row__identity">
-              <strong :title="primaryName(item.person)">
-                {{ primaryName(item.person) }}
-              </strong>
-              <small :title="item.positionKeys.map(positionLabel).join(' / ')">
-                {{ item.positionKeys.map(positionLabel).join(' / ') }}
-              </small>
-            </span>
-            <span
-              class="ranked-person-row__metrics"
-              :style="{
-                '--ranking-metric-columns': personal ? 4 : 3,
-              }"
-              :aria-label="itemSummary(item)"
-            >
-              <span :class="{ 'is-active': view.sort === 'count' }">
-                <strong>{{ item.metrics.workCount }}</strong>
-              </span>
-              <span :class="{ 'is-active': view.sort === 'average' }">
-                <strong>{{
-                  formatHundredths(item.metrics.average)
-                }}</strong>
-              </span>
-              <span :class="{ 'is-active': view.sort === 'overall' }">
-                <strong>{{
-                  formatHundredths(item.metrics.overall)
-                }}</strong>
-              </span>
-              <span
-                v-if="personal"
-                :class="{
-                  'is-active': view.sort === 'preference',
-                  'is-unavailable': item.preference?.score == null,
-                }"
-              >
-                <strong>{{ formatRational(item.preference?.score) }}</strong>
-              </span>
-            </span>
-          </button>
-        </div>
+          :items="rankingItems"
+          :metric-scale="currentPayload.metricScale"
+          :personal="personal"
+          :sort="view.sort"
+          :work-unit="workUnit"
+          :device-pixel-ratio="devicePixelRatio"
+          :identity-labels="identityLabels"
+          activation-label="选择为合作人物"
+          @activate="activateRankedPartner"
+        />
         <div v-else class="partners-state">
           <app-icon name="search" :size="22" />
           <strong>
@@ -851,20 +616,17 @@ onBeforeUnmount(clearSearchTimer);
           </strong>
         </div>
 
-        <div class="partners-pagination">
-          <div v-if="listPending" class="ranking-pagination-skeleton" />
+        <div v-if="currentPayload" class="partners-pagination">
           <adaptive-pagination
-            v-else-if="currentPayload"
             aria-label="合作人物分页"
-            :item-count="currentPayload.items.length"
             :page="currentPayload.pagination.page"
             :page-size="currentPayload.pagination.pageSize"
             page-size-label="每页合作人物数"
             page-size-unit="人"
-            :pending="resource.viewPending"
+            :pending="listPending"
             :total="currentPayload.pagination.total"
-            @page="requestView({ page: $event })"
-            @page-size="requestView({ pageSize: $event })"
+            @page="requestPage({ page: $event })"
+            @page-size="requestPage({ pageSize: $event })"
           />
         </div>
         </div>

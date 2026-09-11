@@ -10,6 +10,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for PostCoStarV1JSONBodyInputPositionScope.
+const (
+	PostCoStarV1JSONBodyInputPositionScopeAll   PostCoStarV1JSONBodyInputPositionScope = "all"
+	PostCoStarV1JSONBodyInputPositionScopeQuery PostCoStarV1JSONBodyInputPositionScope = "query"
+)
+
+// Valid indicates whether the value is a known member of the PostCoStarV1JSONBodyInputPositionScope enum.
+func (e PostCoStarV1JSONBodyInputPositionScope) Valid() bool {
+	switch e {
+	case PostCoStarV1JSONBodyInputPositionScopeAll:
+		return true
+	case PostCoStarV1JSONBodyInputPositionScopeQuery:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostCoStarV1JSONBodyQuery0CollectionStatuses.
 const (
 	PostCoStarV1JSONBodyQuery0CollectionStatusesCompleted  PostCoStarV1JSONBodyQuery0CollectionStatuses = "completed"
@@ -2369,7 +2387,12 @@ type PostCoStarV1JSONBody struct {
 			PersonId     int      `json:"personId"`
 			PositionKeys []string `json:"positionKeys"`
 		} `json:"participants"`
+
+		// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
+		PositionScope *PostCoStarV1JSONBodyInputPositionScope `json:"positionScope,omitempty"`
 	} `json:"input"`
+
+	// Query Query body for an explicitly all-position operation. Empty positionKeys is permitted only when the containing operation requires positionScope=all; all other query validation is unchanged.
 	Query PostCoStarV1JSONBody_Query `json:"query"`
 	View  *struct {
 		Order    *PostCoStarV1JSONBodyViewOrder    `json:"order,omitempty"`
@@ -2379,6 +2402,9 @@ type PostCoStarV1JSONBody struct {
 		Sort     *PostCoStarV1JSONBodyViewSort     `json:"sort,omitempty"`
 	} `json:"view,omitempty"`
 }
+
+// PostCoStarV1JSONBodyInputPositionScope defines parameters for PostCoStarV1.
+type PostCoStarV1JSONBodyInputPositionScope string
 
 // PostCoStarV1JSONBodyQuery0 defines parameters for PostCoStarV1.
 type PostCoStarV1JSONBodyQuery0 struct {
@@ -2595,6 +2621,7 @@ type PostCoStarV1200JSONResponseBody0Data0Items1 struct {
 		Name    string  `json:"name"`
 		NameCN  *string `json:"nameCN"`
 	} `json:"members"`
+	MetaTags     []string `json:"metaTags"`
 	Participants []struct {
 		Credits   []PostCoStarV1200JSONResponseBody_0_Data_0_Items_1_Participants_Credits_Item `json:"credits"`
 		PersonId  int                                                                          `json:"personId"`
@@ -2829,6 +2856,7 @@ type PostCoStarV1200JSONResponseBody0Data1Items1 struct {
 		Name    string  `json:"name"`
 		NameCN  *string `json:"nameCN"`
 	} `json:"members"`
+	MetaTags     []string `json:"metaTags"`
 	Participants []struct {
 		Credits   []PostCoStarV1200JSONResponseBody_0_Data_1_Items_1_Participants_Credits_Item `json:"credits"`
 		PersonId  int                                                                          `json:"personId"`
@@ -3133,6 +3161,7 @@ type PostCoStarV1200JSONResponseBody1Data0Items1 struct {
 		Name    string  `json:"name"`
 		NameCN  *string `json:"nameCN"`
 	} `json:"members"`
+	MetaTags     []string `json:"metaTags"`
 	Participants []struct {
 		Credits   []PostCoStarV1200JSONResponseBody_1_Data_0_Items_1_Participants_Credits_Item `json:"credits"`
 		PersonId  int                                                                          `json:"personId"`
@@ -3478,6 +3507,7 @@ type PostCoStarV1200JSONResponseBody1Data1Items1 struct {
 		Name    string  `json:"name"`
 		NameCN  *string `json:"nameCN"`
 	} `json:"members"`
+	MetaTags     []string `json:"metaTags"`
 	Participants []struct {
 		Credits   []PostCoStarV1200JSONResponseBody_1_Data_1_Items_1_Participants_Credits_Item `json:"credits"`
 		PersonId  int                                                                          `json:"personId"`

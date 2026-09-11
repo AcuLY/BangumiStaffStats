@@ -16,11 +16,11 @@
       },
       {
         "name": "person.jsonlines",
-        "bytesUtf8": "{\"id\":101,\"name\":\"Person 1\",\"name_cn\":\"人物1\",\"career\":[\"seiyu\"]}\n{\"id\":102,\"name\":\"Person 2\",\"name_cn\":\"人物2\",\"career\":[\"seiyu\"]}\n{\"id\":103,\"name\":\"Person 3\",\"name_cn\":\"人物3\",\"career\":[\"seiyu\"]}\n{\"id\":104,\"name\":\"Person 4\",\"name_cn\":\"人物4\",\"career\":[\"seiyu\"]}\n{\"id\":105,\"name\":\"Person 5\",\"name_cn\":\"人物5\",\"career\":[\"seiyu\"]}\n{\"id\":106,\"name\":\"Person 6\",\"name_cn\":\"人物6\",\"career\":[\"seiyu\"]}\n",
-        "size": 408,
-        "digest": "sha256:6ae1ef3a1000191cc6e37a3ba761395abf1d2c8ea08c239104b4df2db7e77bcb",
-        "declaredSize": 408,
-        "declaredDigest": "sha256:6ae1ef3a1000191cc6e37a3ba761395abf1d2c8ea08c239104b4df2db7e77bcb"
+        "bytesUtf8": "{\"id\":101,\"name\":\"Person 1\",\"name_cn\":\"人物1\",\"career\":[\"seiyu\"],\"summary\":\" \\r\\n金标简介。\\r第二行\\u0000\\u0001\\tLiteral <b>text</b> [b]text[/b] 😀　\"}\n{\"id\":102,\"name\":\"Person 2\",\"name_cn\":\"人物2\",\"career\":[\"seiyu\"],\"summary\":null}\n{\"id\":103,\"name\":\"Person 3\",\"name_cn\":\"人物3\",\"career\":[\"seiyu\"]}\n{\"id\":104,\"name\":\"Person 4\",\"name_cn\":\"人物4\",\"career\":[\"seiyu\"],\"summary\":\" \\t\\r\\n　 \"}\n{\"id\":105,\"name\":\"Person 5\",\"name_cn\":\"人物5\",\"career\":[\"seiyu\"],\"summary\":\"跨 Unicode 😀 简介\"}\n{\"id\":106,\"name\":\"Person 6\",\"name_cn\":\"人物6\",\"career\":[\"seiyu\"],\"summary\":\"A short biography.\"}\n",
+        "size": 613,
+        "digest": "sha256:85d4fd06aa744608776d41cb0eb1a1a6d4db8a3f95711fec0b08622d12fffc8c",
+        "declaredSize": 613,
+        "declaredDigest": "sha256:85d4fd06aa744608776d41cb0eb1a1a6d4db8a3f95711fec0b08622d12fffc8c"
       },
       {
         "name": "character.jsonlines",
@@ -75,12 +75,12 @@
     },
     "identity": {
       "archiveRelease": "producer-golden-v1",
-      "archiveDigest": "sha256:55b7f5b680646ab1d9a3ad360c6cc95e9a57da447abe4f826b619d6900488a1e",
+      "archiveDigest": "sha256:8ff0929359ab7dddeb8100ba1a9f18ea7c5bbbd28b20ac2ebaf0acd9f0032011",
       "commonCommit": "6a8442c17143a870357a5ff812362e8b5cfe9f9d",
       "commonDigest": "sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180",
       "manifestSchemaVersion": 1,
-      "sqliteSchemaVersion": 1,
-      "schemaSqlDigest": "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
+      "sqliteSchemaVersion": 2,
+      "schemaSqlDigest": "sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255",
       "domainRulesVersion": "domain-raw-v1",
       "castRulesVersion": "cast-exact-v1",
       "catalogConfigDigest": "sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898"
@@ -88,9 +88,9 @@
   },
   "dataVersion": {
     "algorithm": "bgmss-archive-data-version-v1",
-    "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=producer-golden-v1\narchiveDigest=sha256:55b7f5b680646ab1d9a3ad360c6cc95e9a57da447abe4f826b619d6900488a1e\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180\nmanifestSchemaVersion=1\nsqliteSchemaVersion=1\nschemaSqlDigest=sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0\ndomainRulesVersion=domain-raw-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898\n",
+    "canonicalPreimage": "bgmss-archive-data-version-v1\narchiveRelease=producer-golden-v1\narchiveDigest=sha256:8ff0929359ab7dddeb8100ba1a9f18ea7c5bbbd28b20ac2ebaf0acd9f0032011\ncommonCommit=6a8442c17143a870357a5ff812362e8b5cfe9f9d\ncommonDigest=sha256:24163ba3a1520c207ecd282a562641c7669077dbef63cb5083fd8b24dd457180\nmanifestSchemaVersion=1\nsqliteSchemaVersion=2\nschemaSqlDigest=sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255\ndomainRulesVersion=domain-raw-v1\ncastRulesVersion=cast-exact-v1\ncatalogConfigDigest=sha256:5a6082bc4af89320ef3f7a2ea045189a4a9b2797ef084dbc914f40f2978f4898\n",
     "canonicalPreimageByteLength": 579,
-    "result": "dv1-4e701e324026eae44b0b6c87a83daa7fa20aac0a9e52f3868f0689f064176fbe"
+    "result": "dv1-a3d378f08ecec40bf7b22aeee4ff9f77020dfd4ea21ecc10933fe2457637692e"
   },
   "expected": {
     "accounting": [
@@ -215,7 +215,8 @@
           "nameCn": "人物1",
           "careers": [
             "seiyu"
-          ]
+          ],
+          "summary": "金标简介。\n第二行\tLiteral <b>text</b> [b]text[/b] 😀"
         },
         {
           "personId": 102,
@@ -223,7 +224,8 @@
           "nameCn": "人物2",
           "careers": [
             "seiyu"
-          ]
+          ],
+          "summary": null
         },
         {
           "personId": 103,
@@ -231,7 +233,8 @@
           "nameCn": "人物3",
           "careers": [
             "seiyu"
-          ]
+          ],
+          "summary": null
         },
         {
           "personId": 104,
@@ -239,7 +242,8 @@
           "nameCn": "人物4",
           "careers": [
             "seiyu"
-          ]
+          ],
+          "summary": null
         },
         {
           "personId": 105,
@@ -247,7 +251,8 @@
           "nameCn": "人物5",
           "careers": [
             "seiyu"
-          ]
+          ],
+          "summary": "跨 Unicode 😀 简介"
         },
         {
           "personId": 106,
@@ -255,7 +260,8 @@
           "nameCn": "人物6",
           "careers": [
             "seiyu"
-          ]
+          ],
+          "summary": "A short biography."
         }
       ],
       "character": [
@@ -580,7 +586,7 @@
     "logicalDigests": {
       "algorithm": "bgmss-producer-logical-rows-v1",
       "subject": "sha256:ff9c874ec8eef4b1b77eeaa4eb2a71c466bd9488208ae5b41e0ca126e25dfc18",
-      "person": "sha256:070b2ff01e2f845078270f18014c3441e4a648983187feb8f644b72fed1b221e",
+      "person": "sha256:b570113c19d5e8f74704bccfd3313dc340edfe7e101760bc93bbf71f5c73fcc0",
       "character": "sha256:c9ef14fb7e8e6b76372e065497fbcf9ec6c01b45ee37da613bd75fde5b6eef18",
       "subjectRelation": "sha256:9a88d50d2ddd5d26621b084437e5a4b95a52b1ac5df0b857bcd613c9a26e6a99",
       "staffPosition": "sha256:d4b03b5c662ecc6b7e0404061fb9f8c9086e672c29b07dbd6dbe293e3133598f",

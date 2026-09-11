@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 
 import SafeImage from '../../../shared/components/SafeImage.vue';
 import { personImageCandidates } from '../../../shared/media/bangumiImage';
+import { bilingualNameTitle } from '../../../shared/names/bilingualName';
 import {
   primaryPersonName,
   secondaryPersonName,
@@ -82,53 +83,60 @@ watch(
       <safe-image
         class="person-profile__portrait"
         :sources="
-          personImageCandidates(payload.person.id, 160, devicePixelRatio)
+          personImageCandidates(payload.person.id, 96, devicePixelRatio)
         "
         :alt="name"
         loading="eager"
-        :width="160"
+        :width="96"
       />
-      <div class="person-profile__content">
-        <div class="person-profile__name-row">
-          <h2 id="person-inspector-title">
-            <a
-              class="person-profile__name-link"
-              :href="`https://bgm.tv/person/${payload.person.id}`"
-              target="_blank"
-              rel="noopener noreferrer"
-              :title="`在 Bangumi 查看${name}`"
-            >
-              {{ name }}
-            </a>
-          </h2>
+      <div class="person-profile__copy">
+        <div class="person-profile__content" :class="{ 'person-profile__content--action': $slots.action }">
+          <div class="person-profile__name-row">
+            <h2>
+              <a
+                class="person-profile__name-link"
+                :href="`https://bgm.tv/person/${payload.person.id}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                :title="`在 Bangumi 查看${name}`"
+              >
+                {{ name }}
+              </a>
+            </h2>
+          </div>
+          <span
+            v-if="careerLine"
+            class="person-profile__career"
+            :title="careerLine"
+          >{{ careerLine }}</span>
+          <p
+            v-if="secondaryName"
+            class="person-profile__secondary-name"
+            :title="bilingualNameTitle(payload.person)"
+          >
+            {{ secondaryName }}
+          </p>
+          <div v-if="$slots.action" class="person-profile__action"><slot name="action" /></div>
         </div>
-        <span
-          v-if="careerLine"
-          class="person-profile__career"
-          :title="careerLine"
-        >{{ careerLine }}</span>
-        <p v-if="secondaryName" class="person-profile__secondary-name">
-          {{ secondaryName }}
-        </p>
-      </div>
-      <section
-        class="person-profile__summary person-profile__bio"
-        :class="{ 'is-expanded': expanded }"
-        aria-label="人物简介"
-      >
-        <p>
-          {{ profileSummary }}
-        </p>
-        <button
-          v-if="hasLongSummary"
-          class="person-profile__bio-toggle"
-          type="button"
-          :aria-expanded="expanded"
-          @click="expanded = !expanded"
+        <section
+          class="person-profile__summary person-profile__bio"
+          :class="{ 'is-expanded': expanded, 'has-toggle': hasLongSummary }"
+          aria-label="人物简介"
         >
-          {{ expanded ? '收起' : '展开' }}
-        </button>
-      </section>
+          <p>
+            {{ profileSummary }}
+          </p>
+          <button
+            v-if="hasLongSummary"
+            class="person-profile__bio-toggle"
+            type="button"
+            :aria-expanded="expanded"
+            @click="expanded = !expanded"
+          >
+            {{ expanded ? '收起' : '展开' }}
+          </button>
+        </section>
+      </div>
     </div>
     <slot name="metrics" />
   </header>

@@ -51,7 +51,10 @@
                   "name": "Personal High",
                   "nameCN": null
                 },
-                "workCount": 2
+                "workCount": 2,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               },
               {
                 "rank": 2,
@@ -60,7 +63,10 @@
                   "name": "Personal Low",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               }
             ]
           },
@@ -133,7 +139,10 @@
                   "name": "Global Low",
                   "nameCN": null
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               },
               {
                 "rank": 2,
@@ -142,7 +151,10 @@
                   "name": "Global High",
                   "nameCN": null
                 },
-                "workCount": 2
+                "workCount": 2,
+                "positionKeys": [
+                  "staff:anime:2"
+                ]
               }
             ]
           },
@@ -164,7 +176,7 @@
       }
     },
     {
-      "id": "personal-series-stale-refresh",
+      "id": "personal-series-stale",
       "request": {
         "query": {
           "scope": "personal",
@@ -186,8 +198,7 @@
           "order": "desc",
           "page": 1,
           "pageSize": 10
-        },
-        "refreshCollection": true
+        }
       },
       "expected": {
         "status": 200,
@@ -216,7 +227,10 @@
                   "name": "Voice Actor",
                   "nameCN": "声优"
                 },
-                "workCount": 1
+                "workCount": 1,
+                "positionKeys": [
+                  "cast:anime:all"
+                ]
               }
             ]
           },
@@ -239,8 +253,7 @@
         }
       },
       "assertions": {
-        "seriesWorkCount": 1,
-        "refreshCollection": true
+        "seriesWorkCount": 1
       }
     }
   ]

@@ -132,9 +132,10 @@ func Project(ctx context.Context, core Core, view View) (Page, error) {
 			continue
 		}
 		filtered = append(filtered, Item{
-			Rank:      index + 1,
-			Person:    clonePerson(row.Person),
-			WorkCount: row.WorkCount,
+			Rank:         index + 1,
+			Person:       clonePerson(row.Person),
+			PositionKeys: append([]string(nil), row.PositionKeys...),
+			WorkCount:    row.WorkCount,
 		})
 	}
 
@@ -147,6 +148,7 @@ func Project(ctx context.Context, core Core, view View) (Page, error) {
 	items := append([]Item(nil), filtered[start:end]...)
 	for index := range items {
 		items[index].Person = clonePerson(items[index].Person)
+		items[index].PositionKeys = append([]string(nil), items[index].PositionKeys...)
 	}
 	return Page{
 		PositionCounts: append([]PositionCount(nil), core.PositionCounts...),

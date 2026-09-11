@@ -10,7 +10,7 @@
   ],
   "properties": {
     "query": {
-      "$ref": "../query/shared-query-v1.schema.json"
+      "$ref": "../query/shared-query-v1.schema.json#/$defs/OperationSharedQueryV1"
     },
     "input": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/PersonDetailInputV1"
@@ -18,5 +18,39 @@
     "view": {
       "$ref": "../query/operation-components-v1.schema.json#/$defs/PersonDetailViewV1"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "object",
+            "required": [
+              "positionScope",
+              "positionKeys"
+            ],
+            "properties": {
+              "positionScope": {
+                "const": "all"
+              },
+              "positionKeys": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "$ref": "../query/shared-query-v1.schema.json"
+          }
+        }
+      }
+    }
+  ]
 }

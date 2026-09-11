@@ -6,10 +6,11 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  useId,
   watch,
 } from 'vue';
 
-import { useCompactLayout } from '../../query/composables/useCompactLayout';
+import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
 import {
   closestTimelinePointIndex,
   timelineHitSizeInViewBox,
@@ -26,6 +27,7 @@ const props = defineProps<{
 }>();
 
 type RatingSource = 'global' | 'personal';
+const ratingsTitleId = `person-ratings-${useId()}`;
 type ChartMode = 'score' | 'time';
 const compact = useCompactLayout();
 const controlSize = computed(() => (compact.value ? 'small' : 'medium'));
@@ -35,6 +37,7 @@ const source = ref<RatingSource>(
 );
 const hoveredBucket = ref<number | null>(null);
 const timelineSvg = ref<SVGSVGElement | null>(null);
+const timelineWidth = ref(440);
 const timelineHitSize = ref({ height: 44, width: 44 });
 const hoveredTimelineIndex = ref<number | null>(null);
 const focusedTimelineIndex = ref<number | null>(null);
@@ -108,22 +111,68 @@ const ticks = computed(() =>
     (_, index) => index * tickStep.value,
   ),
 );
-const timelinePoints = computed(() => {
+const timelineAxis = computed(() => {
   const entries = rating.value.timeline;
-  return entries.map((entry, index) => ({
+  const first = entries[0];
+  const last = entries.at(-1);
+  if (!first || !last) return { first: 0, quarterWidth: 0, years: [], quarters: [] };
+  const start = first.year * 4 + first.quarter - 1;
+  const end = last.year * 4 + last.quarter - 1;
+  const plotWidth = Math.max(1, timelineWidth.value - 48);
+  const quarterWidth = plotWidth / (end - start + 1);
+  const years = Array.from({ length: last.year - first.year + 1 }, (_, index) => {
+    const year = first.year + index;
+    const left = Math.max(start, year * 4) - start;
+    const right = Math.min(end + 1, (year + 1) * 4) - start;
+    return { year, x: 34 + (left + right) / 2 * quarterWidth, lineX: 34 + left * quarterWidth };
+  });
+  const visibleYears: typeof years = [];
+  for (const year of years) {
+    if (!visibleYears.length || year.x - visibleYears.at(-1)!.x >= 52) visibleYears.push(year);
+  }
+  const finalYear = years.at(-1)!;
+  if (visibleYears.at(-1) !== finalYear) {
+    if (finalYear.x - visibleYears.at(-1)!.x < 52) visibleYears.pop();
+    visibleYears.push(finalYear);
+  }
+  return {
+    first: start,
+    quarterWidth,
+    years: visibleYears,
+    quarters: quarterWidth >= 24 ? Array.from({ length: end - start + 1 }, (_, index) => ({
+      key: start + index,
+      quarter: (start + index) % 4 + 1,
+      x: 34 + (index + 0.5) * quarterWidth,
+    })) : [],
+  };
+});
+const seasonLabel = (quarter: number): string =>
+  ['冬季', '春季', '夏季', '秋季'][quarter - 1] ?? `第 ${quarter} 季度`;
+const timelineAverages = computed(() => {
+  const axis = timelineAxis.value;
+  return rating.value.timeline.map((entry) => ({
     entry,
-    x:
-      entries.length === 1
-        ? 220
-        : 34 + (index / (entries.length - 1)) * 392,
+    x: 34 + (entry.year * 4 + entry.quarter - 1 - axis.first + 0.5) * axis.quarterWidth,
     y: 18 + ((1000 - entry.average) / 1000) * 176,
   }));
+});
+const timelinePoints = computed(() => {
+  const axis = timelineAxis.value;
+  return rating.value.timeline.flatMap((entry) => entry.works.map((work, index) => ({
+    entry,
+    work,
+    x: 34 + (
+      entry.year * 4 + entry.quarter - 1 - axis.first
+      + (index + 1) / (entry.works.length + 1)
+    ) * axis.quarterWidth,
+    y: 18 + ((1000 - work.score) / 1000) * 176,
+  })));
 });
 const timelineLabel = computed(() =>
   timelinePoints.value
     .map(
-      ({ entry }) =>
-        `${entry.year} 年第 ${entry.quarter} 季度，均分 ${formatHundredths(entry.average)}，${entry.count} 个样本`,
+      ({ entry, work }) =>
+        `${primaryEntityName(work.subject)}，${entry.year} 年${seasonLabel(entry.quarter)}，${work.subject.date}，${formatHundredths(work.score)} 分，季度均分 ${formatHundredths(entry.average)}`,
     )
     .join('；'),
 );
@@ -135,7 +184,7 @@ const activeTimelinePoint = computed(() => {
   return index === null ? null : (timelinePoints.value[index] ?? null);
 });
 
-function bucketLabel(
+function bucketAccessibleLabel(
   bucket: PersonDetailRatingSet['buckets'][number],
 ): string {
   const examples = bucket.examples
@@ -193,7 +242,9 @@ function syncTimelineHitSize(): void {
   timelineHitSize.value = timelineHitSizeInViewBox(
     bounds.width,
     bounds.height,
+    bounds.width || 440,
   );
+  if (bounds.width > 0) timelineWidth.value = bounds.width;
 }
 
 function observeTimelineSvg(): void {
@@ -220,6 +271,8 @@ function nearestTimelineIndex(event: PointerEvent): number | null {
     event.clientY,
     svg.getBoundingClientRect(),
     timelinePoints.value,
+    22,
+    timelineWidth.value,
   );
 }
 
@@ -246,6 +299,10 @@ watch(
     observeTimelineSvg();
   },
 );
+watch(rating, () => {
+  hoveredTimelineIndex.value = null;
+  focusedTimelineIndex.value = null;
+});
 
 onMounted(observeTimelineSvg);
 onBeforeUnmount(() => {
@@ -256,12 +313,12 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="person-inspector__section rating-evidence"
-    aria-labelledby="person-ratings-title"
+    :aria-labelledby="ratingsTitleId"
   >
     <header
       class="person-section-heading rating-distribution-panel__heading"
     >
-      <h2 id="person-ratings-title">
+      <h2 :id="ratingsTitleId">
         {{ seriesMode ? '系列均分分布' : '评分分布' }}
       </h2>
       <div
@@ -314,10 +371,8 @@ onBeforeUnmount(() => {
         :class="{
           'is-empty': bucket.count === 0,
           'score-bar--empty': bucket.count === 0,
-          'score-bar--peak':
-            bucket.count === maxCount && bucket.count > 0,
         }"
-        :aria-label="bucketLabel(bucket)"
+        :aria-label="bucketAccessibleLabel(bucket)"
         :tabindex="bucket.count ? 0 : undefined"
         @mouseenter="hoveredBucket = bucket.count ? bucket.score : null"
         @mouseleave="hoveredBucket = null"
@@ -327,28 +382,46 @@ onBeforeUnmount(() => {
         <span
           class="person-score-bar__track score-bar__track"
           aria-hidden="true"
+          :style="{
+            '--person-score-height': `${(bucket.count / axisMax) * 100}%`,
+            '--score-bar-height': `${(bucket.count / axisMax) * 100}%`,
+          }"
         >
+          <span
+            v-if="bucket.count"
+            class="person-score-bar__count score-bar__value"
+          >
+            {{ bucket.count }}
+          </span>
           <n-tooltip
             v-if="bucket.count"
             :show="hoveredBucket === bucket.score"
             trigger="manual"
             placement="top"
             :animated="false"
-            style="max-width: min(336px, calc(100dvw - 72px));"
+            style="max-width: min(336px, calc(100dvw - 72px)); pointer-events: none;"
+            content-class="workbench-tooltip-content"
           >
             <template #trigger>
-              <span class="person-score-bar__count score-bar__value">
-                {{ bucket.count }}
-              </span>
+              <i />
             </template>
-            <span>{{ bucketLabel(bucket) }}</span>
+            <ul class="score-distribution-tooltip">
+              <li
+                v-for="example in bucket.examples"
+                :key="example.key"
+                :title="primaryEntityName(example)"
+              >
+                {{ primaryEntityName(example) }}
+              </li>
+              <li
+                v-if="bucket.hiddenCount"
+                class="score-distribution-tooltip__more"
+              >
+                … +{{ bucket.hiddenCount }}
+              </li>
+            </ul>
           </n-tooltip>
-          <i
-            :style="{
-              '--person-score-height': `${(bucket.count / axisMax) * 100}%`,
-              '--score-bar-height': `${(bucket.count / axisMax) * 100}%`,
-            }"
-          />
+          <i v-else />
         </span>
         <small>{{ bucket.score }}</small>
       </div>
@@ -362,14 +435,14 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <p class="person-rating-timeline__meaning">
-        圆点表示季度均分 · 折线表示评分变化
+        圆点表示单部作品评分 · 折线表示季度均分
       </p>
       <div class="person-rating-timeline rating-time-chart__viewport">
       <svg
         v-if="timelinePoints.length"
         ref="timelineSvg"
         class="rating-time-chart"
-        viewBox="0 0 440 236"
+        :viewBox="`0 0 ${timelineWidth} 236`"
         role="img"
         :aria-label="timelineLabel"
         preserveAspectRatio="none"
@@ -384,7 +457,7 @@ onBeforeUnmount(() => {
           <template v-for="score in [0, 200, 400, 600, 800, 1000]" :key="score">
             <line
               x1="34"
-              x2="426"
+              :x2="timelineWidth - 14"
               :y1="18 + ((1000 - score) / 1000) * 176"
               :y2="18 + ((1000 - score) / 1000) * 176"
             />
@@ -394,15 +467,27 @@ onBeforeUnmount(() => {
               text-anchor="end"
             >{{ score / 100 }}</text>
           </template>
+          <g v-for="year in timelineAxis.years" :key="year.year">
+            <line :x1="year.lineX" :x2="year.lineX" y1="18" y2="194" />
+            <text class="rating-time-chart__year-label" :x="year.x" y="228" text-anchor="middle">{{ year.year }}</text>
+          </g>
+          <text
+            v-for="quarter in timelineAxis.quarters"
+            :key="quarter.key"
+            class="rating-time-chart__quarter-label"
+            :x="quarter.x"
+            y="211"
+            text-anchor="middle"
+          >{{ seasonLabel(quarter.quarter) }}</text>
         </g>
         <polyline
-          v-if="timelinePoints.length > 1"
+          v-if="timelineAverages.length > 1"
           class="person-rating-timeline__line rating-time-chart__line"
-          :points="timelinePoints.map((point) => `${point.x},${point.y}`).join(' ')"
+          :points="timelineAverages.map((point) => `${point.x},${point.y}`).join(' ')"
         />
         <g
           v-for="(point, pointIndex) in timelinePoints"
-          :key="`${point.entry.year}-${point.entry.quarter}`"
+          :key="point.work.subject.id"
           class="person-rating-timeline__point rating-time-chart__point"
           :class="{
             'is-active': activeTimelineIndex === pointIndex,
@@ -412,7 +497,7 @@ onBeforeUnmount(() => {
             class="rating-time-chart__hit-target"
             :x="
               Math.min(
-                440 - timelineHitSize.width,
+                timelineWidth - timelineHitSize.width,
                 Math.max(0, point.x - timelineHitSize.width / 2),
               )
             "
@@ -426,15 +511,15 @@ onBeforeUnmount(() => {
             :height="timelineHitSize.height"
             :rx="Math.min(timelineHitSize.width, timelineHitSize.height) / 2"
             tabindex="0"
-            :aria-label="`${point.entry.year} 年第 ${point.entry.quarter} 季度，均分 ${formatHundredths(point.entry.average)}，${point.entry.count} 个样本；使用方向键浏览相邻时间点`"
+            :aria-label="`${primaryEntityName(point.work.subject)}，${point.work.subject.date}，${formatHundredths(point.work.score)} 分，季度均分 ${formatHundredths(point.entry.average)}；使用方向键浏览相邻作品`"
             @focus="focusedTimelineIndex = pointIndex"
             @blur="focusedTimelineIndex = null"
             @keydown="moveTimelineFocus($event, pointIndex)"
           >
             <title>
-              {{ point.entry.year }} Q{{ point.entry.quarter }} ·
-              {{ formatHundredths(point.entry.average) }} ·
-              {{ point.entry.count }} 个
+              {{ primaryEntityName(point.work.subject) }} ·
+              {{ formatHundredths(point.work.score) }} 分 ·
+              {{ point.work.subject.date }}
             </title>
           </rect>
           <circle
@@ -444,33 +529,30 @@ onBeforeUnmount(() => {
             r="4"
             aria-hidden="true"
           />
-          <text :x="point.x" y="228" text-anchor="middle">
-            {{ point.entry.year }} Q{{ point.entry.quarter }}
-          </text>
         </g>
       </svg>
       <div
         v-if="activeTimelinePoint"
         class="rating-time-chart__tooltip"
-        :class="{ 'is-below': activeTimelinePoint.y < 70 }"
+        :class="{ 'is-below': activeTimelinePoint.y < 92 }"
         :style="{
-          left: `${(activeTimelinePoint.x / 440) * 100}%`,
+          left: `${Math.min(timelineWidth - Math.min(130, timelineWidth / 2), Math.max(Math.min(130, timelineWidth / 2), activeTimelinePoint.x))}px`,
           top: `${(activeTimelinePoint.y / 236) * 100}%`,
         }"
         role="tooltip"
       >
         <strong>
-          {{ activeTimelinePoint.entry.year }} Q{{
-            activeTimelinePoint.entry.quarter
-          }}
+          {{ primaryEntityName(activeTimelinePoint.work.subject) }}
         </strong>
         <span>
-          均分
-          {{ formatHundredths(activeTimelinePoint.entry.average) }}
+          {{ formatHundredths(activeTimelinePoint.work.score) }} 分
         </span>
-        <small>{{ activeTimelinePoint.entry.count }} 个样本</small>
+        <small>
+          {{ activeTimelinePoint.work.subject.date }} · 季度均分
+          {{ formatHundredths(activeTimelinePoint.entry.average) }}
+        </small>
       </div>
-      <p v-else class="person-section-empty rating-distribution-panel__empty">
+      <p v-if="!timelinePoints.length" class="person-section-empty rating-distribution-panel__empty">
         没有同时具备时间和{{ sourceLabel }}的数据
       </p>
       </div>

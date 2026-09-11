@@ -160,6 +160,16 @@ test('two package runs emit byte-identical Contracts-valid component directories
   const verified = verifyComponentDirectory(first, 'frontend');
   assert.equal(verified.statement.component, 'frontend');
   assert.equal(verified.statement.applicationVersion, APPLICATION_VERSION);
+  assert.equal(verified.statement.compatibility.archive.sqliteSchemaVersion.minimum, 2);
+  assert.equal(verified.statement.compatibility.archive.sqliteSchemaVersion.maximum, 2);
+  const backendStatement = JSON.parse(fs.readFileSync(
+    path.join(import.meta.dirname, '../../contracts/artifacts/fixtures/positive/backend/component-statement.json'),
+    'utf8',
+  ));
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(verified.statement.compatibility.archive)),
+    backendStatement.compatibility.archive,
+  );
   assert.equal(
     verified.statement.compatibility.archive.domainRulesVersion,
     ARCHIVE_DOMAIN_RULES_VERSION,
@@ -275,12 +285,27 @@ test('acceptance source identity rejects staged, tracked, untracked, and supplie
       },
       expected: /raw tracked bytes differ/,
     },
+    ...(process.platform === 'win32'
+      ? []
+      : [
+          {
+            name: 'git-executable-mode',
+            prepare(fixture) {
+              fs.chmodSync(path.join(fixture.root, 'tracked.txt'), 0o755);
+            },
+            expected: /tracked executable mode differs/,
+          },
+        ]),
     {
-      name: 'git-executable-mode',
+      name: 'git-index-executable-mode',
       prepare(fixture) {
-        fs.chmodSync(path.join(fixture.root, 'tracked.txt'), 0o755);
+        runGit(fixture.root, [
+          'update-index',
+          '--chmod=+x',
+          'tracked.txt',
+        ]);
       },
-      expected: /tracked executable mode differs/,
+      expected: /index differs from HEAD/,
     },
     {
       name: 'git-untracked',

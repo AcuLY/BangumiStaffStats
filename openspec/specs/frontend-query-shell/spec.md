@@ -2,7 +2,7 @@
 
 ## Purpose
 Define the production SPA shell that owns ranking/co-star routes, catalog-backed
-query editing, immutable applied-query state, operation coordination, sharing,
+query editing, immutable applied-query state, operation coordination, local recovery,
 theme behavior, and the responsive accessible Query Workspace.
 
 ## Requirements
@@ -22,32 +22,22 @@ slots tagged with their revision. A slot for the current revision MAY be
 restored on mode return; an absent slot MAY be loaded through the registered
 operation port without resubmitting Draft.
 
+The existing query store SHALL also own draft and accepted co-star position
+scope (`query` or `all`) as defined by frontend-cross-position-co-star. Scope
+SHALL participate in co-star dirty/apply/undo behavior without becoming a catalog
+PositionKey or entering the ranking query signature. An all-only query with no
+concrete positions SHALL open the position editor on a switch to ranking, rather
+than submit an invalid ranking request.
+
 The configured base root and its `index.html` SHALL replace to the public
 ranking path while preserving safe query parameters; root-domain paths outside
 the configured base SHALL not be claimed by this shell. `?user=` SHALL prefill
-only personal Draft. On first document load, the shell SHALL consume at most
-one valid v1 share fragment through the same ordinary application service and
-then remove the fragment by history replacement. Invalid share SHALL remove
-the fragment, show a structured local error, and start no request or automatic
-`?user=` fallback.
+only personal Draft. URL fragments SHALL NOT restore query state or trigger a business request; an initial fragment SHALL be cleared without decoding.
 
 Successful personal application SHALL replace `?user=` with the effective
 trimmed UID; successful global application SHALL remove `?user=`. These URL
 updates SHALL remain inside the configured base and SHALL not start another
-request. The Header SHALL retain one share action immediately beside the mode
-switch at every viewport. It SHALL remain visibly disabled when no Applied
-Query exists and otherwise serialize only the current mode's last-successful
-Applied Query plus accepted operation input/view into the existing versioned
-fragment wire. The generated share URL SHALL use the public base-aware path
-while the envelope retains its existing logical route identity. Dirty Draft,
-pending attempts, responses, request IDs, revision, dataVersion, digests,
-refresh flags, theme, and transient UI state SHALL not enter the link.
-
-The share action SHALL use the Clipboard API when available, temporarily show
-the DESIGN check feedback for approximately 1500ms, and announce success
-through a polite live region. Clipboard absence or failure SHALL expose the
-same generated read-only selectable link in a lightweight adjacent popover;
-it SHALL not discard the link or show a success modal.
+request. The Header SHALL contain an always available same-tab link labeled “回到旧版” immediately left of the theme button, with fixed href `https://search.bgmss.fun/old/`. No sharing or clipboard action SHALL remain. The legacy link and theme button SHALL share one right-aligned Header action container. The link SHALL include a jump icon and show “旧版” below 780px, while retaining “回到旧版” as its accessible name.
 
 #### Scenario: Draft changes and mode changes
 
@@ -60,23 +50,15 @@ it SHALL not discard the link or show a success modal.
 - **THEN** the operation resource, Applied Query, and next queryRevision SHALL commit atomically
 - **AND** no later feature may create a second Applied Query owner
 
-#### Scenario: A shared query is present on first load
+#### Scenario: An old query fragment is present
+- **WHEN** a document opens with an old query fragment and no valid tab session
+- **THEN** no query SHALL be decoded or automatically executed from that fragment
+- **AND** the fragment SHALL be cleared and the editable form SHALL remain available
 
-- **WHEN** one valid v1 share and `?user=other` are both present below `/v2/`
-- **THEN** the share SHALL be applied at most once through ordinary query application
-- **AND** the fragment SHALL be removed, `?user=` SHALL not trigger another request, and history SHALL remain below `/v2/`
-
-#### Scenario: The visible result is shared while Draft is dirty
-
-- **WHEN** an Applied Query exists and the user edits Draft or starts a newer pending attempt
-- **THEN** the share action SHALL encode the current visible result's last-successful Applied Query and accepted operation state at the matching `/v2/` public route
-- **AND** it SHALL exclude the dirty Draft and pending attempt from the generated link
-
-#### Scenario: Clipboard copying is unavailable
-
-- **WHEN** a valid share link is generated but Clipboard API copying is unavailable or fails
-- **THEN** the same `/v2/`-based read-only selectable link SHALL remain available in the adjacent fallback popover
-- **AND** the shell SHALL not report a successful copy or lose the generated link
+#### Scenario: Return to the old application
+- **WHEN** the Header is rendered in either mode, theme or viewport
+- **THEN** the legacy anchor (回到旧版 on desktop, 旧版 on mobile) SHALL precede the theme button and point exactly to https://search.bgmss.fun/old/
+- **AND** it SHALL remain keyboard accessible and available before any query succeeds
 
 #### Scenario: A path outside the deployment base is loaded
 
@@ -87,7 +69,8 @@ it SHALL not discard the link or show a success modal.
 
 The query model SHALL own defaults, summary text, normalization, dirty/no-op
 comparison, and structured field errors while reusing the accepted
-`SharedQueryV1` and operation view components. It SHALL model personal/global
+`SharedQueryV1`, the accepted all-scope operation query bodies, and operation
+view components. It SHALL model personal/global
 as a closed union, construct global submissions without personal fields,
 reject a global wire value that carries any personal field, and SHALL never
 infer fields by parsing display messages.
@@ -107,8 +90,7 @@ enum or infer behavior from a key prefix or label.
 
 #### Scenario: Catalog is pending or fails
 - **WHEN** catalog loading is pending or returns a retryable error
-- **THEN** only the position selector SHALL show its skeleton or local
-  error/retry state while the rest of the editor remains usable
+- **THEN** only the position selector SHALL retain its recognizable control with a loading indicator, or show its local error/retry state, while the rest of the editor remains usable
 - **AND** failure SHALL not be represented as an empty catalog
 
 ### Requirement: Query application SHALL be cancelable and latest-only
@@ -141,30 +123,16 @@ operation adapter, the port SHALL fail closed as unavailable.
   retained with separate current-request feedback
 - **AND** the editor SHALL remain expanded with its Draft
 
-### Requirement: Personal collection refresh SHALL have explicit recovery states
+### Requirement: Personal queries SHALL surface collection freshness
 
-Only an explicit personal rankings/candidates apply-or-refresh action SHALL
-set `refreshCollection=true`. Before starting, the coordinator SHALL save the
-recoverable Applied Query/resource, move the active personal resource out of
-visible `ready` into `pending`, and SHALL not automatically retry.
+An ordinary personal operation that succeeds with stale collection metadata
+and `COLLECTION_STALE` SHALL commit the usable result and announce the stable
+warning without parsing server text or starting an automatic retry.
 
-Fresh success SHALL commit normally. Stale success SHALL commit usable data
-and map stable `COLLECTION_STALE` warning metadata to a visible warning without
-parsing server text. Hard failure or cancellation SHALL restore the saved
-resource and Applied Query plus separate feedback. Global, view-only, detail,
-partners, and co-star requests SHALL never carry the flag.
-
-#### Scenario: Explicit refresh returns stale data
-- **WHEN** a personal main operation succeeds with stale collection metadata
-  and `COLLECTION_STALE`
+#### Scenario: Ordinary personal query returns stale data
+- **WHEN** a personal operation succeeds with stale collection metadata and `COLLECTION_STALE`
 - **THEN** the usable result SHALL commit and the stable stale warning SHALL be announced
-- **AND** no background or automatic refresh retry SHALL start
-
-#### Scenario: Explicit refresh fails
-- **WHEN** a personal refresh hard-fails or is canceled
-- **THEN** the prior usable Applied Query/resource SHALL be restored and the
-  failed attempt SHALL remain visible as feedback
-- **AND** stale prior data SHALL not be presented as a successful refresh
+- **AND** no background or automatic retry SHALL start
 
 ### Requirement: Query Workspace SHALL preserve the approved outward behavior
 
@@ -177,14 +145,27 @@ header without pushing content; below 780px it SHALL participate in document
 flow. Controls SHALL meet DESIGN focus, keyboard, target-size, contrast,
 status-announcement, and reduced-motion requirements.
 
-The Header SHALL contain brand, the two-mode control, share action, and one
-theme action in the DESIGN order. One app-level owner SHALL expose only
-`light|dark`, persist only versioned localStorage key `bgmss-theme-v1`, and
-drive the Naive provider and semantic CSS tokens through public APIs. Invalid
-or unavailable storage SHALL fall back to Light without failure. Theme SHALL
-not enter query Draft/Applied state, URL parameters, share payload, resource
-state, or Skeleton behavior; the prototype `bgmss-workbench-theme` key SHALL
-not be read or written.
+The Header SHALL contain brand, the two-mode control, the fixed same-tab
+“回到旧版” link to `https://search.bgmss.fun/old/` immediately left of one
+theme action in the DESIGN order. One app-level owner SHALL expose only the
+resolved `light|dark` theme and SHALL drive the Naive provider plus semantic
+CSS tokens through public APIs. With no valid preference or with
+`bgmss-theme-preference-v3=auto`, it SHALL initialize from
+`prefers-color-scheme: dark` and follow system changes while the page is open.
+Activating the Header theme action SHALL immediately toggle to the opposite
+resolved Light/Dark theme. When that result matches the current system theme,
+the owner SHALL persist `auto`; otherwise it SHALL persist the explicit
+`light` or `dark`. The same one-click action SHALL be the only theme control;
+activation SHALL NOT open a Popover, menu, settings surface, fixed-state copy,
+or secondary reset action. Valid `auto|light|dark` writes and key removal in
+another same-browser tab SHALL update the open page without reload.
+
+Invalid, inaccessible, or unavailable storage SHALL fail safely to system
+following; unavailable matchMedia SHALL fall back to Light. Disposal SHALL
+remove media and storage listeners. Theme SHALL not enter query Draft/Applied
+state, URL parameters, local query-recovery state, resource state, or Skeleton behavior;
+the prototype `bgmss-workbench-theme` and superseded `bgmss-theme-v1` and
+`bgmss-theme-override-v2` keys SHALL not be read or written.
 
 The brand SHALL reuse the project's exact 64×64 RGBA mark from
 `frontend/public/bgmss.png` at oracle
@@ -199,12 +180,50 @@ the production artifact.
 - **THEN** desktop SHALL use the anchored overlay and mobile SHALL use document flow
 - **AND** close/apply/cancel SHALL preserve the specified focus and Draft behavior without overflow
 
-#### Scenario: Theme is toggled and restored
-- **WHEN** the user toggles the Header theme action and reloads the document
-- **THEN** the same Light or Dark theme SHALL be restored from `bgmss-theme-v1` and applied through the provider plus semantic document marker
-- **AND** no request, query revision, share value, route change, or loading state SHALL be produced
+#### Scenario: Page follows the system theme
+- **WHEN** a page opens without a valid manual preference and the system theme
+  is Dark or changes between Light and Dark
+- **THEN** the resolved theme SHALL immediately match the current system theme
+  through the provider plus semantic document marker
+- **AND** no theme preference SHALL be written merely because the system changed
+
+#### Scenario: Theme is toggled away from the system appearance
+- **WHEN** the user activates the Header theme action
+- **AND** the opposite resolved theme differs from the current system theme
+- **THEN** it SHALL apply in one click and one non-expiring explicit Light/Dark
+  value SHALL be stored
+- **AND** later system changes SHALL NOT override it
+
+#### Scenario: Toggle returns to the system appearance
+- **WHEN** the user activates the same Header theme action
+- **AND** the opposite resolved theme matches the current system theme
+- **THEN** that theme SHALL apply, `auto` SHALL be stored, and live system
+  following SHALL resume without another control or contextual surface
+- **AND** no request, query revision, recovery-state mutation, route change, or loading state SHALL be produced
+
+#### Scenario: Another tab changes the theme preference
+- **WHEN** a same-browser tab stores valid `auto|light|dark` or removes the key
+- **THEN** the open page SHALL converge to that explicit preference or current
+  system-following `auto` state without reload
+- **AND** disposal SHALL prevent later media or storage events from changing it
 
 #### Scenario: Production artifact is inspected
 - **WHEN** the built artifact and source inventory are checked
 - **THEN** they SHALL contain one formal SPA and no prototype entry, fixture
   path, bulk data, second request layer, second state system, or frontend statistic implementation
+
+### Requirement: Query recovery SHALL remain local to the current tab
+The frontend SHALL persist only validated successful query and accepted operation intent as versioned JSON in sessionStorage. It SHALL use frontend-owned recovery state composed from existing query and operation contracts, not a public sharing schema or URL codec. Normal refresh and failed-chunk retry SHALL replay ordinary operations and retain latest-only acceptance. Old fragment-based session entries SHALL be discarded; unavailable or invalid storage SHALL leave queries usable. Failed-chunk retry SHALL reload only after recovery intent is successfully stored. A failed replay SHALL retain editable intent and SHALL not overwrite the last complete saved state with a degraded workspace.
+
+#### Scenario: Refresh restores accepted analysis
+- **WHEN** a valid current-version session contains ranking detail, partners or co-star analysis
+- **THEN** refresh SHALL replay the exact accepted intent once and load current results using ordinary query operations
+- **AND** dirty Draft, responses, theme and transient state SHALL not be persisted
+
+#### Scenario: Storage cannot support reload recovery
+- **WHEN** session storage rejects writing the intended workspace
+- **THEN** failed-chunk recovery SHALL report failure without reloading the document
+
+#### Scenario: Old session or corrupt data
+- **WHEN** stored data is an old v1 fragment entry or an invalid v2 envelope
+- **THEN** it SHALL be discarded without any share decoding or business request

@@ -108,6 +108,45 @@ func TestIsRootUserAcceptsNonzeroOrNamedUsers(t *testing.T) {
 	}
 }
 
+func TestPackageOptionsRequireEmbeddedProducerAuthority(t *testing.T) {
+	requiredPaths := []string{
+		producerRuntimeInputPath,
+		archiveSchemaAssetInputPath,
+		displayCatalogAssetInputPath,
+		staffSetsAssetInputPath,
+	}
+	for _, missingPath := range requiredPaths {
+		t.Run(missingPath, func(t *testing.T) {
+			options := fixtureOptions(t)
+			options.APIBinaryPath = "api"
+			options.ImageArchivePath = "image"
+			options.OutputPath = "output"
+			options.Inputs = slices.DeleteFunc(
+				append(inputFlags(nil), options.Inputs...),
+				func(input inputFact) bool { return input.Path == missingPath },
+			)
+			if err := validatePackageOptions(options); err == nil ||
+				!strings.Contains(err.Error(), "producer authority") {
+				t.Fatalf("validatePackageOptions() error = %v, want producer authority failure", err)
+			}
+		})
+	}
+
+	options := fixtureOptions(t)
+	options.APIBinaryPath = "api"
+	options.ImageArchivePath = "image"
+	options.OutputPath = "output"
+	for index := range options.Inputs {
+		if options.Inputs[index].Path == displayCatalogAssetInputPath {
+			options.Inputs[index].SHA256 = "sha256:" + strings.Repeat("f", 64)
+		}
+	}
+	if err := validatePackageOptions(options); err == nil ||
+		!strings.Contains(err.Error(), displayCatalogAssetInputPath) {
+		t.Fatalf("validatePackageOptions() error = %v, want catalog digest failure", err)
+	}
+}
+
 func TestNormalizedDirectoryTarIsStable(t *testing.T) {
 	t.Parallel()
 
@@ -508,7 +547,7 @@ func TestInspectOCIRejectsOrphansAndCompatibilityMismatch(t *testing.T) {
 
 func TestEvidenceRoundTripAndTamperRejection(t *testing.T) {
 	options := fixtureOptions(t)
-	options.APIBinaryPath, options.ArchiveSmokeBinaryPath = buildFixtureBinaries(t, options)
+	options.APIBinaryPath = buildFixtureAPI(t, options)
 	options.ImageArchivePath, _ = writeFixtureImageArchive(t, options)
 	options.OutputPath = filepath.Join(t.TempDir(), "component")
 
@@ -527,12 +566,6 @@ func TestEvidenceRoundTripAndTamperRejection(t *testing.T) {
 	}
 	if contents.Metadata.SchemaVersion != 2 ||
 		!slices.Equal(contents.Metadata.Executables, []executableFact{
-			{
-				Role:   archiveSmokeExecutableRole,
-				Path:   archiveSmokeBundlePath,
-				Size:   int64(len(contents.ArchiveSmoke)),
-				SHA256: "sha256:" + hashBytes(contents.ArchiveSmoke),
-			},
 			{
 				Role:   apiExecutableRole,
 				Path:   apiBundlePath,
@@ -559,7 +592,7 @@ func TestEvidenceRoundTripAndTamperRejection(t *testing.T) {
 
 func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 	options := fixtureOptions(t)
-	options.APIBinaryPath, options.ArchiveSmokeBinaryPath = buildFixtureBinaries(t, options)
+	options.APIBinaryPath = buildFixtureAPI(t, options)
 	image := fixtureImageMetadata()
 	metadata := fixtureBundleMetadata(t, options, image)
 	statement := fixtureStatement(options, image)
@@ -582,11 +615,6 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	archiveSmoke, err := os.ReadFile(options.ArchiveSmokeBinaryPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	type mutation func(*bundleMetadata, *[]bundleFixtureEntry)
 	tests := []struct {
 		name   string
@@ -616,7 +644,7 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 		{
 			name: "unsafe member",
 			mutate: func(_ *bundleMetadata, entries *[]bundleFixtureEntry) {
-				(*entries)[1].Name = "../archive-smoke"
+				(*entries)[1].Name = "../bgmss-api"
 			},
 		},
 		{
@@ -675,14 +703,6 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 				})
 			},
 		},
-		{
-			name: "wrong module",
-			mutate: func(metadata *bundleMetadata, entries *[]bundleFixtureEntry) {
-				(*entries)[1].Data = api
-				metadata.Executables[0].Size = int64(len(api))
-				metadata.Executables[0].SHA256 = "sha256:" + hashBytes(api)
-			},
-		},
 	}
 
 	for _, test := range tests {
@@ -690,7 +710,7 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			mutatedMetadata := metadata
 			mutatedMetadata.Executables = slices.Clone(metadata.Executables)
-			entries := fixtureBundleEntries(mutatedMetadata, api, archiveSmoke)
+			entries := fixtureBundleEntries(mutatedMetadata, api)
 			test.mutate(&mutatedMetadata, &entries)
 			refreshFixtureMetadata(t, &entries, mutatedMetadata)
 
@@ -705,7 +725,7 @@ func TestBundleVerifierRejectsInnerDrift(t *testing.T) {
 	t.Run("trailing compressed data", func(t *testing.T) {
 		root := t.TempDir()
 		path := filepath.Join(root, "backend-api-linux-arm64.tar.gz")
-		writeBundleFixture(t, path, fixtureBundleEntries(metadata, api, archiveSmoke))
+		writeBundleFixture(t, path, fixtureBundleEntries(metadata, api))
 		if err := os.Chmod(path, 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -848,9 +868,9 @@ func fixtureOptions(t *testing.T) packageOptions {
 		ApplicationVersion:          applicationVersion,
 		TargetOS:                    "linux",
 		TargetArchitecture:          "arm64",
-		OpenAPIDigest:               "sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11",
+		OpenAPIDigest:               "sha256:999272f4fcd204c1dfecbe1948c77abcf29230dc1e8a76eb7549c386cab09260",
 		ArchiveManifestSchemaDigest: "sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73",
-		ArchiveSchemaSQLDigest:      "sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0",
+		ArchiveSchemaSQLDigest:      "sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255",
 		ArchiveDomainRulesVersion:   domainRulesVersion,
 		ArchiveCastRulesVersion:     castRulesVersion,
 		CompatibilityMatrixDigest:   compatibilityMatrixDigest,
@@ -859,6 +879,10 @@ func fixtureOptions(t *testing.T) packageOptions {
 		Inputs: inputFlags{
 			{Path: applicationVersionInputPath, SHA256: applicationVersionInputDigest},
 			{Path: "backend/go.mod", SHA256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			{Path: displayCatalogAssetInputPath, SHA256: displayCatalogAssetDigest},
+			{Path: archiveSchemaAssetInputPath, SHA256: "sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255"},
+			{Path: staffSetsAssetInputPath, SHA256: staffSetsAssetDigest},
+			{Path: producerRuntimeInputPath, SHA256: producerRuntimeInputDigest},
 			{Path: compatibilityMatrixInputPath, SHA256: compatibilityMatrixDigest},
 			{Path: requiredBuildkitImageInputPath, SHA256: requiredBuildkitImageDigest},
 		},
@@ -869,7 +893,7 @@ func fixtureCompatibility(options packageOptions) compatibilityFacts {
 	return compatibilityFacts{
 		Archive: archiveCompatibility{
 			ManifestSchemaVersion:     versionRange{Minimum: 1, Maximum: 1},
-			SQLiteSchemaVersion:       versionRange{Minimum: 1, Maximum: 1},
+			SQLiteSchemaVersion:       versionRange{Minimum: 2, Maximum: 2},
 			ManifestSchemaDigest:      options.ArchiveManifestSchemaDigest,
 			SchemaSQLDigest:           options.ArchiveSchemaSQLDigest,
 			DomainRulesVersion:        options.ArchiveDomainRulesVersion,
@@ -883,7 +907,6 @@ func fixtureCompatibility(options packageOptions) compatibilityFacts {
 func packageArguments(options packageOptions) []string {
 	arguments := []string{
 		"--api-binary", options.APIBinaryPath,
-		"--archive-smoke-binary", options.ArchiveSmokeBinaryPath,
 		"--image-archive", options.ImageArchivePath,
 		"--output", options.OutputPath,
 		"--source-revision", options.SourceRevision,
@@ -906,9 +929,9 @@ func packageArguments(options packageOptions) []string {
 	return arguments
 }
 
-func buildFixtureBinaries(t *testing.T, options packageOptions) (string, string) {
+func buildFixtureAPI(t *testing.T, options packageOptions) string {
 	t.Helper()
-	api := buildFixtureBinary(
+	return buildFixtureBinary(
 		t,
 		"./cmd/api",
 		"bgmss-api",
@@ -917,16 +940,6 @@ func buildFixtureBinaries(t *testing.T, options packageOptions) (string, string)
 		options.ApplicationVersion,
 		options.SourceRevision,
 	)
-	archiveSmoke := buildFixtureBinary(
-		t,
-		"./cmd/archive-smoke",
-		"archive-smoke",
-		options.TargetOS,
-		options.TargetArchitecture,
-		options.ApplicationVersion,
-		options.SourceRevision,
-	)
-	return api, archiveSmoke
 }
 
 func buildFixtureBinary(
@@ -1317,10 +1330,7 @@ func fixtureBundleMetadata(
 	image imageMetadata,
 ) bundleMetadata {
 	t.Helper()
-	executables, err := executableFacts(
-		options.APIBinaryPath,
-		options.ArchiveSmokeBinaryPath,
-	)
+	executables, err := executableFacts(options.APIBinaryPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1390,7 +1400,6 @@ type bundleFixtureEntry struct {
 func fixtureBundleEntries(
 	metadata bundleMetadata,
 	api []byte,
-	archiveSmoke []byte,
 ) []bundleFixtureEntry {
 	metadataBytes, err := canonicalJSONBytes(metadata)
 	if err != nil {
@@ -1398,12 +1407,6 @@ func fixtureBundleEntries(
 	}
 	return []bundleFixtureEntry{
 		{Name: "bin/", Type: tar.TypeDir, Mode: 0o555},
-		{
-			Name: archiveSmokeBundlePath,
-			Type: tar.TypeReg,
-			Mode: 0o555,
-			Data: archiveSmoke,
-		},
 		{Name: apiBundlePath, Type: tar.TypeReg, Mode: 0o555, Data: api},
 		{Name: "metadata/", Type: tar.TypeDir, Mode: 0o555},
 		{

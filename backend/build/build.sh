@@ -15,14 +15,17 @@ source "$build_root/toolchain-policy.sh"
 
 go_image='docker.io/library/golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651'
 runtime_image='gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6'
-accepted_openapi='sha256:e7aba7c34b0d6f74e533e8e9fd31c8f0aa40ed15c440669ec87a7204c963cf11'
+accepted_openapi='sha256:999272f4fcd204c1dfecbe1948c77abcf29230dc1e8a76eb7549c386cab09260'
 accepted_manifest_schema='sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73'
-accepted_schema_sql='sha256:3cce7ce75fb4a7d2943ee8b9fb7c5df2639fae8fa0a2e07bddb3e1519ffdc8e0'
+accepted_schema_sql='sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255'
 accepted_application_version='v0.1.0'
 accepted_application_version_digest='sha256:d0b4f9120ba026c00fa23cb84b4e1620a2e6436592e58155a5151653179572c0'
 accepted_domain_rules_version='domain-raw-v1'
 accepted_cast_rules_version='cast-exact-v1'
-accepted_compatibility_matrix='sha256:659121caac966df42a6201dcfb539ac1cd0f7f6a4e452495707833f7c8b889ac'
+accepted_compatibility_matrix='sha256:7677bf83d62f38e9ac9d7af5eab2e37342a110533b63ce6f6a940d8607b84bd9'
+accepted_producer_runtime_inputs='sha256:aaffa81b36992189c991f2de2158d2baa45335b11d679e087f1c82567889993d'
+accepted_display_catalog='sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8'
+accepted_staff_sets='sha256:df2ad5c80add8898ebf61a0eced86f608374e528b34b881c3fe741b177be8dae'
 
 target_architecture=''
 output_root="$generated_root/artifacts"
@@ -150,13 +153,29 @@ application_version_digest="$(sha256_file "$snapshot_root/VERSION")"
 compatibility_matrix_digest="$(
   sha256_file "$snapshot_contracts_root/schemas/archive/compatibility-matrix.json"
 )"
+producer_runtime_inputs_digest="$(
+  sha256_file "$snapshot_contracts_root/artifacts/producer-runtime-inputs-v1.json"
+)"
+embedded_schema_sql_digest="$(
+  sha256_file "$snapshot_backend_root/internal/archivebuild/assets/schema.sql"
+)"
+display_catalog_digest="$(
+  sha256_file "$snapshot_backend_root/internal/archivebuild/assets/display-v1.yaml"
+)"
+staff_sets_digest="$(
+  sha256_file "$snapshot_backend_root/internal/archivebuild/assets/staff-sets-v1.yaml"
+)"
 application_version="$accepted_application_version"
 if [[ "$openapi_digest" != "$accepted_openapi" ]] ||
   [[ "$manifest_schema_digest" != "$accepted_manifest_schema" ]] ||
   [[ "$schema_sql_digest" != "$accepted_schema_sql" ]] ||
   [[ "$application_version_digest" != "$accepted_application_version_digest" ]] ||
-  [[ "$compatibility_matrix_digest" != "$accepted_compatibility_matrix" ]]; then
-  echo 'accepted OpenAPI/Archive contract inputs have drifted' >&2
+  [[ "$compatibility_matrix_digest" != "$accepted_compatibility_matrix" ]] ||
+  [[ "$producer_runtime_inputs_digest" != "$accepted_producer_runtime_inputs" ]] ||
+  [[ "$embedded_schema_sql_digest" != "$schema_sql_digest" ]] ||
+  [[ "$display_catalog_digest" != "$accepted_display_catalog" ]] ||
+  [[ "$staff_sets_digest" != "$accepted_staff_sets" ]]; then
+  echo 'accepted OpenAPI/Archive/producer inputs have drifted' >&2
   exit 1
 fi
 
@@ -208,38 +227,14 @@ docker buildx build \
   --output "type=local,dest=$binary_root" \
   "$snapshot_backend_root" >&2
 api_binary_path="$binary_root/bgmss-api"
-archive_smoke_binary_path="$binary_root/archive-smoke"
 binary_inventory="$(
   find "$binary_root" -mindepth 1 -maxdepth 1 -print |
     LC_ALL=C sort
 )"
-expected_binary_inventory="$archive_smoke_binary_path
-$api_binary_path"
+expected_binary_inventory="$api_binary_path"
 if [[ "$binary_inventory" != "$expected_binary_inventory" ]] ||
-  [[ ! -f "$api_binary_path" || -L "$api_binary_path" ]] ||
-  [[ ! -f "$archive_smoke_binary_path" || -L "$archive_smoke_binary_path" ]]; then
-  echo 'BuildKit binary export did not produce exactly bgmss-api and archive-smoke' >&2
-  exit 1
-fi
-archive_smoke_build_info="$(
-  docker run --rm \
-    --pull never \
-    --platform "linux/$target_architecture" \
-    --network none \
-    --read-only \
-    --cap-drop ALL \
-    --security-opt no-new-privileges \
-    --mount "type=bind,src=$binary_root,dst=/probe,readonly" \
-    --entrypoint /probe/archive-smoke \
-    "$go_image" \
-    --build-info
-)"
-expected_build_info="$(
-  printf '{"revision":"%s","version":"%s"}' \
-    "$source_revision" "$application_version"
-)"
-if [[ "$archive_smoke_build_info" != "$expected_build_info" ]]; then
-  echo 'Archive smoke binary does not report the declared release identity' >&2
+  [[ ! -f "$api_binary_path" || -L "$api_binary_path" ]]; then
+  echo 'BuildKit binary export did not produce exactly bgmss-api' >&2
   exit 1
 fi
 
@@ -260,6 +255,9 @@ declared_inputs=(
   'backend/build/toolchain-policy.sh'
   'backend/go.mod'
   'backend/go.sum'
+  'backend/internal/archivebuild/assets/display-v1.yaml'
+  'backend/internal/archivebuild/assets/schema.sql'
+  'backend/internal/archivebuild/assets/staff-sets-v1.yaml'
   'VERSION'
   'contracts/openapi/openapi.yaml'
   'contracts/schemas/archive/archive-manifest.schema.json'
@@ -271,13 +269,13 @@ for relative_path in "${declared_inputs[@]}"; do
   input_arguments+=(--input "$relative_path=$(sha256_file "$snapshot_root/$relative_path")")
 done
 input_arguments+=(
+  --input "contracts/producer-runtime-inputs-v1=$producer_runtime_inputs_digest"
   --input "toolchain/buildkit-image=$artifact_buildkit_image_digest"
 )
 
 component_root="$work_root/component"
 "$helper" package \
   --api-binary "$api_binary_path" \
-  --archive-smoke-binary "$archive_smoke_binary_path" \
   --image-archive "$raw_image_archive" \
   --output "$component_root" \
   --source-revision "$source_revision" \

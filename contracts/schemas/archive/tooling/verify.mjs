@@ -25,9 +25,9 @@ const PRODUCER_LOGICAL_ROWS_ALGORITHM = "bgmss-producer-logical-rows-v1";
 const SCHEMA_OBJECT_ALGORITHM = "bgmss-sqlite-schema-objects-v1";
 const SCHEMA_OBJECT_COUNT = 35;
 const CANONICAL_INDEX_SHA256 =
-  "963b64564135fe33b708326a503d9945c0326d818070286a0ac597e2a6c6f964";
+  "a8ba8ea4a5582aa15bf4a8ee52df481a6553e6440cfe04706452afa9b11e6ca8";
 const CANONICAL_INDEX_TABLE_SHA256 =
-  "8886be697cfaad7b59b1f3a40922626bdda7d01f5270fd2985a3a8b2cf311ff9";
+  "86298002866497472dec40fa32c3b1dd1e1034eb742848f64b00932e225a9082";
 const CANONICAL_INDEXED_FILES = 32;
 const COMMON_COMMIT = "6a8442c17143a870357a5ff812362e8b5cfe9f9d";
 const PRODUCER_SUBJECT_TYPES = new Map([
@@ -68,6 +68,8 @@ const EXPECTED_SCHEMA_INVENTORY = [
   "tooling/build_sqlite_fixtures.py",
   "tooling/package-lock.json",
   "tooling/package.json",
+  "tooling/refresh_derived_fixtures.py",
+  "tooling/test_refresh_derived_fixtures.py",
   "tooling/verify.mjs",
 ];
 const RESULT_STAGE = new Map([
@@ -1115,7 +1117,7 @@ function validateMatrix(matrix) {
     {
       pointerSchemaVersion: 1,
       manifestSchemaVersion: 1,
-      sqliteSchemaVersion: 1,
+      sqliteSchemaVersion: 2,
       sqliteApplicationId: 1111969107,
       dataVersionAlgorithm: ALGORITHM,
       domainRulesVersion: "domain-raw-v1",
@@ -1607,7 +1609,7 @@ const PRODUCER_RECORD_FIELDS = new Map([
     "subject.jsonlines",
     ["id", "type", "name", "name_cn", "nsfw", "date"],
   ],
-  ["person.jsonlines", ["id", "name", "name_cn", "career"]],
+  ["person.jsonlines", ["id", "name", "name_cn", "career", "summary"]],
   ["character.jsonlines", ["id", "name", "name_cn"]],
   [
     "subject-persons.jsonlines",
@@ -1677,6 +1679,17 @@ function partialDatePrecision(value, label) {
   return 3;
 }
 
+function normalizePersonSummary(value) {
+  if (value === undefined || value === null) return null;
+  invariant(typeof value === "string", "person summary must be string or null");
+  strictUtf8Bytes(value, "person summary");
+  const whitespace = /^[\u0009-\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+|[\u0009-\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+$/gu;
+  const normalized = value.replace(/\r\n?/gu, "\n")
+    .replace(/[\u0000-\u0008\u000B-\u001F]/gu, "")
+    .replace(whitespace, "");
+  return [...normalized].slice(0, 8192).join("").replace(whitespace, "") || null;
+}
+
 function validateProducerRecordShape(sourceName, record, label) {
   const fields = PRODUCER_RECORD_FIELDS.get(sourceName);
   if (!fields) return { code: "SOURCE_RECORD_MALFORMED" };
@@ -1686,7 +1699,7 @@ function validateProducerRecordShape(sourceName, record, label) {
   if (Object.keys(record).some((key) => !fields.includes(key))) {
     return { code: "SOURCE_RECORD_UNKNOWN_FIELD" };
   }
-  if (fields.some((key) => !Object.hasOwn(record, key))) {
+  if (fields.some((key) => key !== "summary" && !Object.hasOwn(record, key))) {
     return { code: "SOURCE_RECORD_MALFORMED" };
   }
   try {
@@ -1707,6 +1720,7 @@ function validateProducerRecordShape(sourceName, record, label) {
       invariant(typeof record.nsfw === "boolean", `${label} subject NSFW`);
       partialDatePrecision(record.date, `${label} subject date`);
     } else if (sourceName === "person.jsonlines") {
+      normalizePersonSummary(record.summary);
       positiveSafeInteger(record.id, `${label} person id`);
       boundedProducerString(record.name, `${label} person name`);
       invariant(
@@ -2063,6 +2077,7 @@ function evaluateProducerCase(document, validators) {
       name: record.name,
       nameCn: record.name_cn,
       careers: [...record.career].sort(),
+      summary: normalizePersonSummary(record.summary),
     }))
     .sort((left, right) => left.personId - right.personId);
   const characterRows = [...characters.values()]
@@ -2723,7 +2738,7 @@ function validateDdlAndBuilder(matrix) {
   invariant(sql.at(-1) === 10 && sql.at(-2) !== 10, "schema.sql needs one final LF");
   const text = sql.toString("utf8");
   invariant(text.includes("PRAGMA application_id = 1111969107;"), "application_id missing");
-  invariant(text.includes("PRAGMA user_version = 1;"), "user_version missing");
+  invariant(text.includes("PRAGMA user_version = 2;"), "user_version missing");
   for (const table of matrix.requiredTables) {
     invariant(text.includes(`CREATE TABLE ${table} (`), `DDL missing ${table}`);
   }
@@ -2771,7 +2786,7 @@ function validateDdlAndBuilder(matrix) {
   });
   const report = JSON.parse(output);
   assert.equal(report.inspection.applicationId, 1111969107);
-  assert.equal(report.inspection.userVersion, 1);
+  assert.equal(report.inspection.userVersion, 2);
   assert.equal(report.inspection.tableCount, 20);
   assert.equal(report.inspection.requiredIndexCount, 15);
   const expectedSchemaObjects = {

@@ -118,7 +118,9 @@ if [[ "$mode" == "--write" ]]; then
   echo "updated ${target_file#"$backend_root/"}"
   exit 0
 fi
-if [[ ! -f "$target_file" ]] || ! cmp -s "$generated_file" "$target_file"; then
+if [[ ! -f "$target_file" ]] || ! cmp -s \
+  <(tr -d '\r' < "$generated_file") \
+  <(tr -d '\r' < "$target_file"); then
   echo "generated co-star model is stale: ${target_file#"$backend_root/"}" >&2
   exit 1
 fi
