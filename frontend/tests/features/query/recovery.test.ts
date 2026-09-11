@@ -26,6 +26,20 @@ const analysis = {
 };
 
 describe('local recovery validation', () => {
+  it('preserves candidate participant constraints and rejects invalid identities', () => {
+    const participants = [{ personId: 1, positionKeys: ['staff:anime:2'] }];
+    const payload = { ...analysis, workspace: { ...analysis.workspace, candidates: { ...candidates,
+      input: { positionKey: null, participants } } } };
+    expect(decodeRecoveryPayload('/co-star', payload).workspace).toMatchObject({ candidates: { input: { participants } } });
+    for (const invalid of [
+      [...participants, ...participants],
+      [{ personId: 1, positionKeys: ['staff:anime:2', 'staff:anime:2'] }],
+      [{ personId: 1, positionKeys: ['staff:anime:101'] }],
+    ]) {
+      expect(() => decodeRecoveryPayload('/co-star', { ...payload, workspace: { ...payload.workspace,
+        candidates: { ...candidates, input: { positionKey: null, participants: invalid } } } })).toThrow();
+    }
+  });
   it('restores first all queries with no concrete query positions in every co-star topology', () => {
     const allQuery = { ...query, positionKeys: [] };
     const allCandidates = { ...candidates, input: { positionKey: null, positionScope: 'all' } };

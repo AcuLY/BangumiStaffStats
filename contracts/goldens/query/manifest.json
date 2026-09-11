@@ -207,7 +207,7 @@
       ],
       "audit": {
         "files": 7,
-        "references": 131,
+        "references": 132,
         "rootIds": 6,
         "rootSchemas": 6,
         "graph": "DAG",
@@ -277,8 +277,8 @@
       ]
     },
     "bundle": {
-      "bytes": 688538,
-      "sha256": "e4c328d017da4cf863ebdcbe4749687993007f9dde23319aa39c9f4449f7da78",
+      "bytes": 690328,
+      "sha256": "43358d35d5ae8d9bd818c59f140c41456f83f0492d04f1a24cc47bc46dcaac07",
       "byteIdentical": true,
       "forbiddenKeywordCounts": {
         "$anchor": 0,
@@ -368,11 +368,11 @@
         "bundle-b"
       ],
       "validatorExecutions": 44170,
-      "snapshotSha256": "84bb50c2e326443d610dea8ca2f90f453f4f8491fd0778771dc3685d0d01cd9a"
+      "snapshotSha256": "da2d8cc676e6f9e50b87d3151ce2f517024f88815ce06e8e19e130678592c08c"
     },
     "go": {
-      "bytes": 231438,
-      "sha256": "f681c44caf29c7547754958014aed659c3af8fb21a92801ddc7ef5d05a099e7a",
+      "bytes": 232004,
+      "sha256": "b8210f7d90585616289245a94ecdb59a124ff423d7822a292dc0a0053b39ecff",
       "byteIdentical": true,
       "declarations": [
         "BadRequestErrorV1",
@@ -542,8 +542,8 @@
       ]
     },
     "typescript": {
-      "bytes": 29376,
-      "sha256": "a211c7de3ac86dd9da2d40e155e882ae408db98686f01df9570138eab88317c7",
+      "bytes": 29880,
+      "sha256": "a0354ad712119d03a12ed51c76ad57dc7fda0024a72aaefd6dc04b610b9aa5f9",
       "byteIdentical": true,
       "declarations": {
         "topLevel": [
@@ -619,8 +619,8 @@
       }
     },
     "frontend": {
-      "bytes": 10918,
-      "sha256": "3d5f00d17715eae9b1df5cca4f4e2eaecc81d08b3e0a80a072a66c6fb203581c"
+      "bytes": 11385,
+      "sha256": "6abe2dc375384d0c783869b665b71da4c59fef3c6a929db464356d3b0a998e99"
     }
   }
 }

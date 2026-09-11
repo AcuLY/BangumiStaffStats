@@ -373,6 +373,78 @@ afterEach(() => {
 });
 
 describe('App co-star production slice', () => {
+  it.each([false, true])('filters default and changed selections, hides failed or cancelled stale options, and clears without refilling (all=%s)', async (all) => {
+    window.history.replaceState({}, '', '/co-star?user=luca');
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = seedPersonalQuery();
+    if (all) {
+      store.draft.positionKeys = [];
+      store.setCoStarPositionScope('all');
+    }
+    const candidates = vi.fn(defaultDrivers().candidates.execute);
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: { catalogApi: catalogApi(), drivers: defaultDrivers({ candidates: { execute: candidates } }), targetWindow: window } },
+    });
+    await flushPromises();
+    await wrapper.get('#query-editor').trigger('submit');
+    await vi.waitFor(() => expect(wrapper.findAll('button.candidate-row')).toHaveLength(2));
+    expect(candidates).toHaveBeenCalledTimes(2);
+    expect(candidates.mock.calls[0]![0].input.participants).toBeUndefined();
+    expect(candidates.mock.calls[1]![0].input.participants).toEqual([{ personId: 1, positionKeys: ['staff:anime:2'] }]);
+    const selection = wrapper.findComponent({ name: 'CandidatePicker' }).props('selection');
+    selection.replace([...selection.identities.value, {
+      person: selection.people.value[0].person, positionKey: 'cast:anime:all', positionLabel: '声优',
+    }]);
+    await flushPromises();
+    expect(candidates.mock.calls.at(-1)![0].input.participants).toEqual([
+      { personId: 1, positionKeys: ['staff:anime:2', 'cast:anime:all'] },
+    ]);
+    await wrapper.findAll('button.candidate-selected-position')[1]!.trigger('click');
+    await flushPromises();
+    expect(candidates.mock.calls.at(-1)![0].input.participants).toEqual([{ personId: 1, positionKeys: ['staff:anime:2'] }]);
+    const candidateView = { page: 3, pageSize: 5, search: '候选', sort: 'globalAverage', order: 'asc' };
+    await wrapper.findComponent({ name: 'CandidatePicker' }).props('executeView')({ positionKey: 'staff:anime:2' }, candidateView);
+    await flushPromises();
+
+    const failed = deferred<OperationResponse<CandidatePayload>>();
+    candidates.mockImplementationOnce(() => failed.promise);
+    await wrapper.findAll('button.candidate-row')[1]!.trigger('click');
+    expect(wrapper.findAll('button.candidate-row')).toHaveLength(0);
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(2);
+    expect(candidates.mock.calls.at(-1)![0].input.participants?.map((person) => person.personId)).toEqual([1, 2]);
+    expect(candidates.mock.calls.at(-1)![0].view).toEqual({ ...candidateView, page: 1 });
+    expect(candidates.mock.calls.at(-1)![0].input.positionKey).toBe('staff:anime:2');
+    failed.reject(new Error('network failed'));
+    await flushPromises();
+    expect(wrapper.findAll('button.candidate-row')).toHaveLength(0);
+    await wrapper.findAll('button.candidate-retry').at(-1)!.trigger('click');
+    await flushPromises();
+    expect(candidates.mock.calls.at(-1)![0].input.participants?.map((person) => person.personId)).toEqual([1, 2]);
+    expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
+
+    const cancelled = deferred<OperationResponse<CandidatePayload>>();
+    candidates.mockImplementationOnce(() => cancelled.promise);
+    await wrapper.findAll('button.candidate-selected-person__remove')[1]!.trigger('click');
+    const cancelledRequest = candidates.mock.calls.at(-1)![0];
+    await wrapper.get('button.candidate-cancel').trigger('click');
+    expect(cancelledRequest.signal.aborted).toBe(true);
+    expect(wrapper.findAll('button.candidate-row')).toHaveLength(0);
+    await wrapper.findAll('button.candidate-retry').at(-1)!.trigger('click');
+    await flushPromises();
+    expect(candidates.mock.calls.at(-1)![0].input.participants).toEqual([{ personId: 1, positionKeys: ['staff:anime:2'] }]);
+    cancelled.resolve(await defaultDrivers().candidates.execute(cancelledRequest));
+    await flushPromises();
+    await wrapper.get('button.candidate-selected-person__remove').trigger('click');
+    await flushPromises();
+    expect(candidates.mock.calls.at(-1)![0].input.participants).toEqual([]);
+    expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(0);
+    expect(wrapper.findAll('button.candidate-row')).toHaveLength(2);
+    wrapper.unmount();
+  }, 15000);
+
   it.each([false, true])('keeps the analysis placeholder through candidate and analysis loading (compact=%s)', async (compact) => {
     installResponsiveLayout(compact);
     window.history.replaceState({}, '', '/co-star?user=luca');
@@ -432,7 +504,7 @@ describe('App co-star production slice', () => {
       const filteredCandidates = deferred<OperationResponse<CandidatePayload>>();
       candidates.mockImplementationOnce(() => filteredCandidates.promise);
       await wrapper.get('input[name="candidateSearch"]').setValue('One');
-      await vi.waitFor(() => expect(candidates).toHaveBeenCalledTimes(4));
+      await vi.waitFor(() => expect(candidates).toHaveBeenCalledTimes(5));
       expect(wrapper.find('.candidate-row-skeletons').exists()).toBe(true);
       expect(wrapper.find('.co-star-full-skeleton').exists()).toBe(false);
       expect(analysis).toHaveBeenCalledTimes(2);
@@ -632,7 +704,7 @@ describe('App co-star production slice', () => {
     store.draft.includeNSFW = true;
     await wrapper.get('#query-editor').trigger('submit');
     await flushPromises();
-    expect(candidates).toHaveBeenCalledTimes(3);
+    expect(candidates).toHaveBeenCalledTimes(5);
     expect(wrapper.findAll('.candidate-selected-person')).toHaveLength(1);
     expect(wrapper.find('.co-star-empty').exists()).toBe(false);
     wrapper.unmount();
@@ -814,7 +886,7 @@ describe('App co-star production slice', () => {
       state: 'analysis' as const,
       workspace: {
         candidates: {
-          input: { positionKey: 'cast:anime:all', positionScope: 'all' as const },
+          input: { positionKey: 'staff:anime:2' },
           view: {
             order: 'asc' as const,
             page: 3,
@@ -885,6 +957,12 @@ describe('App co-star production slice', () => {
         workspace.candidates.view,
       );
       expect(candidates.mock.calls[0]![0].input).toMatchObject(workspace.candidates.input);
+      expect(candidates.mock.calls[0]![0].input.participants).toEqual(
+        state === 'partners' ? [workspace.partners.input.source] : workspace.coStar.input.participants,
+      );
+      if (state === 'analysis') {
+        expect(candidates.mock.calls[0]![0].input.positionScope).toBe('all');
+      }
       const child = state === 'partners' ? partners : coStar;
       const expectedChild =
         state === 'partners' ? workspace.partners : workspace.coStar;

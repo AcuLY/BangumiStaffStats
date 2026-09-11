@@ -1,8 +1,21 @@
-# backend-candidates-api Specification
-
-## Purpose
-Define server-authoritative candidate evaluation that computes every ordered position independently, ranks complete result sets before view projection, applies bounded immutable semantic caching, and exposes strict cancellable result transport.
-## Requirements
+## Capability Boundary
+| Boundary | Declaration |
+|---|---|
+| Status | Implemented and verified; reviewed and strictly validated before apply |
+| Owner | Primary specification/integration; contracts owner schemas and generated consumers; backend owner candidates; frontend owner query/selection presentation |
+| Writable paths | Owner-specific lists in design.md; this change; PRODUCT.md; README.md; accepted contracts-candidates-api, backend-candidates-api and frontend-co-star-vertical specs |
+| Read-only protected inputs | DESIGN.md; data decision/master/implementation guides; unrelated changes; docs/images and community draft; Archive/runtime data; operations/; existing dirty work |
+| Deletion complement | None |
+| Mutable refs | Local master: exact owned feature commit after acceptance; no push or deployment. Planning began at 4bea284; release coordinator added 6850ad3 |
+| Consumes | Shared Query, explicit participant identities, current catalog, immutable Archive and public collections |
+| Produces | Effective candidate identity membership and selection-bound views |
+| Dependencies | contracts -> generated consumers -> backend statistics and frontend API -> selection UI |
+| Deliverables | Contract, bounded filtering, stale-response-safe picker, regression tests and synchronized specs |
+| Acceptance | Candidate contract goldens/generators; backend ./scripts/check.sh; frontend npm ci --ignore-scripts --no-audit --no-fund and npm run check; artifact contract tests; desktop/mobile browser; git diff --check; strict OpenSpec |
+| Non-goals | Metric/formula changes, ranking/partners result changes, new dependencies, new recommendation system |
+| Operations deferred | No production mutation, push or deployment; release coordinator handles integration separately |
+| Stop/rollback conditions | Stop on overlapping concurrent edits or authority conflict; undo only owned hunks; no reset --hard, checkout rollback, git clean, git add -A or broad deletion |
+## MODIFIED Requirements
 ### Requirement: Backend SHALL compute candidate sets independently per ordered position
 For a normalized query and immutable Archive/usable collection, the Backend SHALL apply common filters and evaluate candidate membership independently per operation browse position. Ranking multi-position AND semantics SHALL NOT collapse candidates.
 
@@ -28,18 +41,6 @@ With participants, the Backend SHALL union each person's selected identity raw w
 - **WHEN** selected identities have no common eligible raw work
 - **THEN** candidates and all position counts SHALL be empty or zero without unconstrained fallback
 
-### Requirement: Backend SHALL project candidate views after complete ranking
-
-The Backend SHALL validate scope-specific sort values, apply the accepted
-strict total order with missing metrics last in both directions and stable
-person ID final tie-breaking, assign ranks before search, and perform checked
-pagination. View fields SHALL not alter cached core identity or recompute
-ordered position counts.
-
-#### Scenario: Missing average under ascending order
-- **WHEN** a current-position candidate lacks the selected average metric
-- **THEN** the candidate SHALL remain after every valid value and retain deterministic rank
-
 ### Requirement: Candidate core SHALL use bounded immutable cache semantics
 The candidate core key SHALL include operation version, dataVersion, queryDigest, position scope/current-position input, canonical participant identities and personal collection digest only in personal mode. Participant order and per-person identity order SHALL NOT alter semantics. Search, sort, order, page and pageSize SHALL remain excluded. Published values and query facts SHALL remain immutable; failed cache admission SHALL NOT change successful business results.
 
@@ -50,19 +51,3 @@ The candidate core key SHALL include operation version, dataVersion, queryDigest
 #### Scenario: Selected identity changes
 - **WHEN** participant membership or any selected identity changes
 - **THEN** the requests SHALL NOT reuse an incompatible candidate core
-
-### Requirement: Candidates endpoint SHALL reuse strict result transport
-
-The API SHALL expose only same-origin `POST /api/v1/candidates`, reject query
-parameters, enforce the bounded strict JSON body, propagate cancellation, and
-emit result-operation request IDs, private no-store headers, stable status/code
-errors, pagination metadata, and personal collection freshness. Global mode
-SHALL never fetch collection data or emit personal collection members.
-
-#### Scenario: Unknown request member is supplied
-- **WHEN** a candidates request contains an undeclared top-level member
-- **THEN** the handler SHALL return 400 `INVALID_REQUEST` before evaluation
-
-#### Scenario: Archive is not ready
-- **WHEN** the route is registered but no Archive store is published
-- **THEN** the endpoint SHALL return retryable 503 `NOT_READY` without evaluating candidates

@@ -108,6 +108,10 @@ export type CandidatesInputV1 = {
      * Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
      */
     positionScope?: 'query' | 'all';
+    /**
+     * Optional selected identities. Omission or [] is unconstrained. At most 10 distinct people and 20 identities overall; duplicate person IDs are invalid even with different position keys. Each identity must be permitted by the operation position scope. Candidates must share a raw work with the entire selected group; filtering precedes series aggregation and preserves existing candidate metric scope.
+     */
+    participants?: Array<PersonIdentityV1>;
 };
 
 export type CandidatesViewV1 = {
@@ -121,6 +125,11 @@ export type CandidatesViewV1 = {
 export type PageSizeV1 = 5 | 10 | 20;
 
 export type PageV1 = number;
+
+export type PersonIdentityV1 = {
+    personId: SharedQueryV1SchemaJsonSafePositiveIntegerV1;
+    positionKeys: Array<PositionKeyV1>;
+};
 
 export type SearchTextV1 = string;
 
@@ -152,6 +161,8 @@ export type GlobalSharedQueryFieldsV1 = {
 export type GlobalSharedQueryV1 = GlobalSharedQueryFieldsV1 & {
     positionKeys?: Array<unknown>;
 };
+
+export type SharedQueryV1SchemaJsonSafePositiveIntegerV1 = number;
 
 export type MonthRangeV1 = {
     min?: MonthV1;

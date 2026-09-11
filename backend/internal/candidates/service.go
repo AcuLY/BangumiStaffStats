@@ -204,12 +204,13 @@ func (service *Service) Execute(
 		)
 	}
 
-	resultKey, err := ResultKey(
+	resultKey, err := participantResultKey(
 		normalized.Effective.Scope,
 		identity.DataVersion,
 		normalized.Digest,
 		operation.PositionKey,
 		collectionDigest,
+		operation.Participants,
 		operation.PositionScope,
 	)
 	if err != nil {
@@ -229,6 +230,7 @@ func (service *Service) Execute(
 				normalized,
 				entries,
 				operation.PositionKey,
+				operation.Participants,
 			)
 		},
 	)
@@ -275,6 +277,7 @@ func computeCore(
 	normalized query.NormalizedQuery,
 	entries []query.CollectionEntry,
 	positionKey string,
+	participantGroups ...[]query.ParticipantPerson,
 ) (Core, error) {
 	if store == nil {
 		return Core{}, errors.New("candidates: invalid Archive store")
@@ -305,12 +308,16 @@ func computeCore(
 			}, nil
 		})
 	}
+	var participantRequests []query.ParticipantRequest
+	if len(participantGroups) > 0 && len(participantGroups[0]) > 0 {
+		participantRequests = []query.ParticipantRequest{{RequestID: "candidates", People: participantGroups[0]}}
+	}
 	queryResult, err := query.Evaluate(
 		ctx,
 		normalized,
 		facts,
 		collectionSource,
-		nil,
+		participantRequests,
 	)
 	if err != nil {
 		return Core{}, err
@@ -336,7 +343,12 @@ func computeCore(
 	if err != nil {
 		return Core{}, err
 	}
+	var commonSubjects []int64
+	if len(participantRequests) > 0 {
+		commonSubjects = append([]int64{}, queryResult.ParticipantSets[0].SubjectIDs...)
+	}
 	return Build(ctx, BuildRequest{
+		CommonSubjects:  commonSubjects,
 		DataVersion:     dataVersion,
 		Query:           *queryResult,
 		Facts:           facts,

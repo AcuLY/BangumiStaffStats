@@ -48,7 +48,7 @@ import type {
   CandidateView,
   SelectedIdentity,
 } from '../features/co-star/model';
-import { defaultCandidateView } from '../features/co-star/model';
+import { candidateParticipantsSignature, defaultCandidateView } from '../features/co-star/model';
 import {
   defaultPartnersView,
   partnersInputMatchesSelection,
@@ -645,7 +645,16 @@ const pendingCoStarAnalysis = computed(() => {
         },
       };
 });
+const selectedCandidateParticipants = computed(() => selection.people.value.map((person) => ({
+  personId: person.person.id,
+  positionKeys: person.identities.map((identity) => identity.positionKey),
+})));
+const candidateSelectionMatches = computed(() =>
+  candidateParticipantsSignature(coordinator.candidates.acceptedInput ?? {}) ===
+  candidateParticipantsSignature({ participants: selectedCandidateParticipants.value }),
+);
 const candidateResource = computed<CandidateResource>(() => ({
+  membershipValid: candidateSelectionMatches.value,
   error: coordinator.candidates.error,
   feedback: coordinator.candidates.feedback,
   input: Object.freeze({
@@ -655,27 +664,37 @@ const candidateResource = computed<CandidateResource>(() => ({
   payload: coordinator.candidates.payload,
   phase: coordinator.candidates.phase,
   view: coordinator.candidates.view,
-  viewPending: coordinator.candidates.viewPending,
+  viewPending: coordinator.candidates.viewPending || (
+    !candidateSelectionMatches.value && !coordinator.candidates.error && !coordinator.candidates.feedback
+  ),
 }));
 watch(
-  () => [candidateExpansionRequested.value, route.mode.value, coordinator.candidates.phase,
-    coordinator.candidates.viewPending, selection.personCount.value] as const,
+  () => [candidateExpansionRequested.value, route.mode.value,
+    candidateParticipantsSignature({ participants: selectedCandidateParticipants.value })] as const,
   () => {
     const revision = queryStore.revision;
-    if (candidateExpansionRequested.value !== revision || expandedCandidateRevision === revision
-      || route.mode.value !== 'co-star' || replayingCoStarWorkspace
-      || coordinator.candidates.phase !== 'ready' || coordinator.candidates.viewPending
-      || selection.personCount.value === 0) return;
+    if (route.mode.value !== 'co-star' || replayingCoStarWorkspace
+      || coordinator.candidates.phase !== 'ready') return;
+    const expand = expandedCandidateRevision !== revision && selection.personCount.value > 0;
+    if (!expand && candidateSelectionMatches.value && !coordinator.candidates.viewPending) return;
+    const input = {
+      positionKey: expand ? null : coordinator.candidates.input.positionKey,
+      positionScope: 'all' as const,
+      participants: selectedCandidateParticipants.value,
+    };
+    if (coordinator.candidates.viewPending &&
+      candidateParticipantsSignature(coordinator.candidates.input) === candidateParticipantsSignature(input)) return;
     expandedCandidateRevision = revision;
-    if (coordinator.candidates.input.positionScope === 'all') return;
     const draftScopeAtStart = queryStore.coStarScopeDirty ? undefined : queryStore.coStarPositionScope;
-    void executeCandidateView({ positionKey: null }, { ...defaultCandidateView, ...coordinator.candidates.view, page: 1, search: '' })
+    void executeCandidateView(input, { ...defaultCandidateView, ...coordinator.candidates.view, page: 1 })
       .then((accepted) => {
         if (accepted && queryStore.revision === revision) {
           queryStore.acceptCoStarPositionScope('all', draftScopeAtStart);
         }
       });
   },
+  // The validity computed above hides old rows synchronously. Wait for the
+  // primary query transaction to finish before starting the default refresh.
   { flush: 'post' },
 );
 const partnersResource = computed<PartnersResource>(() => ({
@@ -730,7 +749,7 @@ function executeCandidateView(
   view: Readonly<CandidateView>,
 ): Promise<boolean> {
   return coordinator.executeCandidateView(
-    { positionKey: input.positionKey, positionScope: 'all' },
+    { positionKey: input.positionKey, positionScope: 'all', participants: selectedCandidateParticipants.value },
     view,
   );
 }
@@ -1067,6 +1086,7 @@ const acceptedRecoveryWorkspace = computed<RecoveryWorkspace | null>(() => {
       input: {
         positionKey: acceptedCandidateInput.positionKey,
         ...(acceptedCandidateInput.positionScope ? { positionScope: acceptedCandidateInput.positionScope } : {}),
+        ...(acceptedCandidateInput.participants ? { participants: acceptedCandidateInput.participants.map((person) => ({ personId: person.personId, positionKeys: [...person.positionKeys] })) } : {}),
     },
     view: structuredClone(acceptedCandidateView),
   };
@@ -1223,6 +1243,7 @@ function primaryRecoveryWorkspace(): RecoveryWorkspace | null {
       input: {
         positionKey: coordinator.candidates.input.positionKey,
         ...(coordinator.candidates.input.positionScope ? { positionScope: coordinator.candidates.input.positionScope } : {}),
+        ...(coordinator.candidates.input.participants ? { participants: coordinator.candidates.input.participants.map((person) => ({ personId: person.personId, positionKeys: [...person.positionKeys] })) } : {}),
       },
       view: structuredClone(coordinator.candidates.view),
     },
@@ -1468,10 +1489,20 @@ function activateDefaultCandidates(): void {
 }
 
 function recoveryCandidateInput(
-  input: Readonly<{ positionKey: unknown; positionScope?: 'query' | 'all' }>,
+  input: Readonly<{
+    positionKey: unknown;
+    positionScope?: 'query' | 'all';
+    participants?: readonly Readonly<{ personId: number; positionKeys: readonly unknown[] }>[];
+  }>,
 ): Readonly<CandidateInput> {
   return Object.freeze({
     ...(input.positionScope ? { positionScope: input.positionScope } : {}),
+    ...(input.participants ? {
+      participants: input.participants.map((person) => ({
+        personId: person.personId,
+        positionKeys: person.positionKeys.map(String),
+      })),
+    } : {}),
     positionKey:
       input.positionKey === null ? null : String(input.positionKey),
   });
@@ -1497,6 +1528,29 @@ function installRecoveryWorkspace(payload: RecoveryPayload): void {
 }
 
 async function replayRecovery(payload: RecoveryPayload): Promise<boolean> {
+  if (payload.workspace.kind === 'co-star') {
+    const workspace = payload.workspace;
+    const participants = workspace.state === 'partners'
+      ? [workspace.partners.input.source]
+      : workspace.state === 'analysis' ? workspace.coStar.input.participants : [];
+    const needsAllPositions = participants.some((person) =>
+      person.positionKeys.some((key) => !payload.query.positionKeys.includes(String(key))),
+    );
+    payload = {
+      ...payload,
+      workspace: {
+        ...workspace,
+        candidates: {
+          ...workspace.candidates,
+          input: {
+            ...workspace.candidates.input,
+            ...(needsAllPositions ? { positionScope: 'all' as const } : {}),
+            ...(participants.length > 0 || workspace.candidates.input.participants ? { participants } : {}),
+          },
+        },
+      },
+    };
+  }
   queryStore.replaceDraft(draftFromEffective(payload.query));
   installRecoveryWorkspace(payload);
   const suppressAutomaticRankingDetail =
@@ -1538,6 +1592,7 @@ async function replayRecovery(payload: RecoveryPayload): Promise<boolean> {
     return false;
   }
   if (payload.workspace.kind === 'co-star') {
+    expandedCandidateRevision = queryStore.revision;
     queryStore.setCoStarPositionScope(payload.workspace.candidates.input.positionScope ?? 'query', true);
   }
   if (payload.workspace.kind === 'ranking') {
@@ -1663,8 +1718,9 @@ async function retryRanking(): Promise<boolean> {
 }
 
 async function retryCandidates(): Promise<boolean> {
-  if (queryStore.applied && coordinator.candidates.phase === 'ready' && selection.personCount.value > 0) {
-    return executeCandidateView({ positionKey: null }, { ...defaultCandidateView, ...coordinator.candidates.view, page: 1, search: '' });
+  if (queryStore.applied && coordinator.candidates.phase === 'ready') {
+    return executeCandidateView(coordinator.candidates.input, { ...defaultCandidateView, ...coordinator.candidates.view,
+      ...(!candidateSelectionMatches.value ? { page: 1 } : {}) });
   }
   return coordinator.execute({
     candidateInput: coordinator.candidates.input,

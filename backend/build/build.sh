@@ -15,7 +15,7 @@ source "$build_root/toolchain-policy.sh"
 
 go_image='docker.io/library/golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651'
 runtime_image='gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6'
-accepted_openapi='sha256:999272f4fcd204c1dfecbe1948c77abcf29230dc1e8a76eb7549c386cab09260'
+accepted_openapi='sha256:b80b0c8a999e0081520aaa1020eea96723f88ceb60920eb0a7356cafeedb19e1'
 accepted_manifest_schema='sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73'
 accepted_schema_sql='sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255'
 accepted_application_version='v0.1.0'

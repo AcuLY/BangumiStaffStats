@@ -219,7 +219,7 @@ function changeOrder(order: 'asc' | 'desc'): void {
 function toggleCandidate(
   item: NonNullable<CandidateResource['payload']>['items'][number],
 ): void {
-  if (!payload.value) {
+  if (!payload.value || rowsPending.value || props.resource.membershipValid === false) {
     return;
   }
   const keys = item.positionKeys;
@@ -520,7 +520,7 @@ onBeforeUnmount(() => {
         </search-sort-toolbar>
 
         <p
-          v-if="resource.error && payload"
+          v-if="resource.error && payload && resource.membershipValid !== false"
           class="candidate-inline-error"
           :role="suppressErrorMessage ? undefined : 'alert'"
         >
@@ -547,11 +547,11 @@ onBeforeUnmount(() => {
         </template>
 
         <div
-          v-else-if="!payload && resource.error"
+          v-else-if="(!payload && resource.error) || resource.membershipValid === false"
           class="candidate-state"
           role="alert"
         >
-          <strong>候选人物加载失败</strong>
+          <strong>{{ resource.error ? '候选人物加载失败' : '候选人物加载已取消' }}</strong>
           <p v-if="!suppressErrorMessage">{{ resource.error }}</p>
           <n-button
             class="app-primary-action candidate-retry"
@@ -650,7 +650,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <footer v-if="payload" class="candidate-footer">
+        <footer v-if="payload && resource.membershipValid !== false" class="candidate-footer">
           <adaptive-pagination
             :pending="rowsPending"
             :page="payload.pagination.page"

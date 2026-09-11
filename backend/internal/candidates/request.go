@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"unicode/utf8"
@@ -22,6 +23,10 @@ func normalizeOperationRequest(
 	positionScope, err := query.OperationPositionScope(request.Input)
 	if err != nil {
 		return Operation{}, requestFailure("invalid position scope", "/input/positionScope", "UNSUPPORTED_VALUE")
+	}
+	participants, err := parseParticipants(request.Input, effective)
+	if err != nil {
+		return Operation{}, err
 	}
 	viewInput, err := parseViewInput(request.View)
 	if err != nil {
@@ -52,6 +57,7 @@ func normalizeOperationRequest(
 	}
 	return Operation{
 		PositionKey:   positionKey,
+		Participants:  participants,
 		PositionScope: positionScope,
 		View:          view,
 	}, nil
@@ -74,7 +80,7 @@ func parsePositionInput(raw json.RawMessage) (string, error) {
 		)
 	}
 	for name := range fields {
-		if name != "positionKey" && name != "positionScope" {
+		if name != "positionKey" && name != "positionScope" && name != "participants" {
 			return "", unknownFieldFailure("/input/" + escapePointerToken(name))
 		}
 	}
@@ -269,4 +275,84 @@ func unknownFieldFailure(path string) *Error {
 		false,
 		nil,
 	)
+}
+
+// parseParticipants accepts semantic identities only, never picker presentation state.
+func parseParticipants(raw json.RawMessage, effective query.EffectiveQuery) ([]query.ParticipantPerson, error) {
+	fields, err := decodeObject(raw)
+	if err != nil {
+		return nil, requestFailure("candidate input must be an object", "/input", "INVALID_TYPE")
+	}
+	data, found := fields["participants"]
+	if !found {
+		return nil, nil
+	}
+	var values []json.RawMessage
+	if err := json.Unmarshal(data, &values); err != nil || values == nil {
+		return nil, requestFailure("participants must be an array", "/input/participants", "INVALID_TYPE")
+	}
+	if len(values) > 10 {
+		return nil, requestFailure("too many participants", "/input/participants", "OUT_OF_RANGE")
+	}
+	people := make(map[int64]bool)
+	result := make([]query.ParticipantPerson, 0, len(values))
+	total := 0
+	for index, value := range values {
+		path := fmt.Sprintf("/input/participants/%d", index)
+		fields, err := decodeObject(value)
+		if err != nil || fields == nil {
+			return nil, requestFailure("participant must be an object", path, "INVALID_TYPE")
+		}
+		for name := range fields {
+			if name != "personId" && name != "positionKeys" {
+				return nil, unknownFieldFailure(path + "/" + escapePointerToken(name))
+			}
+		}
+		idRaw, ok := fields["personId"]
+		if !ok {
+			return nil, requestFailure("person is required", path+"/personId", "REQUIRED")
+		}
+		id, code, err := exactPositiveJSONInteger(idRaw)
+		if err != nil {
+			return nil, requestFailure("person is invalid", path+"/personId", code)
+		}
+		if people[id] {
+			return nil, requestFailure("duplicate person", path+"/personId", "DUPLICATE")
+		}
+		people[id] = true
+		keysRaw, ok := fields["positionKeys"]
+		if !ok {
+			return nil, requestFailure("identities are required", path+"/positionKeys", "REQUIRED")
+		}
+		var keys []json.RawMessage
+		if err := json.Unmarshal(keysRaw, &keys); err != nil || keys == nil {
+			return nil, requestFailure("identities must be an array", path+"/positionKeys", "INVALID_TYPE")
+		}
+		if len(keys) == 0 || total+len(keys) > 20 {
+			return nil, requestFailure("identity count is invalid", path+"/positionKeys", "OUT_OF_RANGE")
+		}
+		total += len(keys)
+		positions := make([]string, 0, len(keys))
+		seen := make(map[string]bool)
+		for keyIndex, keyRaw := range keys {
+			keyPath := fmt.Sprintf("%s/positionKeys/%d", path, keyIndex)
+			var key string
+			if err := json.Unmarshal(keyRaw, &key); err != nil || bytes.Equal(bytes.TrimSpace(keyRaw), []byte("null")) {
+				return nil, requestFailure("identity must be a string", keyPath, "INVALID_TYPE")
+			}
+			if key == "" || utf8.RuneCountInString(key) > 96 {
+				return nil, requestFailure("identity is invalid", keyPath, "OUT_OF_RANGE")
+			}
+			if seen[key] {
+				return nil, requestFailure("duplicate identity", keyPath, "DUPLICATE")
+			}
+			seen[key] = true
+			if !containsPosition(effective.PositionKeys, key) {
+				return nil, requestFailure("identity is not permitted", keyPath, string(CodePositionNotFound))
+			}
+			positions = append(positions, key)
+		}
+		result = append(result, query.ParticipantPerson{PersonID: id, PositionKeys: positions})
+	}
+	return result, nil
 }

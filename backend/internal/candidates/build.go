@@ -15,6 +15,13 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 	if err := contextError(ctx); err != nil {
 		return Core{}, err
 	}
+	if request.CommonSubjects != nil {
+		filtered, err := filterCandidatePositions(ctx, request.Query.PositionResults, request.CommonSubjects)
+		if err != nil {
+			return Core{}, err
+		}
+		request.Query.PositionResults = filtered
+	}
 	positions, selected, err := validatePositions(request.Query, request.PositionKey)
 	if err != nil {
 		return Core{}, err
@@ -233,4 +240,44 @@ func clonePositionResult(value query.PositionResult) query.PositionResult {
 		}
 	}
 	return value
+}
+
+// Filter identities by exact overlap but retain their complete query-filtered
+// contributions for the established candidate metrics. Never mutate query facts.
+func filterCandidatePositions(ctx context.Context, positions []query.PositionResult, common []int64) ([]query.PositionResult, error) {
+	subjects := make(map[int64]bool, len(common))
+	for _, id := range common {
+		subjects[id] = true
+	}
+	result := make([]query.PositionResult, len(positions))
+	for i, position := range positions {
+		valid := make(map[int64]bool)
+		for _, credit := range position.Contributions {
+			if err := contextError(ctx); err != nil {
+				return nil, err
+			}
+			if subjects[credit.SubjectID] {
+				valid[credit.PersonID] = true
+			}
+		}
+		filtered := query.PositionResult{PositionKey: position.PositionKey}
+		for _, id := range position.CandidatePersonIDs {
+			if valid[id] {
+				filtered.CandidatePersonIDs = append(filtered.CandidatePersonIDs, id)
+			}
+		}
+		participating := make(map[int64]bool)
+		for _, credit := range position.Contributions {
+			if err := contextError(ctx); err != nil {
+				return nil, err
+			}
+			if valid[credit.PersonID] {
+				filtered.Contributions = append(filtered.Contributions, credit)
+				participating[credit.SubjectID] = true
+			}
+		}
+		filtered.CandidateSubjectIDs = sortedKeys(participating)
+		result[i] = filtered
+	}
+	return result, nil
 }

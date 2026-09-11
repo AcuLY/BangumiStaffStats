@@ -152,6 +152,18 @@ function assertRecoverySemantics(payload: RecoveryPayload): void {
     return;
   }
   const workspace = payload.workspace;
+  const candidatePeople = new Set<number>();
+  let candidateIdentityCount = 0;
+  for (const participant of workspace.candidates.input.participants ?? []) {
+    if (candidatePeople.has(participant.personId) || !validIdentity(participant.positionKeys, queryKeys, workspace.candidates.input.positionScope)) {
+      throw new Error('Candidate participant identity is invalid');
+    }
+    candidatePeople.add(participant.personId);
+    candidateIdentityCount += participant.positionKeys.length;
+  }
+  if (candidatePeople.size > 10 || candidateIdentityCount > 20) {
+    throw new Error('Candidate participant identity limit is exceeded');
+  }
   if (workspace.candidates.input.positionScope !== 'all' && workspace.candidates.input.positionKey !== null && !queryKeys.has(workspace.candidates.input.positionKey)) {
     throw new Error('Candidate position is outside the applied query');
   }

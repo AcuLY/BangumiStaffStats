@@ -15,6 +15,7 @@ type OperationInput struct {
 // Operation is a fully validated candidate operation.
 type Operation struct {
 	PositionScope string
+	Participants  []query.ParticipantPerson
 	PositionKey   string
 	View          View
 }

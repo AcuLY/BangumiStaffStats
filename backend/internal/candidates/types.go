@@ -45,6 +45,8 @@ type Core struct {
 // BuildRequest consumes already-evaluated query membership and immutable
 // accepted facts. Query filters and collection acquisition have already run.
 type BuildRequest struct {
+	// CommonSubjects nil means unconstrained; empty non-nil means no valid candidates.
+	CommonSubjects  []int64
 	DataVersion     string
 	Query           query.Result
 	Facts           query.FactSet

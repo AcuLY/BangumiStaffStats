@@ -11,7 +11,7 @@ const repositoryRoot = path.resolve(goldenRoot, "../../../..");
 
 const authorityPath = path.join(repositoryRoot, "contracts/openapi/openapi.yaml");
 const schemaRoot = path.join(repositoryRoot, "contracts/schemas");
-const caseFiles = ["cases/errors.json", "cases/global.json", "cases/personal.json", "cases/many-positions.json"];
+const caseFiles = ["cases/errors.json", "cases/global.json", "cases/personal.json", "cases/many-positions.json", "cases/participants.json"];
 const schemaFiles = [
   "schemas/candidates/request-v1.schema.json",
   "schemas/candidates/success-envelope-v1.schema.json",
@@ -140,7 +140,10 @@ for (const relative of caseFiles) {
     assert.equal(typeof item.id, "string");
     assert(!cases.has(item.id), `duplicate case ID ${item.id}`);
     cases.set(item.id, item);
-    if (document.kind.endsWith("success-cases")) {
+    if (document.kind === "participant-validation-cases") {
+      assert.equal(Boolean(validateRequest(item.request)), item.schemaValid, `${item.id}: schema`);
+      assert.equal(participantsSemanticallyValid(item.request), item.semanticValid, `${item.id}: participant semantics`);
+    } else if (document.kind.endsWith("success-cases")) {
       assertValid(validateRequest, item.request, `${item.id}: request`);
       assert.equal(item.expected.status, 200);
       assertCommonHeaders(item);
@@ -506,4 +509,12 @@ for (const scope of [undefined, "query", "all"]) {
     if (scope !== undefined) request.input.positionScope = scope;
     assert.equal(validateRequest(request), scope === "all", `empty ${queryScope} query with ${scope}: ${ajv.errorsText(validateRequest.errors)}`);
   }
+}
+
+// Cross-item identity limits and duplicate person IDs are semantic constraints.
+function participantsSemanticallyValid(request) {
+  if (!validateRequest(request)) return false;
+  const participants = request.input.participants ?? [];
+  return new Set(participants.map(({ personId }) => personId)).size === participants.length
+    && participants.reduce((total, person) => total + person.positionKeys.length, 0) <= 20;
 }

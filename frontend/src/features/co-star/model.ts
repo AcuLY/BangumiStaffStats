@@ -4,6 +4,20 @@ import type { CandidatesViewState } from '../query/coordinator';
 export interface CandidateInput {
   readonly positionScope?: 'query' | 'all';
   readonly positionKey: string | null;
+  readonly participants?: readonly Readonly<{
+    personId: number;
+    positionKeys: readonly string[];
+  }>[];
+}
+
+// Selection order does not change the backend membership constraint.
+export function candidateParticipantsSignature(
+  input: Pick<CandidateInput, 'participants'>,
+): string {
+  return JSON.stringify((input.participants ?? []).map((person) => ({
+    personId: person.personId,
+    positionKeys: [...person.positionKeys].sort(),
+  })).sort((left, right) => left.personId - right.personId));
 }
 
 export type CandidateOrder = CandidatesViewState['order'];
@@ -20,6 +34,7 @@ export const defaultCandidateView: Readonly<CandidateView> = Object.freeze({
 });
 
 export interface CandidateResource {
+  readonly membershipValid?: boolean;
   readonly error: string | null;
   readonly feedback: string | null;
   readonly input: Readonly<CandidateInput>;

@@ -92,7 +92,7 @@ Single-position candidate activation SHALL toggle its current
 missing returned identities or remove that row's identities when all are selected;
 partial selection SHALL have an explicit mixed state without duplicating the person.
 The UI MAY overlay selected/current-other-identity
-state locally, but SHALL NOT send selection to `/candidates` or change the
+state locally and SHALL send exact identities only as input.participants to `/candidates`, without changing the
 server rank/count. The tray SHALL be the only complete identity mutation
 surface; analysis participant cards SHALL remain read-only. The UI SHALL
 prevent more than 10 unique people or 20 total identities and expose a stable
@@ -225,3 +225,23 @@ The adapter SHALL retain immutable exact scale values and the driver SHALL rejec
 - **WHEN** metricScale is absent, invalid or names another metric
 - **THEN** the existing decode/error path SHALL handle the failed response
 - **AND** no locally inferred progress SHALL be displayed as accepted evidence
+
+### Requirement: Candidate views SHALL follow the exact selected group
+The UI SHALL send current exact participant identities in each candidate view request. Adding/removing a person or identity SHALL immediately invalidate the displayed candidate membership, cancel superseded requests and request page 1 while preserving search, sort/order, page size and candidate position. Rows from a different participant set SHALL NOT be actionable during loading, failure or cancellation. Retry SHALL use the current desired participants. Candidate statistics SHALL remain server-owned.
+
+#### Scenario: Rapid group changes
+- **WHEN** A changes to AB and then back to A before the AB response completes
+- **THEN** only the latest A membership SHALL become actionable
+
+#### Scenario: Candidate refresh fails or is cancelled
+- **WHEN** the selection-constrained refresh fails or is cancelled
+- **THEN** old incompatible rows SHALL remain hidden or non-actionable, selected-person removal SHALL remain usable, and retry SHALL use the latest selection
+
+#### Scenario: Clear all people
+- **WHEN** the user removes the final selected person
+- **THEN** candidates SHALL become unconstrained again without auto-selecting another person
+
+#### Scenario: Initial default and saved selection
+- **WHEN** an ordinary first query succeeds with no selection
+- **THEN** the existing default-person rule SHALL run once and the follow-up candidate request SHALL contain that person's identities
+- **AND** restoring a saved partners or multi-person analysis SHALL constrain its first candidate request using those saved identities without substituting a default

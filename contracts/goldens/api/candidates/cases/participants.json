@@ -1,0 +1,564 @@
+{
+  "schemaVersion": 1,
+  "kind": "participant-validation-cases",
+  "cases": [
+    {
+      "id": "participants-omitted",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all"
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": true
+    },
+    {
+      "id": "participants-empty",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": []
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": true
+    },
+    {
+      "id": "participants-one",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": true
+    },
+    {
+      "id": "participants-two",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 2,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": true
+    },
+    {
+      "id": "participants-null",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": null
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-duplicate-identical",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-duplicate-person",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:3"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-duplicate-position",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-too-many-people",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 2,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 3,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 4,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 5,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 6,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 7,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 8,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 9,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 10,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            },
+            {
+              "personId": 11,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-twenty-identities",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 2,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 3,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 4,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 5,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 6,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 7,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 8,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 9,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            },
+            {
+              "personId": 10,
+              "positionKeys": [
+                "staff:anime:2",
+                "staff:anime:3"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": true
+    },
+    {
+      "id": "participants-twenty-one-identities",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:1",
+                "staff:anime:2",
+                "staff:anime:3",
+                "staff:anime:4",
+                "staff:anime:5",
+                "staff:anime:6",
+                "staff:anime:7",
+                "staff:anime:8",
+                "staff:anime:9",
+                "staff:anime:10",
+                "staff:anime:11",
+                "staff:anime:12",
+                "staff:anime:13",
+                "staff:anime:14",
+                "staff:anime:15",
+                "staff:anime:16",
+                "staff:anime:17",
+                "staff:anime:18",
+                "staff:anime:19",
+                "staff:anime:20",
+                "staff:anime:21"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-invalid-id",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 0,
+              "positionKeys": [
+                "staff:anime:2"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-empty-identities",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": []
+            }
+          ]
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-selected-ui-flag",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "selected": true
+            }
+          ]
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-response-metadata",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "staff:anime:2"
+              ],
+              "name": "A",
+              "image": "https://example.com/a.jpg"
+            }
+          ]
+        }
+      },
+      "schemaValid": false,
+      "semanticValid": false
+    },
+    {
+      "id": "participants-main-voice-identity",
+      "request": {
+        "query": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionKeys": [
+            "staff:anime:2"
+          ]
+        },
+        "input": {
+          "positionKey": null,
+          "positionScope": "all",
+          "participants": [
+            {
+              "personId": 1,
+              "positionKeys": [
+                "cast:anime:main"
+              ]
+            }
+          ]
+        }
+      },
+      "schemaValid": true,
+      "semanticValid": true
+    }
+  ]
+}

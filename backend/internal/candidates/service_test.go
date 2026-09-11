@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
@@ -416,5 +418,73 @@ func TestAllPositionCandidatesAcceptsEmptyQuerySelection(t *testing.T) {
 	request.Input = json.RawMessage(`{"positionKey":null}`)
 	if _, err := service.Execute(context.Background(), request); err == nil {
 		t.Fatal("query scope accepted empty positions")
+	}
+}
+
+func TestCandidateParticipantsStrictValidation(t *testing.T) {
+	effective := query.EffectiveQuery{Scope: "global", SubjectType: "anime", PositionKeys: []string{"staff:anime:2", "cast:anime:main", "cast:anime:all"}}
+	invalid := []string{`null`, `{}`, `[null]`, `[{"personId":1,"positionKeys":[]}]`, `[{"personId":0,"positionKeys":["staff:anime:2"]}]`, `[{"personId":1,"positionKeys":["missing"]}]`, `[{"personId":1,"positionKeys":["staff:anime:2","staff:anime:2"]}]`, `[{"personId":1,"positionKeys":["staff:anime:2"]},{"personId":1,"positionKeys":["staff:anime:2"]}]`, `[{"personId":1,"positionKeys":["staff:anime:2"],"selected":true}]`, `[{"personId":1.5,"positionKeys":["staff:anime:2"]}]`, `[{"personId":1,"positionKeys":[null]}]`, `[{"positionKeys":["staff:anime:2"]}]`, `[{"personId":1}]`}
+	many := []string{}
+	for i := 1; i <= 11; i++ {
+		many = append(many, fmt.Sprintf(`{"personId":%d,"positionKeys":["staff:anime:2"]}`, i))
+	}
+	invalid = append(invalid, "["+strings.Join(many, ",")+"]")
+	many = nil
+	for i := 1; i <= 7; i++ {
+		many = append(many, fmt.Sprintf(`{"personId":%d,"positionKeys":["staff:anime:2","cast:anime:all","cast:anime:main"]}`, i))
+	}
+	invalid = append(invalid, "["+strings.Join(many, ",")+"]")
+	for _, participants := range invalid {
+		t.Run(participants, func(t *testing.T) {
+			_, err := normalizeOperationRequest(effective, Request{Input: json.RawMessage(`{"positionKey":null,"participants":` + participants + `}`)})
+			if err == nil {
+				t.Fatal("accepted invalid participants")
+			}
+		})
+	}
+	for _, input := range []string{`{"positionKey":null}`, `{"positionKey":null,"participants":[]}`, `{"positionKey":null,"participants":[{"personId":1e0,"positionKeys":["cast:anime:main"]}]}`} {
+		if _, err := normalizeOperationRequest(effective, Request{Input: json.RawMessage(input)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestServiceParticipantConstraintIsNotLostOrCachedAcrossSelections(t *testing.T) {
+	service := newCandidateService(t, loadCandidateArchive(t), nil)
+	request := Request{Query: json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":[]}`), Input: json.RawMessage(`{"positionKey":null,"positionScope":"all"}`)}
+	unfiltered, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial, err := unfiltered.MarshalEnvelope("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Input = json.RawMessage(`{"positionKey":null,"positionScope":"all","participants":[{"personId":9007199254740991,"positionKeys":["staff:anime:2"]}]}`)
+	filtered, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := filtered.MarshalEnvelope("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"items":[]`) || !strings.Contains(string(data), `"total":0`) {
+		t.Fatalf("missing participant fell back: %s", data)
+	}
+	if string(initial) == string(data) {
+		t.Fatal("selection reused unconstrained cache")
+	}
+	request.Input = json.RawMessage(`{"positionKey":null,"positionScope":"all","participants":[]}`)
+	restored, err := service.Execute(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = restored.MarshalEnvelope("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(initial) {
+		t.Fatal("clearing selection failed to restore candidates")
 	}
 }

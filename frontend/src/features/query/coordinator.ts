@@ -16,6 +16,7 @@ import { CoStarApiError } from '../../api/coStar';
 import { PartnersApiError } from '../../api/partners';
 import { RankingsApiError } from '../../api/rankings';
 import { PersonDetailApiError } from '../../api/personDetail';
+import { candidateParticipantsSignature } from '../co-star/model';
 import type { CatalogOperation, CatalogSnapshot } from '../../api/adapters/catalog';
 import { decodeEffectiveQueryForOperation } from '../../api/adapters/queryWire';
 import {
@@ -35,8 +36,14 @@ export type QueryOperation =
 export type PrimaryQueryOperation = 'candidates' | 'rankings';
 export type CandidatesInputV1 = Omit<
   GeneratedCandidatesInputV1,
-  'positionKey'
-> & { readonly positionKey: string | null };
+  'positionKey' | 'participants'
+> & {
+  readonly positionKey: string | null;
+  readonly participants?: readonly Readonly<{
+    personId: number;
+    positionKeys: readonly string[];
+  }>[];
+};
 export type ResourcePhase = 'error' | 'idle' | 'pending' | 'ready';
 export type RankingsViewState = Required<Omit<RankingsViewV1, 'locatePersonId'>>;
 export type CandidatesViewState = Required<CandidatesViewV1>;
@@ -361,6 +368,25 @@ function assertCandidatePositions(
   if (keys.some((key) => !operationPositionAllowed(query, input.positionScope, key, catalog, 'candidates'))) {
     throw new Error('Candidate response contains unsupported positions');
   }
+}
+
+function validCandidateParticipants(
+  query: AppliedQuery,
+  input: Readonly<CandidatesInputV1>,
+  catalog: CatalogSnapshot | null,
+): boolean {
+  const people = new Set<number>();
+  let identities = 0;
+  for (const person of input.participants ?? []) {
+    if (
+      !Number.isSafeInteger(person.personId) || person.personId < 1 || people.has(person.personId) ||
+      person.positionKeys.length === 0 || new Set(person.positionKeys).size !== person.positionKeys.length ||
+      person.positionKeys.some((key) => !operationPositionAllowed(query, input.positionScope, key, catalog, 'candidates'))
+    ) return false;
+    people.add(person.personId);
+    identities += person.positionKeys.length;
+  }
+  return people.size <= 10 && identities <= 20;
 }
 
 function canonicalCoStarInput(
@@ -1159,6 +1185,11 @@ export function createQueryCoordinator<
     const resource = operation === 'rankings' ? rankings : candidates;
     let nextCandidateInput: Readonly<CandidatesInputV1> | null = null;
     if (operation === 'candidates') {
+      if (!validCandidateParticipants(query, options.candidateInput ?? { positionKey: null }, options.catalog)) {
+        candidates.error = '候选人物参与者参数无效';
+        publishFeedback('candidates', candidates.error, 'error');
+        return false;
+      }
       const requestedPosition = options.candidateInput?.positionKey ?? null;
       if (
         requestedPosition !== null &&
@@ -1172,6 +1203,7 @@ export function createQueryCoordinator<
       nextCandidateInput = Object.freeze({
         positionKey: requestedPosition,
         ...(options.candidateInput?.positionScope === undefined ? {} : { positionScope: options.candidateInput.positionScope }),
+        ...(options.candidateInput?.participants === undefined ? {} : { participants: structuredClone(options.candidateInput.participants) }),
       }) as Readonly<CandidatesInputV1>;
     }
     const sameQuery =
@@ -1227,7 +1259,8 @@ export function createQueryCoordinator<
       resource.phase === 'ready' &&
       (operation !== 'candidates' ||
         (candidates.input.positionKey === nextCandidateInput?.positionKey &&
-          (candidates.input.positionScope ?? 'query') === (nextCandidateInput?.positionScope ?? 'query')))
+          (candidates.input.positionScope ?? 'query') === (nextCandidateInput?.positionScope ?? 'query') &&
+          candidateParticipantsSignature(candidates.input) === candidateParticipantsSignature(nextCandidateInput ?? {})))
     ) {
       resource.feedback = null;
       if (lastOperationFeedback.value?.operation === operation) {
@@ -1469,15 +1502,17 @@ export function createQueryCoordinator<
       publishFeedback('candidates', candidates.error, 'error');
       return false;
     }
-    if (!validCandidateView(query, view)) {
+    if (!validCandidateView(query, view) || !validCandidateParticipants(query, input, currentCatalog())) {
       candidates.error = '候选人物视图参数无效';
       publishFeedback('candidates', candidates.error, 'error');
       return false;
     }
     if (
       !candidates.viewPending &&
+      !candidates.error &&
       String(candidates.input.positionKey) === String(input.positionKey) &&
       (candidates.input.positionScope ?? 'query') === (input.positionScope ?? 'query') &&
+      candidateParticipantsSignature(candidates.input) === candidateParticipantsSignature(input) &&
       candidateViewEquals(
         candidates.view as Readonly<CandidatesViewState>,
         view,

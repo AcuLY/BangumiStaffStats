@@ -336,3 +336,118 @@ func TestAllPositionProjectionPreservesMoreThanSixteenPositions(t *testing.T) {
 		t.Fatalf("all-position response differs from schema-validated golden: %s", actual)
 	}
 }
+
+func TestCandidateGroupFilteringUsesExactWorksAndRetainsFullIdentityMetrics(t *testing.T) {
+	ctx := context.Background()
+	request := independentBuildRequest()
+	request.PositionKey = ""
+	// A: X,Y; B: X,Z; C: Y,Z. Only A and B share X with the entire AB group.
+	request.Facts.StaffCredits = []query.StaffCredit{
+		{SubjectID: 101, PersonID: 1, PositionID: 2}, {SubjectID: 102, PersonID: 1, PositionID: 2},
+		{SubjectID: 101, PersonID: 2, PositionID: 2}, {SubjectID: 103, PersonID: 2, PositionID: 2},
+		{SubjectID: 102, PersonID: 3, PositionID: 2}, {SubjectID: 103, PersonID: 3, PositionID: 2},
+		// A's other identity does not touch X and must not be returned for AB.
+		{SubjectID: 102, PersonID: 1, PositionID: 74},
+	}
+	normalized := query.NormalizedQuery{Effective: request.Query.EffectiveQuery, Digest: request.Query.QueryDigest}
+	groups := []struct {
+		name   string
+		people []query.ParticipantPerson
+		want   []int64
+		keys   []string
+	}{
+		{"A", []query.ParticipantPerson{{PersonID: 1, PositionKeys: []string{"staff:anime:2"}}}, []int64{1, 2, 3}, []string{"staff:anime:2", "staff:anime:74"}},
+		{"AB", []query.ParticipantPerson{{PersonID: 1, PositionKeys: []string{"staff:anime:2"}}, {PersonID: 2, PositionKeys: []string{"staff:anime:2"}}}, []int64{1, 2}, []string{"staff:anime:2"}},
+		{"ABC", []query.ParticipantPerson{{PersonID: 1, PositionKeys: []string{"staff:anime:2"}}, {PersonID: 2, PositionKeys: []string{"staff:anime:2"}}, {PersonID: 3, PositionKeys: []string{"staff:anime:2"}}}, nil, nil},
+		{"missing identity", []query.ParticipantPerson{{PersonID: 2, PositionKeys: []string{"staff:anime:74"}}}, nil, nil},
+		{"union", []query.ParticipantPerson{{PersonID: 1, PositionKeys: []string{"staff:anime:74", "staff:anime:2"}}, {PersonID: 2, PositionKeys: []string{"staff:anime:2"}}}, []int64{1, 2}, []string{"staff:anime:2"}},
+	}
+	for _, tc := range groups {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := query.Evaluate(ctx, normalized, request.Facts, nil, []query.ParticipantRequest{{RequestID: "test", People: tc.people}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, _ := json.Marshal(result)
+			request.Query = *result
+			request.CommonSubjects = append([]int64{}, result.ParticipantSets[0].SubjectIDs...)
+			for _, merge := range []bool{false, true} {
+				request.Query.EffectiveQuery.MergeSeries = merge
+				if merge {
+					request.Series, err = statistics.BuildSeriesIndex(ctx, testDataVersion, []statistics.SeriesSubject{{SubjectID: 101, SubjectType: "anime"}, {SubjectID: 102, SubjectType: "anime"}, {SubjectID: 103, SubjectType: "anime"}}, nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				core, err := Build(ctx, request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ids := []int64{}
+				for _, row := range core.Rows {
+					ids = append(ids, row.Person.ID)
+					if row.WorkCount != 2 {
+						t.Fatalf("full metrics lost: %+v", row)
+					}
+				}
+				if !slices.Equal(ids, tc.want) {
+					t.Fatalf("rows %v want %v", ids, tc.want)
+				}
+				if len(core.Rows) > 0 && !slices.Equal(core.Rows[0].PositionKeys, tc.keys) {
+					t.Fatalf("identities %+v", core.Rows[0])
+				}
+				if core.PositionCounts[0].Count != len(tc.want) {
+					t.Fatalf("counts %+v", core.PositionCounts)
+				}
+			}
+			after, _ := json.Marshal(result)
+			if string(before) != string(after) {
+				t.Fatal("query mutated")
+			}
+		})
+	}
+}
+
+func TestCandidateExactIdentityFilteringBeforeSeriesAndWithoutMainBrowseLeak(t *testing.T) {
+	ctx := context.Background()
+	request := independentBuildRequest()
+	request.PositionKey = ""
+	request.Query.EffectiveQuery.PositionKeys = []string{"cast:anime:all"}
+	request.Query.EffectiveQuery.MergeSeries = true
+	request.Facts.Plans = []query.SelectionPlan{{PositionKey: "cast:anime:all", RuleKind: "exactCast", RoleTypes: []int64{1, 2, 3}}, {PositionKey: "cast:anime:main", RuleKind: "exactCast", RoleTypes: []int64{1}}}
+	request.Facts.CastCredits = []query.CastCredit{{SubjectID: 101, PersonID: 1, CharacterID: 11, RoleType: 1}, {SubjectID: 102, PersonID: 1, CharacterID: 12, RoleType: 2}, {SubjectID: 102, PersonID: 2, CharacterID: 12, RoleType: 1}, {SubjectID: 101, PersonID: 3, CharacterID: 11, RoleType: 1}}
+	var err error
+	request.Series, err = statistics.BuildSeriesIndex(ctx, testDataVersion, []statistics.SeriesSubject{{SubjectID: 101, SubjectType: "anime"}, {SubjectID: 102, SubjectType: "anime"}, {SubjectID: 103, SubjectType: "anime"}}, []statistics.Relation{{SourceID: 101, SourceType: "anime", TargetID: 102, TargetType: "anime", RelationID: 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"cast:anime:main", "cast:anime:all"} {
+		result, err := query.Evaluate(ctx, query.NormalizedQuery{Effective: request.Query.EffectiveQuery, Digest: "q1:test"}, request.Facts, nil, []query.ParticipantRequest{{RequestID: "selected", People: []query.ParticipantPerson{{PersonID: 1, PositionKeys: []string{key}}}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Query = *result
+		request.CommonSubjects = append([]int64{}, result.ParticipantSets[0].SubjectIDs...)
+		core, err := Build(ctx, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []int64{1, 3}
+		if key == "cast:anime:all" {
+			want = []int64{1, 2, 3}
+		}
+		ids := []int64{}
+		for _, row := range core.Rows {
+			ids = append(ids, row.Person.ID)
+			if !slices.Equal(row.PositionKeys, []string{"cast:anime:all"}) {
+				t.Fatalf("main leaked into browse %+v", row)
+			}
+		}
+		if !slices.Equal(ids, want) {
+			t.Fatalf("%s candidates %v want %v", key, ids, want)
+		}
+		if len(core.PositionCounts) != 1 || core.PositionCounts[0].Count != len(want) {
+			t.Fatalf("browse counts %+v", core.PositionCounts)
+		}
+	}
+}

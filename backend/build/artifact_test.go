@@ -868,7 +868,7 @@ func fixtureOptions(t *testing.T) packageOptions {
 		ApplicationVersion:          applicationVersion,
 		TargetOS:                    "linux",
 		TargetArchitecture:          "arm64",
-		OpenAPIDigest:               "sha256:999272f4fcd204c1dfecbe1948c77abcf29230dc1e8a76eb7549c386cab09260",
+		OpenAPIDigest:               "sha256:b80b0c8a999e0081520aaa1020eea96723f88ceb60920eb0a7356cafeedb19e1",
 		ArchiveManifestSchemaDigest: "sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73",
 		ArchiveSchemaSQLDigest:      "sha256:04fde49cb4ab9984ed20c675db850484dd2f4ec084e9ab4c219754e7033a3255",
 		ArchiveDomainRulesVersion:   domainRulesVersion,

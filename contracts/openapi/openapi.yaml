@@ -284,7 +284,7 @@
       "post": {
         "operationId": "postCandidatesV1",
         "summary": "Project candidate lists for one ordered query position",
-        "description": "Evaluates every ordered query position independently, returns complete position counts, and projects one deterministic ranked candidate page. Search, sort, order, and pagination are view-only.",
+        "description": "Evaluates every ordered query position independently, returns complete position counts, and projects one deterministic ranked candidate page. Search, sort, order, and pagination are view-only. Optional input.participants contains 0–10 distinct people and at most 20 identities; omission or [] preserves unconstrained candidates. Only candidate identities sharing a raw work with every selected participant survive, before series aggregation, ranking, search and pagination. Position counts reflect this membership filter; surviving candidate metrics retain their existing full filtered-query scope. Participant identity keys must be allowed by the operation position scope; duplicate people, duplicate identities and UI selection flags are rejected.",
         "security": [],
         "requestBody": {
           "required": true,

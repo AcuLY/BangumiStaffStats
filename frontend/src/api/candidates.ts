@@ -180,7 +180,15 @@ export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
       const input = decodeCandidatesInput(request.input);
       decodeSharedQueryForOperation(request.query, input.positionScope);
       const body: CandidatesRequestV1 = {
-        input: structuredClone(request.input),
+        input: {
+          ...structuredClone(input),
+          ...(input.participants ? {
+            participants: input.participants.map((person) => ({
+              personId: person.personId,
+              positionKeys: [...person.positionKeys],
+            })),
+          } : {}),
+        },
         query: structuredClone(request.query) as SharedQueryV1Schema,
         view: structuredClone(request.view),
       };

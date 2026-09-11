@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
@@ -191,5 +192,35 @@ func TestAllPositionScopeSeparatesIdenticalInputCacheKeys(t *testing.T) {
 	}
 	if legacy == broad || legacy != explicit {
 		t.Fatal("operation scope cache identity is incorrect")
+	}
+}
+
+func TestParticipantCacheCanonicalizationAndIsolation(t *testing.T) {
+	digest := "q1:" + strings.Repeat("b", 64)
+	key := func(people []query.ParticipantPerson) runtimecache.ResultKey {
+		t.Helper()
+		value, err := participantResultKey("global", testDataVersion, digest, "", "", people, "all")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	first := []query.ParticipantPerson{{PersonID: 2, PositionKeys: []string{"staff:anime:74", "staff:anime:2"}}, {PersonID: 1, PositionKeys: []string{"staff:anime:2"}}}
+	reordered := []query.ParticipantPerson{{PersonID: 1, PositionKeys: []string{"staff:anime:2"}}, {PersonID: 2, PositionKeys: []string{"staff:anime:2", "staff:anime:74"}}}
+	if key(first) != key(reordered) {
+		t.Fatal("order changed semantic key")
+	}
+	if key(nil) != key([]query.ParticipantPerson{}) {
+		t.Fatal("empty differs from absent")
+	}
+	if key(first) == key(first[:1]) || key(first) == key(nil) {
+		t.Fatal("different groups reused key")
+	}
+	reordered[1].PositionKeys = reordered[1].PositionKeys[:1]
+	if key(first) == key(reordered) {
+		t.Fatal("identity membership reused key")
+	}
+	if first[0].PositionKeys[0] != "staff:anime:74" {
+		t.Fatal("cache canonicalization mutated caller")
 	}
 }

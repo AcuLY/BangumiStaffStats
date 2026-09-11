@@ -1206,6 +1206,33 @@ describe('query coordinator', () => {
     expect(store.revision).toBe(1);
   });
 
+  it('supersedes participant constraints even when the view is unchanged and reuses equivalent ordering', async () => {
+    const store = readyStore();
+    const pending = deferred<OperationResponse<Payload>>();
+    const execute = vi.fn(drivers(vi.fn()).candidates.execute);
+    const coordinator = createQueryCoordinator(store, { ...drivers(vi.fn()), candidates: { execute } });
+    const personA = { personId: 1, positionKeys: ['staff:anime:2'] };
+    const personB = { personId: 2, positionKeys: ['staff:anime:2'] };
+    await coordinator.execute({ catalog: catalogFixture(), mode: 'co-star', candidateInput: { positionKey: null, participants: [personA] } });
+    expect(execute.mock.calls[0]![0].input.participants).toEqual([personA]);
+    const view = { ...coordinator.candidates.view, page: 1, pageSize: 10 as const, search: '', sort: 'count' as const, order: 'desc' as const };
+    execute.mockImplementationOnce(() => pending.promise);
+    const first = coordinator.executeCandidateView({ positionKey: null, participants: [personA, personB] }, view);
+    const obsolete = execute.mock.calls.at(-1)![0];
+    expect(await coordinator.executeCandidateView({ positionKey: null, participants: [personA] }, view)).toBe(true);
+    expect(obsolete.signal.aborted).toBe(true);
+    pending.resolve({ payload: { id: 'obsolete' }, requestId: 'obsolete', transactionId: obsolete.transactionId });
+    expect(await first).toBe(false);
+    expect(coordinator.candidates.acceptedInput?.participants).toEqual([personA]);
+    expect(coordinator.candidates.payload).not.toEqual({ id: 'obsolete' });
+    expect(await coordinator.executeCandidateView({ positionKey: null, participants: [personA, personB] }, view)).toBe(true);
+    const calls = execute.mock.calls.length;
+    expect(await coordinator.executeCandidateView({ positionKey: null, participants: [personB, personA] }, view)).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(calls);
+    expect(await coordinator.executeCandidateView({ positionKey: null, participants: [] }, view)).toBe(true);
+    expect(coordinator.candidates.acceptedInput?.participants).toEqual([]);
+  });
+
   it('rolls a failed or cancelled candidate view back to the accepted page', async () => {
     const store = readyStore();
     store.draft.positionKeys = ['staff:anime:2', 'staff:anime:101'];

@@ -3,7 +3,9 @@ package candidates
 import (
 	"context"
 	"encoding/json"
+	"sort"
 
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 )
 
@@ -60,6 +62,16 @@ func ResultKey(
 	collectionDigest string,
 	positionScopes ...string,
 ) (runtimecache.ResultKey, error) {
+	return participantResultKey(scope, dataVersion, queryDigest, positionKey, collectionDigest, nil, positionScopes...)
+}
+
+func participantResultKey(scope, dataVersion, queryDigest, positionKey, collectionDigest string, participants []query.ParticipantPerson, positionScopes ...string) (runtimecache.ResultKey, error) {
+	canonicalPeople := make([]query.ParticipantPerson, len(participants))
+	for i, person := range participants {
+		canonicalPeople[i] = query.ParticipantPerson{PersonID: person.PersonID, PositionKeys: append([]string(nil), person.PositionKeys...)}
+		sort.Strings(canonicalPeople[i].PositionKeys)
+	}
+	sort.Slice(canonicalPeople, func(i, j int) bool { return canonicalPeople[i].PersonID < canonicalPeople[j].PersonID })
 	var nullablePositionKey *string
 	if positionKey != "" {
 		nullablePositionKey = &positionKey
@@ -69,9 +81,10 @@ func ResultKey(
 		positionScope = "all"
 	}
 	canonical, err := json.Marshal(struct {
-		PositionScope string  `json:"positionScope,omitempty"`
-		PositionKey   *string `json:"positionKey"`
-	}{PositionKey: nullablePositionKey, PositionScope: positionScope})
+		PositionScope string                    `json:"positionScope,omitempty"`
+		PositionKey   *string                   `json:"positionKey"`
+		Participants  []query.ParticipantPerson `json:"participants,omitempty"`
+	}{PositionKey: nullablePositionKey, PositionScope: positionScope, Participants: canonicalPeople})
 	if err != nil {
 		return runtimecache.ResultKey{}, fieldError("/input/positionKey")
 	}

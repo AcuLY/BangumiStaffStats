@@ -3413,6 +3413,11 @@ func (e UnsupportedMediaTypeErrorV1ErrorFieldErrors) Valid() bool {
 
 // CandidatesInputV1 defines model for CandidatesInputV1.
 type CandidatesInputV1 struct {
+	// Participants Optional selected identities. Omission or [] is unconstrained. At most 10 distinct people and 20 identities overall; duplicate person IDs are invalid even with different position keys. Each identity must be permitted by the operation position scope. Candidates must share a raw work with the entire selected group; filtering precedes series aggregation and preserves existing candidate metric scope.
+	Participants *[]struct {
+		PersonId     int      `json:"personId"`
+		PositionKeys []string `json:"positionKeys"`
+	} `json:"participants,omitempty"`
 	PositionKey *string `json:"positionKey"`
 
 	// PositionScope Independent operation position scope. query uses selected Query positions; all permits selectable positions supported by this operation for the Query subject type, without changing the Query. An explicit all scope permits an empty Query.positionKeys array.
