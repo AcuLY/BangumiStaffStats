@@ -1,14 +1,8 @@
-## Context
+## Capability Boundary
 
-Preflight master is 14c21ac with unrelated untracked README.md and docs/. Production API uses accepted image ce4e34c; Nginx root promotion is already live. Existing Compose SHA256 is 142aaecb996e155c5f60554df85fdb29e247d2cd74c357f037d267ec8a141e3f.
-
-## Goals / Non-Goals
-Restore disk-backed SQLite temporary work with one fixed environment value. Keep all security/resource/mount/network boundaries. Do not expand the tmpfs or change the database pointer manually.
-
-## Boundary
 | Field | Scope |
 |---|---|
-| Status | Explicitly authorized configuration repair |
+| Status | Implemented and activated; actual disk temporary work verified |
 | Owner | Primary, Operations |
 | Writable paths | operations/compose.yaml; operations/test/runtime.sh; operations/README.md; this change; openspec/specs/operations-single-host-deployment/spec.md; myserver:/srv/bgmss-v2/compose/compose.yaml and named sibling temporary; /srv/bgmss-v2/backups/sqlite-temp-20260911; /srv/bgmss-v2/incoming/sqlite-temp-20260911; API container recreation only |
 | Read-only protected inputs | Backend, Frontend, contracts, current image/release env, Nginx, Archive pointer and existing data; unrelated untracked README.md and docs/ |
@@ -23,12 +17,25 @@ Restore disk-backed SQLite temporary work with one fixed environment value. Keep
 | Operations deferred | Full official Archive rebuilding continues in the existing background scheduler; configuration acceptance must not be mislabeled a completed full update |
 | Stop/rollback conditions | Active config drift, unexpected rendered changes or failed health: restore exact Compose backup and recreate only API; preserve data. No reset --hard, checkout rollback, git clean, git add -A or broad cleanup |
 
-## Decisions
-1. Set API.SQLITE_TMPDIR to its existing /var/lib/bgmss/archive writable bind, not an operator-supplied parameter. Prometheus receives no SQLite environment or Archive mount.
-2. Keep /tmp at 16 MiB and the API root read-only. SQLite creates transient files on the data disk; immutable Archive content and normal activation remain Backend-owned.
-3. Assert rendered API environment and Prometheus exclusion in the existing runtime gate. Verify the rendered old/new documents differ only by this environment entry before activation.
-4. Save an exact change-specific Compose backup, verify its hash, atomically install the candidate, and use compose up --no-deps --force-recreate api. Keep the current image and frontend release; verify readiness/catalog/metrics and other container identities.
-5. Observe SQLite temporary descriptors in the Archive mount and progress past the old 16 MiB failure. The full new Archive build may continue naturally; record its state honestly without adding a separate scheduler or manual pointer action.
+## MODIFIED Requirements
 
-## Risks / Trade-offs
-Temporary work now uses free data-disk space, as intended. On regression restore the Compose preimage and recreate API; do not revert data. Existing generic error-code logging is not repaired in this configuration-only change.
+### Requirement: Production updater SQLite temporary storage SHALL use the Archive disk
+
+The production API, which owns the embedded Go Archive updater, SHALL set exactly SQLITE_TMPDIR=/var/lib/bgmss/archive. SQLite file-backed temporary tables and indices SHALL use the existing writable disk-backed Archive bind instead of the 16 MiB /tmp tmpfs. Prometheus SHALL receive no SQLITE_TMPDIR or Archive mount. The API root filesystem, /tmp size, resource/security controls, network and Backend publication transaction SHALL remain unchanged.
+
+#### Scenario: Embedded updater projection
+- **WHEN** production or validation Compose is rendered
+- **THEN** API SHALL receive the fixed Archive-disk SQLITE_TMPDIR and Prometheus SHALL not receive it
+- **AND** both services SHALL retain their existing image, resource, mount and network boundaries
+
+#### Scenario: Temporary work exceeds the tmpfs budget
+- **WHEN** SQLite writes file-backed temporary work larger than 16 MiB
+- **THEN** it SHALL use the Archive disk without exhausting the bounded /tmp mount
+
+#### Scenario: Configuration repair is activated
+- **WHEN** the authorized host receives the verified configuration
+- **THEN** only API SHALL be recreated using its current accepted image, health SHALL recover, and Nginx, frontend, unrelated services and manually selected Archive data SHALL remain unchanged
+
+#### Scenario: Configuration or acceptance fails
+- **WHEN** the live preimage drifts, rendered changes exceed the single environment entry, or health fails
+- **THEN** activation SHALL stop or restore the exact Compose preimage and API; it SHALL not change Archive data to force success
