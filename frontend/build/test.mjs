@@ -160,8 +160,16 @@ test('two package runs emit byte-identical Contracts-valid component directories
   const verified = verifyComponentDirectory(first, 'frontend');
   assert.equal(verified.statement.component, 'frontend');
   assert.equal(verified.statement.applicationVersion, APPLICATION_VERSION);
-  assert.equal(verified.statement.compatibility.archive.sqliteSchemaVersion.minimum, 1);
+  assert.equal(verified.statement.compatibility.archive.sqliteSchemaVersion.minimum, 2);
   assert.equal(verified.statement.compatibility.archive.sqliteSchemaVersion.maximum, 2);
+  const backendStatement = JSON.parse(fs.readFileSync(
+    path.join(import.meta.dirname, '../../contracts/artifacts/fixtures/positive/backend/component-statement.json'),
+    'utf8',
+  ));
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(verified.statement.compatibility.archive)),
+    backendStatement.compatibility.archive,
+  );
   assert.equal(
     verified.statement.compatibility.archive.domainRulesVersion,
     ARCHIVE_DOMAIN_RULES_VERSION,

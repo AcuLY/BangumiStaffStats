@@ -35,3 +35,14 @@ Full frontend gate remains blocked outside this change:
 - No fresh npm ci or product/browser rerun was needed for packaging-only changes with unchanged dependencies. No latest-source build or complete original product acceptance is claimed.
 
 Task 2.1 and archival remain pending a stable source tree and green complete gates; the requested contract synchronization and budget implementation are verified by the focused checks above.
+
+## Release follow-up, 2026-09-11
+
+CI run 34580176520 passed complete Backend, Frontend and Contracts source gates,
+plus both component reproducibility checks, then rejected assembly because the
+Frontend declared SQLite 1..2 while Backend and accepted fixtures declare 2..2.
+The earlier 1..2 interpretation above is superseded by the corrected planning
+and main spec. Frontend now declares 2..2 and its packaging regression compares
+the entire Archive compatibility object with the accepted Backend fixture.
+Pinned Node 24.18.0 packaging tests pass 8/8; strict change validation passes.
+Complete candidate assembly and deployment remain pending their CI results.

@@ -27,4 +27,4 @@ Primary owns bounded contract/build/check/doc edits listed in design.md. This is
 
 ## Additional reviewed contract mismatch
 
-The frontend packager still emits SQLite schema range 1..1 although the accepted matrix and fixtures use 1..2. Synchronize frontend/build/artifact.mjs to 1..2 using the Contracts-owned supported version constant, and assert the emitted range in frontend/build/test.mjs. These two additional writable paths remain packaging-only; no Archive schema or runtime change. This is required to complete the user-requested contract synchronization.
+Release assembly on 2026-09-11 proved the earlier 1..2 declaration incorrect: the accepted Backend and positive fixtures declare exactly 2..2, and assembly requires identical Archive declarations. Synchronize frontend/build/artifact.mjs to 2..2 using the Contracts-owned supported version constant, and compare its complete Archive declaration with the Backend positive fixture in frontend/build/test.mjs. These two additional writable paths remain packaging-only; no Archive schema or runtime change. This is required to complete the user-requested contract synchronization.

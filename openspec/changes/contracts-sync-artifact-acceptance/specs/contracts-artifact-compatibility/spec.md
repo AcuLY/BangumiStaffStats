@@ -16,9 +16,9 @@ The artifact validator, Backend packaging pin, and Backend/Frontend positive com
 
 ### Requirement: Frontend packaging SHALL declare current Archive compatibility
 
-The Frontend component statement SHALL declare manifest schema range 1..1 and SQLite schema range 1..2, matching the accepted compatibility matrix and the Contracts-supported SQLite schema version 2.
+The Frontend component statement SHALL declare manifest schema range 1..1 and SQLite schema range 2..2, matching the accepted compatibility matrix and the Contracts-supported SQLite schema version 2.
 
 #### Scenario: Frontend artifact is packaged against current contracts
 
 - **WHEN** the current Frontend artifact is packaged
-- **THEN** its emitted Archive compatibility SHALL include SQLite schema version 2 and pass the unchanged contract validator
+- **THEN** its emitted Archive compatibility SHALL equal the accepted Backend declaration, include SQLite schema version 2, and pass the unchanged component and assembly validators

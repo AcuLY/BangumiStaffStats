@@ -599,7 +599,7 @@ export function packageStaticArtifact({
     compatibility: {
       archive: {
         manifestSchemaVersion: { minimum: 1, maximum: 1 },
-        sqliteSchemaVersion: { minimum: 1, maximum: SUPPORTED_ARCHIVE_SQLITE_SCHEMA },
+        sqliteSchemaVersion: { minimum: SUPPORTED_ARCHIVE_SQLITE_SCHEMA, maximum: SUPPORTED_ARCHIVE_SQLITE_SCHEMA },
         manifestSchemaDigest: ARCHIVE_MANIFEST_SCHEMA_DIGEST,
         schemaSqlDigest: ARCHIVE_SCHEMA_SQL_DIGEST,
         domainRulesVersion: ARCHIVE_DOMAIN_RULES_VERSION,
