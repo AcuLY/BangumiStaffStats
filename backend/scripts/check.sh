@@ -140,7 +140,7 @@ cmp -s go.sum "$temporary_root/go.sum.before" || {
   -bench '^(BenchmarkEvaluateRatings|BenchmarkBuildSeriesIndex|BenchmarkSortPeople)$' \
   -benchtime=1x -benchmem
 "$go_command" test ./internal/httpapi/wire
-"$go_command" test ./internal/archive/contracttest
+"$go_command" test ./internal/archivebuild
 "$go_command" test ./internal/archive
 "$go_command" test ./...
 "$go_command" test -race ./...
@@ -237,21 +237,23 @@ cmd/api/main.go
 cmd/api/main_test.go
 go.mod
 go.sum
+internal/app/archive_updater.go
+internal/app/archive_updater_test.go
 internal/app/catalog_archive_integration_test.go
+internal/app/maintenance.go
+internal/app/maintenance_test.go
 internal/app/run.go
 internal/app/run_test.go
+internal/app/scheduler.go
+internal/app/scheduler_test.go
 internal/architecture/dependencies_test.go
-internal/archive/contract.go
-internal/archive/contracttest/archive_contract_test.go
-internal/archive/contracttest/doc.go
+internal/archive/direct_test.go
 internal/archive/errors.go
 internal/archive/filesystem.go
-internal/archive/golden_test.go
 internal/archive/loader.go
-internal/archive/mutation_test.go
+internal/archive/pointer.go
 internal/archive/sqlite.go
 internal/archive/state.go
-internal/archive/state_test.go
 internal/archive/store.go
 internal/archive/test_helpers_test.go
 internal/archivebuild/acquisition.go
@@ -263,6 +265,7 @@ internal/archivebuild/assets/staff-sets-v1.yaml
 internal/archivebuild/builder.go
 internal/archivebuild/builder_test.go
 internal/archivebuild/catalog.go
+internal/archivebuild/catalog_test.go
 internal/archivebuild/evidence.go
 internal/archivebuild/jsonutil.go
 internal/archivebuild/manifest.go
@@ -280,6 +283,7 @@ internal/candidates/doc.go
 internal/candidates/errors.go
 internal/candidates/operation.go
 internal/candidates/projection.go
+internal/candidates/projection_test.go
 internal/candidates/request.go
 internal/candidates/service.go
 internal/candidates/service_model.go
@@ -383,12 +387,15 @@ internal/publiccollection/source.go
 internal/publiccollection/source_test.go
 internal/publiccollection/transport_test.go
 internal/query/archive_loader.go
+internal/query/archive_loader_cache_test.go
 internal/query/archive_loader_test.go
 internal/query/evaluate.go
 internal/query/golden_test.go
 internal/query/model.go
 internal/query/normalize.go
 internal/query/normalize_test.go
+internal/query/operation_positions.go
+internal/query/operation_positions_test.go
 internal/query/unicode_assigned_15_1.go
 internal/query/unicode_assigned_15_1_test.go
 internal/querytiming/trace.go
@@ -400,6 +407,7 @@ internal/ranking/service.go
 internal/ranking/service_test.go
 internal/ranking/store.go
 internal/ranking/view.go
+internal/ranking/view_test.go
 internal/releaseinfo/releaseinfo.go
 internal/releaseinfo/releaseinfo_test.go
 internal/runtimecache/collection.go
