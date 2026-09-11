@@ -1,7 +1,7 @@
 # frontend-co-star-vertical Specification
 
 ## Purpose
-Define the production co-star vertical that consumes strict Candidates, Partners, and Co-star contracts, preserves revision-bound latest-only state and one identity-selection owner, renders the empty, partner, pair, and group topologies, restores shares safely, and preserves the approved presentation and accessibility.
+Define the production co-star vertical that consumes strict Candidates, Partners, and Co-star contracts, preserves revision-bound latest-only state and one identity-selection owner, renders the empty, partner, pair, and group topologies, restores validated same-tab intent, and preserves the approved presentation and accessibility. Public query sharing is not supported.
 ## Requirements
 ### Requirement: Co-star frontend SHALL consume strict generated operation contracts
 
@@ -77,15 +77,21 @@ partners/co-star view changes SHALL not advance queryRevision.
 At 780px and above, `/co-star` SHALL show the candidate picker as a desktop rail
 with the DESIGN 348/320/300px responsive widths. The desktop rail SHALL remain
 visible and SHALL NOT expose a whole-rail collapse control.
-Below 780px, the Header selection entry and the 0-person action SHALL open one
-bottom picker Drawer. The same panel SHALL show selected people and identity
+Below 780px, the selection entry SHALL stay in the content flow after the Query
+Workspace and disclose the same CandidatePicker inline. The 0-person action
+SHALL reveal that entry/panel. It SHALL NOT open a picker Drawer, lock the body,
+make the App inert, or insert selection controls into the Header.
+The same panel SHALL show selected people and identity
 counts, ordered removable identities, whole-person removal, ordered
 server-provided position counts, current-position selection, search, legal
 scope-specific sort/order, rank, work count, 5/10/20 pagination, pending,
 empty, error, cancel, and retry states.
 
-Candidate activation SHALL toggle exactly its current
-`personId + positionKey`. The UI MAY overlay selected/current-other-identity
+Single-position candidate activation SHALL toggle its current
+`personId + positionKey`. A mixed all-position row SHALL atomically add its
+missing returned identities or remove that row's identities when all are selected;
+partial selection SHALL have an explicit mixed state without duplicating the person.
+The UI MAY overlay selected/current-other-identity
 state locally, but SHALL NOT send selection to `/candidates` or change the
 server rank/count. The tray SHALL be the only complete identity mutation
 surface; analysis participant cards SHALL remain read-only. The UI SHALL
@@ -103,7 +109,7 @@ accessible limit error.
 - **AND** only candidate rows and pagination SHALL enter an accessible pending state
 
 #### Scenario: Mobile picker closes
-- **WHEN** a keyboard user closes the candidate Drawer after adding or removing an identity
+- **WHEN** a keyboard user collapses the inline candidate panel after adding or removing an identity
 - **THEN** focus SHALL return to the opening control when it still exists
 - **AND** the selected order and corresponding analysis request SHALL remain intact
 
@@ -160,7 +166,8 @@ SafeImage four-state 3:4 lifecycle and size policy.
 
 Every operation state SHALL use the smallest stable pending/error boundary,
 `aria-busy`, a neighboring polite status, non-focusable skeletons, keyboard
-operation, visible focus, 44px hit targets, and safe focus restoration.
+operation, visible focus, 44px primary-control hit targets, the accepted compact
+24px identity-removal controls, and safe focus restoration.
 Animations SHALL honor reduced motion. The page SHALL have no horizontal
 viewport overflow; only the relationship matrix and approved shared work table
 MAY scroll horizontally.
@@ -169,12 +176,12 @@ The App SHALL construct all three co-star operation drivers and exactly one
 selection owner. Stable `mode-panel-ranking` and `mode-panel-co-star` tabpanels
 SHALL remain mounted and switch with `hidden` plus `inert` so mode navigation
 does not destroy selection or accepted results. At compact widths the picker
-entry SHALL appear in Header context, close an open query editor before opening
-the bottom Drawer, and restore focus to that exact opener when it survives.
+entry SHALL appear in the content flow, expand the inline picker without closing
+the Query Editor, and restore focus to that exact opener when it survives.
 
 #### Scenario: The 780 boundary is crossed
 - **WHEN** the same ready selection is rendered at 779px and 780px
-- **THEN** 779px SHALL use compact controls plus the bottom picker Drawer and 780px SHALL use standard controls plus the desktop rail
+- **THEN** 779px SHALL use compact controls plus the inline picker and 780px SHALL use standard controls plus the desktop rail
 - **AND** the selected identities, request state, and result meaning SHALL not change
 
 #### Scenario: A mode switch returns to co-star
@@ -200,7 +207,7 @@ Detailed common-series cards SHALL render API metaTags through the current subje
 
 ### Requirement: Cooperation rows SHALL render server-scaled sorting progress
 
-Cooperation rows SHALL consume the accepted response metricScale and existing row values, reuse current ranking progress arithmetic, and follow DESIGN.md:416. Count/average/overall SHALL fill from the start; personal preference SHALL share ranking's zero-centered positive/right and negative/left display with visible sign and current semantic colors. Null or zero scale SHALL show no spurious fill, and a valid zero score SHALL remain 0.00. Progress SHALL be decorative and SHALL not replace actual metric text or accessible row descriptions.
+Cooperation rows SHALL consume the accepted response metricScale and existing row values, reuse current ranking progress arithmetic, and follow the cooperation metric-scale rules in DESIGN.md. Count/average/overall SHALL fill from the start; personal preference SHALL share ranking's zero-centered positive/right and negative/left display with visible sign and current semantic colors. Null or zero scale SHALL show no spurious fill, and a valid zero score SHALL remain 0.00. Progress SHALL be decorative and SHALL not replace actual metric text or accessible row descriptions.
 
 The adapter SHALL retain immutable exact scale values and the driver SHALL reject a metric discriminator that mismatches the normalized requested sort. The frontend SHALL not compute a population maximum from current items or leaders, issue supplementary requests, or approximate a missing scale. Existing current typography, widths, padding, focus, selection, NTag/xicons/AppViewport and C1/C2 fixes SHALL remain unchanged.
 

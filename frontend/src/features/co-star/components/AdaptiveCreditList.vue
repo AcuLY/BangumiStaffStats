@@ -22,7 +22,7 @@ function measure(): void {
     const padding = px(style.paddingLeft) + px(style.paddingRight)
       + px(style.borderLeftWidth) + px(style.borderRightWidth);
     const extra = more ? more.getBoundingClientRect().width + px(getComputedStyle(row).columnGap) : 0;
-    return Math.max(0, row.clientWidth - padding - extra);
+    return Math.max(0, (root.value?.clientWidth ?? row.clientWidth) - padding - extra);
   });
   if (limits.length !== labelLimits.value.length || limits.some((value, index) => Math.abs(value - labelLimits.value[index]!) > 0.5)) {
     labelLimits.value = limits;
@@ -96,10 +96,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.credit-list { min-width: 0; display: grid; gap: var(--space-1); }
+.credit-list { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
 .credit-list[tabindex="0"] { min-height: var(--touch-target); align-content: center; }
 .credit-list:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.credit-list__row { min-width: 0; display: flex; align-items: center; gap: var(--space-1); }
+.credit-list__row { min-width: 0; max-width: 100%; display: flex; flex: 0 1 auto; align-items: center; gap: var(--space-1); }
 .credit-list__label { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .credit-list__more { flex: none; font-size: var(--text-caption); color: var(--text-2); }
 .credit-list__full { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }

@@ -21,8 +21,8 @@ The SPA SHALL retain one coordinated ranking person-detail resource and an isola
 
 ### Requirement: Ranking activation SHALL expose one adaptive inspector
 
-Every ranking row SHALL open its person detail. At desktop widths the detail
-SHALL appear beside the ranking list; at compact widths it SHALL appear in a
+Every ranking row SHALL open its person detail. At widths of at least 960px the detail
+SHALL appear beside the ranking list; below 960px it SHALL appear in a
 dismissible drawer using the same content and state. Activation, dismissal,
 and restored focus SHALL be keyboard operable with visible focus, at least
 44px controls, reduced-motion support, and no horizontal overflow.
@@ -46,7 +46,7 @@ Images SHALL use only the shared same-origin SafeImage lifecycle.
 - **THEN** the inspector SHALL omit the personal section without rendering a placeholder value
 
 #### Scenario: Cast capability is absent
-- **WHEN** the accepted query cannot request the characters section
+- **WHEN** the accepted detail identity scope has no cast capability
 - **THEN** the inspector SHALL not offer a character-view control
 
 ### Requirement: Drawer preserves Header navigation

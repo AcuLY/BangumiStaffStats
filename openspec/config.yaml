@@ -69,20 +69,17 @@ context: |
   may directly perform simple mechanical corrections and low-context repository
   lifecycle work such as staging, OpenSpec synchronization/archive, commits,
   and local ref updates when that shortens the critical path without creating
-  conflicting ownership. A small correction requires an exact, strict-valid OpenSpec, a
-  completed block-level zero-P0/P1 planning review, no active conflicting
-  owner, the same acceptance gates, and no new capability or public behavior,
-  dependency, contract or schema, architecture, external or remote state, or
-  broad or unbounded cleanup. The completed block-level review satisfies this
-  prerequisite: there is no per-correction preapproval, subagent handoff, or
-  repeated review ritual. Independent correction review may be folded into the
-  next candidate or final acceptance; only a safety-sensitive correction
-  additionally requires an independent zero-P0/P1 candidate review before
-  commit. Every substantive development block remains OpenSpec-first with one
-  clear implementation owner; the main agent continues to own specification
-  review/amendment and final acceptance. No apply may start until proposal,
-  specs, design, and tasks are all complete, strictly valid, explicitly
-  reviewed, and approved.
+  conflicting ownership. Follow AGENTS.md for the planning threshold: bounded
+  visual/copy corrections and mechanically obvious local fixes do not require
+  a new OpenSpec change or broad gates. Use proportional validation and diff
+  hygiene; update durable design/product documentation when behavior changes.
+  Documentation synchronization, exact staging, commits and local lifecycle
+  work may proceed directly without changing product scope. Substantial
+  features, contracts, architecture, dependencies and operations remain
+  OpenSpec-first with one implementation owner per writable block. Review the
+  proposal, design, delta specs and tasks, then pass strict validation before
+  implementation. Preserve unrelated work and escalate actual authority or
+  ownership conflicts; do not add per-correction approval or review rituals.
 
   Operations scope is reopened by explicit user authorization. Development may
   implement and test health endpoints, metrics instrumentation, immutable

@@ -12,7 +12,7 @@ Ranking and co-star share Applied Query but have different person membership: ra
 
 | Boundary | Declaration |
 |---|---|
-| Status | Reviewed for implementation after strict validation; user approved the behavior |
+| Status | Implemented and committed locally in b675b8d; full acceptance/archival remain governed by unchecked tasks |
 | Owner | Primary owns frontend/source/docs; backend_design owns backend/contracts/generated consumers |
 | Writable paths | Owned files below, this change directory, openspec/specs/contracts-person-workspace-links/spec.md and openspec/specs/frontend-person-workspace-links/spec.md |
 | Read-only protected inputs | Other dirty hunks, archive files, AGENTS.md, operations, other active change artifacts, governing guides |
@@ -48,11 +48,11 @@ Ranking and co-star share Applied Query but have different person membership: ra
 
 ## Decisions
 
-1. Optional input.positionKeys is a nonempty unique subset of the Applied Query. Backend derives an internal query for detail/statistics and includes canonical identities in its cache input digest. Ordinary person-detail input retains ranking membership. The public Applied Query never changes. Character section uses the actual detail identities.
+1. Optional input.positionKeys is a nonempty unique subset of the Applied Query for query scope; accepted all scope validates the explicit identities against the current subject type catalog. Backend derives an internal query for detail/statistics and includes canonical identities in its cache input digest. Ordinary person-detail input retains ranking membership. The public Applied Query never changes. Character section uses the actual detail identities.
 2. Optional view.locatePersonId returns data.location {personId,rank,page}; null rank/page means outside ranking. Rank precedes search, page follows search; search exclusion leaves rank but null page. It never changes the requested page. Frontend makes a lookup with empty search then requests the returned page. No name matching or client ranking.
 3. One small person-workspace link owner manages a separate transient co-star detail resource through existing typed API drivers, preserving ranking detail state. It admits only latest request under the same revision and data/collection snapshot. UI preview state is not persisted. Query changes, selection edits, or leaving co-star close the preview and invalidate pending requests.
 4. Reuse PersonDetailSurface with an actions slot, configurable panel ID and co-star inline shell. Below 960px its existing drawer owns background isolation; at/above 960px it occupies the existing right analysis region. Preserve mounted analysis while temporarily hidden so filters and local state survive. Return restores scroll and focus. Crossing 960px preserves the open person and transfers focus safely without duplicate drawers/IDs.
-5. Ranking 查看共演 atomically replaces the current selection with that person's query identities and enters partners; explicit selection overrides default candidate preselection. Header uses ordinary mode navigation, without origin flags, prior-analysis snapshots, ranking-view rollback or extra return controls. It never applies Draft. Invalid >20-identity selection leaves source untouched and explains the existing limit.
+5. Ranking 查看共演 selects the exclusive All range, atomically replaces the current selection with that person's query identities and enters partners; explicit selection overrides default candidate preselection. Header uses ordinary mode navigation, without origin flags, prior-analysis snapshots, ranking-view rollback or extra return controls. It never applies Draft. Invalid >20-identity selection leaves source untouched and explains the existing limit.
 6. Co-star detail keeps identity information in its profile, without a repeated person/position line or visible numeric ranking summary. Its return and ranking buttons share one action row. Missing rank retains a local explanation. Ranking detail has no top action bar: profile identity/career align left, 查看共演 is at the right, and Header mode navigation returns to retained analysis. Ranking location preserves metric/direction/page size, clears search and opens the exact person. Partner list rows show primary name, original name and positions without a separate detail button; row activation still opens the pair.
 
 ## Risks / Trade-offs

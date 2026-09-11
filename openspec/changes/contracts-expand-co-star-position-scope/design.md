@@ -10,7 +10,7 @@ Goals: director A -> script/cast/etc B under unchanged subject/collection filter
 
 | Boundary | Declaration |
 |---|---|
-| Status | Primary-reviewed; user approval recorded; strict validation required before apply |
+| Status | Implemented and committed locally in b675b8d; full acceptance/archival remain governed by unchecked tasks |
 | Owner | Backend/contracts owner, frontend API/coordinator owner, primary App/UI/docs owner |
 | Writable paths | Owned sets below; this change and its two accepted capability specs |
 | Read-only protected inputs | Other dirty hunks, active change artifacts, archive data, operations, guides, AGENTS |
@@ -50,8 +50,6 @@ Goals: director A -> script/cast/etc B under unchanged subject/collection filter
 5. UI partners requests use all scope and expose a full catalog-backed cooperation-position filter. Candidate view changes use all scope; explicit selected identities flow through partners/pair/group/detail unchanged. Keep original ranking Query and its exact locate operation. Frontend validation checks catalog/type/capability when live catalog is present; recovery structurally admits all-scope identities then validates against live catalog/server during replay.
 6. A small one-person hint reads 点选下方候选人物，查看与已选人物的共演情况 in the visible selection area and 可继续选择人物，进行多人共演分析 in the mobile collapsed selection entry. It is ordinary contextual text, keyboard-readable, disappears at two or more people, and never opens a picker/toast/modal automatically.
 
-## Risks / Trade-offs
-
 ## Explicit All query option (user-approved 2026-09-10)
 
 The co-star position editor exposes an exclusive 全部 range option, backed by existing operation input.positionScope=all. It is not a catalog PositionKey and never expands into hundreds of SharedQuery AND positions. A ranking-detail 查看共演 action selects this range and the target's exact detail/query identities; UID, work type, collection statuses, filters, sorting and unapplied non-position Draft values remain unchanged. No origin flags or previous-analysis snapshots are introduced.
@@ -66,5 +64,7 @@ Additional exact ownership for this delta:
 - Primary: frontend/src/app/App.vue; frontend/src/features/query/components/{QueryWorkspace,QueryEditor,PositionSelector,PositionCatalogBrowser}.vue; existing related query component and App tests; frontend/src/features/query/query.css if needed; PRODUCT.md, DESIGN.md, frontend/ARCHITECTURE.md; this change and matching accepted specs. Existing content and all other dirty hunks stay protected.
 
 Acceptance: first ALL query with empty concrete positions, ranking/query-scope rejection of empty positions, normal nonempty regressions, exact handoff target/other-parameter preservation, dirty/undo, failed/cancelled scope application, same-tab recovery, ordinary ranking mode after all-only query, generated drift checks, focused/full affected frontend/backend gates, 899px and mobile browser interaction, built artifact and diff hygiene. Primary review: this is the user-requested range choice, preserves API/statistics ownership and contains no synthetic positions or navigation state. Apply after strict validation; unrelated pre-existing acceptance blockers remain separately reported.
+
+## Risks / Trade-offs
 
 All-position evaluation can be larger; keep existing cache/executor limits and never eagerly evaluate all roles for a fixed pair or detail. Selection initialization is two bounded candidate requests, preserving user Query intent before broad browsing. Late responses and all-scope recovery must retain current revision/snapshot admission. Default-source tests expecting two people need intentional updates or explicit two-person fixtures.

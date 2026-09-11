@@ -1,3 +1,7 @@
+## Current status — 2026-09-11
+
+Code baseline: local commit `b675b8d`; repository-convention commit: `0dbc468`. Implementation is committed locally. Existing unchecked full-gate and archive tasks remain open; this documentation pass does not rerun or approve them. See [documentation status](../../README.md#验收记录如何阅读) for current versus historical evidence.
+
 ## Task boundary
 
 Status: primary-reviewed, user-approved; apply only after strict validation. Owner: primary orchestration/UI/docs; backend/contracts and frontend scope owners as design.md. Writable paths: exact owner sets in design.md and this change/two accepted specs. Read-only protected inputs: all other dirty work and Archive data. Deletion complement: none. Mutable refs: none, master 3612f50. Consumes: strict shared Query/catalog and new scope input. Produces: cross-role workflow and evidence. Dependencies: contract -> generated -> backend/coordinator -> UI. Deliverables: code/tests/docs/specs. Acceptance: focused/full affected gates, browser, diff/spec checks. Non-goals: new dependencies/formulas/Query owner. Operations deferred: production; existing read-only local QA allowed. Stop/rollback conditions: stop writer/authority conflicts; no reset --hard, checkout rollback, git clean, git add -A or broad deletion.
@@ -19,8 +23,6 @@ Status: primary-reviewed, user-approved; apply only after strict validation. Own
 - [x] 3.2 Verify real-data director-to-script cooperation, pair/detail, return and refresh plus hint at desktop/mobile.
 - [ ] 3.3 Audit owned diff, sync accepted specs, archive when gates pass, and run strict all-spec validation.
 
-## Review
-
 ## 4. Explicit All option, 2026-09-10
 - [x] 4.1 Review and strictly validate the narrow all-scope empty-position contract and exact owner boundaries.
 - [x] 4.2 Implement/regenerate the scoped contract and backend normalization, with empty/all and empty/query/ranking regressions.
@@ -28,9 +30,13 @@ Status: primary-reviewed, user-approved; apply only after strict validation. Own
 - [x] 4.4 Verify focused/full affected gates, real browser desktop/mobile handoff and first All entry, generated artifacts and diff hygiene; sync accepted delta and record remaining baseline blockers separately.
 - [x] 4.5 Activate the compiled backend on the existing local 8080 service after resolving the automatic-approval rejection; retain the current 5174 frontend and verify readiness.
 
+## Review
+
 Primary reviewed 2026-09-09: this extends the prior person links without modifying their already accepted UI refinement. Source identities, original-position initial selection, all-position candidate/partner scopes and same-tab replay boundaries are explicit. No current change owns this new scope field. Keep the existing artifact-acceptance change and its dirty files intact. User explicitly approved implementation. Apply may begin after strict validation.
 
-## Evidence
+## Historical verification records
+
+The records below describe their dated runs. Later activation/commit records supersede older statements such as not committed, 8080 stopped, or activation blocked; they are preserved as history.
 
 Implemented and functionally verified; no commit, push, merge, release or production deployment. Existing dirty work preserved. Accepted specs synchronized. Archive remains pending complete-gate blockers.
 

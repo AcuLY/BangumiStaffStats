@@ -1,8 +1,12 @@
+## Current status — 2026-09-11
+
+Code baseline: local commit `b675b8d`; repository-convention commit: `0dbc468`. Implementation is committed locally. Existing unchecked full-gate and archive tasks remain open; this documentation pass does not rerun or approve them. See [documentation status](../../README.md#验收记录如何阅读) for current versus historical evidence.
+
 ## Task boundary
 
 | Boundary | Declaration |
 |---|---|
-| Status | Specified; main-agent reviewed; strict validation required before apply |
+| Status | Implemented and committed locally in b675b8d; full acceptance/archival remain governed by unchecked tasks |
 | Owner | backend_design for contracts/backend/generated consumers; primary for frontend/docs/acceptance; primary may delegate non-overlapping presentation files |
 | Writable paths | Exact Owned files in design.md plus this change and two declared accepted specs |
 | Read-only protected inputs | Other dirty work, active changes, archive data, operations and guides |
@@ -40,7 +44,9 @@
 
 Primary review 2026-09-09: behavior matches explicit user approval; ownership is bounded; no competing change owns cross-module links. Existing dirty changes are inputs and remain preserved. No new dependencies, external writes or ref changes. Identity scope is explicit, rankings remain server authoritative, and asynchronous navigation is invalidated on query/selection/mode change. Approved to apply once strict validation passes.
 
-## Evidence
+## Historical verification records
+
+The records below describe their dated runs. Later activation/commit records supersede older statements such as not committed, 8080 stopped, or activation blocked; they are preserved as history.
 
 Single-person surface correction (2026-09-09): measured the single panel's transparent override, 16px top padding and nested 20px list padding against the multi-person panel. Partners now inherits the shared surface-panel appearance, uses 12/16/16px overview and 16px body sections at desktop, and 0/12/16px overview plus 16/12px body sections below 780px. Removed nested list padding and aligned plain section heading line-height/margin. Moved the summary container query to its actual inner width to preserve the prior responsive leader behavior. Ready and full loading surfaces share these selectors. Browser confirmed rgb(250,250,251) at 961px, matching multi-person; 390px retained the shared transparent mobile shell and no overflow. Original participant selection and viewport restored. Typecheck, final production build and owned diff hygiene passed.
 

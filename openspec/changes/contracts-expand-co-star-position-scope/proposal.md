@@ -22,7 +22,7 @@ A director ranking currently opens cooperation restricted to other directors. Us
 
 | Boundary | Declaration |
 |---|---|
-| Status | Specified; apply blocked until strict validation and primary review |
+| Status | Implemented and committed locally in b675b8d; full acceptance/archival remain governed by unchecked tasks |
 | Owner | Primary: App/UI/docs; crossrole_backend_design: contracts/backend/generated; frontend scope owner: API/coordinator/recovery |
 | Writable paths | Exact owner sets in design.md; this change and the two new accepted specs; existing source-default specs only for the approved default |
 | Read-only protected inputs | All unrelated dirty hunks, other changes, archive data, operational definitions, AGENTS and controlling guides |

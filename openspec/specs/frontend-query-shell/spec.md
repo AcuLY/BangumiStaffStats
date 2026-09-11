@@ -22,6 +22,13 @@ slots tagged with their revision. A slot for the current revision MAY be
 restored on mode return; an absent slot MAY be loaded through the registered
 operation port without resubmitting Draft.
 
+The existing query store SHALL also own draft and accepted co-star position
+scope (`query` or `all`) as defined by frontend-cross-position-co-star. Scope
+SHALL participate in co-star dirty/apply/undo behavior without becoming a catalog
+PositionKey or entering the ranking query signature. An all-only query with no
+concrete positions SHALL open the position editor on a switch to ranking, rather
+than submit an invalid ranking request.
+
 The configured base root and its `index.html` SHALL replace to the public
 ranking path while preserving safe query parameters; root-domain paths outside
 the configured base SHALL not be claimed by this shell. `?user=` SHALL prefill
@@ -62,7 +69,8 @@ request. The Header SHALL contain an always available same-tab link labeled â€œå
 
 The query model SHALL own defaults, summary text, normalization, dirty/no-op
 comparison, and structured field errors while reusing the accepted
-`SharedQueryV1` and operation view components. It SHALL model personal/global
+`SharedQueryV1`, the accepted all-scope operation query bodies, and operation
+view components. It SHALL model personal/global
 as a closed union, construct global submissions without personal fields,
 reject a global wire value that carries any personal field, and SHALL never
 infer fields by parsing display messages.

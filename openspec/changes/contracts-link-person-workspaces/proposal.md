@@ -22,7 +22,7 @@ Users need to follow a ranked person into collaboration analysis, inspect a part
 
 | Boundary | Declaration |
 |---|---|
-| Status | Specified; apply blocked until all artifacts pass strict validation and primary review |
+| Status | Implemented and committed locally in b675b8d; full acceptance/archival remain governed by unchecked tasks |
 | Owner | Primary: frontend and specifications; backend_design: contracts, backend and generated consumers |
 | Writable paths | The exact bounded file sets listed in design.md under Owned files; this change directory and its two accepted spec directories |
 | Read-only protected inputs | AGENTS.md, other changes, archive data, operations, unrelated dirty files, reference oracle and development guides |

@@ -108,17 +108,9 @@ describe('oracle scrollbar system', () => {
     );
   });
 
-  it('reserves the viewport shell inside the portaled partners tooltip', () => {
-    expect(partnersSource).toContain(
-      'content-class="workbench-tooltip-content"',
-    );
-    expect(partnersSource).toContain(
-      'max-width: min(336px, calc(100dvw - 72px))',
-    );
-    expect(partnersSource).toContain(':width="metricTooltipWidth"');
-    expect(partnersSource).toContain(
-      'document.documentElement.clientWidth',
-    );
+  it('uses the shared ranking list for partners without a separate metric tooltip', () => {
+    expect(partnersSource).toContain('<ranked-person-list');
+    expect(partnersSource).not.toContain('metricTooltipWidth');
   });
 
   it('does not let person-detail CSS override the oracle ranking grid', () => {
