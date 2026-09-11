@@ -275,6 +275,7 @@ internal/archivebuild/staging.go
 internal/archivebuild/summary_test.go
 internal/archivebuild/types.go
 internal/candidates/archive.go
+internal/candidates/archive_benchmark_test.go
 internal/candidates/build.go
 internal/candidates/build_test.go
 internal/candidates/cache.go
@@ -423,6 +424,8 @@ internal/runtimecache/result.go
 internal/runtimecache/result_test.go
 internal/statistics/archive_integration_test.go
 internal/statistics/benchmark_test.go
+internal/statistics/candidates.go
+internal/statistics/candidates_test.go
 internal/statistics/decimal.go
 internal/statistics/decimal_test.go
 internal/statistics/doc.go
