@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -387,6 +388,70 @@ func TestCandidatesTransientFailuresWriteBoundedRetryAfter(t *testing.T) {
 				t.Fatalf("private cause leaked: %s", response.Body)
 			}
 		})
+	}
+}
+
+func TestCandidatesComputationTimeoutReturnsErrorWhileRequestIsActive(t *testing.T) {
+	for _, wrapped := range []bool{false, true} {
+		t.Run(fmt.Sprintf("wrapped=%t", wrapped), func(t *testing.T) {
+			executor := &stubCandidatesExecutor{
+				execute: func(ctx context.Context, _ candidates.Request) (candidates.Projection, error) {
+					computation, cancel := context.WithDeadline(ctx, time.Now().Add(-time.Second))
+					defer cancel()
+					<-computation.Done()
+					if context.Cause(ctx) != nil {
+						return candidates.Projection{}, errors.New("request unexpectedly canceled")
+					}
+					if wrapped {
+						return candidates.Projection{}, fmt.Errorf("computation failed: %w", computation.Err())
+					}
+					return candidates.Projection{}, computation.Err()
+				},
+			}
+			var events bytes.Buffer
+			handler := newHandler(nil, newTestMetrics(t), middlewareOptions{
+				requestTimeout: time.Second,
+				requestID:      func() string { return "req-candidates-computation-timeout" },
+				events:         observability.NewEventSink(&events),
+				candidates:     executor,
+			})
+			response := performCandidatesRequest(handler,
+				`{"query":{"scope":"global","subjectType":"anime","positionKeys":[]},"input":{"positionScope":"all","positionKey":null}}`,
+			)
+			assertCandidatesError(t, response, http.StatusGatewayTimeout,
+				codeUpstreamTimeout, "candidates request timed out")
+			var envelope wire.ErrorEnvelopeV1
+			if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if !envelope.Error.Retryable {
+				t.Fatalf("timeout must be retryable: %+v", envelope)
+			}
+			lines := strings.Split(strings.TrimSpace(events.String()), "\n")
+			if len(lines) != 1 || !strings.Contains(lines[0], `"error_code":"UPSTREAM_TIMEOUT"`) {
+				t.Fatalf("computation timeout events = %q", events.String())
+			}
+		})
+	}
+}
+
+func TestCandidatesCanceledRequestDoesNotWriteResponse(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	executor := &stubCandidatesExecutor{
+		execute: func(context.Context, candidates.Request) (candidates.Projection, error) {
+			cancel()
+			return candidates.Projection{}, context.Canceled
+		},
+	}
+	handler := &routeHandler{candidates: executor}
+	request := httptest.NewRequest(http.MethodPost, routeCandidates, strings.NewReader(
+		`{"query":{"scope":"global","subjectType":"anime","positionKeys":[]},"input":{"positionScope":"all","positionKey":null}}`,
+	)).WithContext(ctx)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.writeCandidates(response, request, "req-candidates-canceled")
+	if response.Body.Len() != 0 || response.Header().Get("Content-Type") != "" {
+		t.Fatalf("canceled request wrote a response: %v %s", response.Header(), response.Body)
 	}
 }
 

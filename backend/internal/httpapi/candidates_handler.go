@@ -165,8 +165,7 @@ func (handler *routeHandler) writeCandidates(
 	result, err := handler.candidates.Execute(request.Context(), decoded)
 	if err != nil {
 		if context.Cause(request.Context()) != nil ||
-			errors.Is(err, context.Canceled) ||
-			errors.Is(err, context.DeadlineExceeded) {
+			errors.Is(err, context.Canceled) {
 			return
 		}
 		response := candidatesErrorResponse(err)
@@ -323,6 +322,13 @@ func decodeCandidatesRequest(
 
 func candidatesErrorResponse(err error) responseError {
 	failure, found := candidates.ErrorDetails(err)
+	if errors.Is(err, context.DeadlineExceeded) {
+		response := candidatesTimeoutResponse
+		if found {
+			response.dataVersion = failure.DataVersion()
+		}
+		return response
+	}
 	if !found {
 		return responseError{
 			status:       http.StatusInternalServerError,

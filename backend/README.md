@@ -121,6 +121,14 @@ personal facts. The package exposes
 no HTTP shape, search, pagination, cache, network fetch, write-capable SQL, or
 global mutable publication.
 
+Candidate pages use the same unit normalization and exact averages through
+`statistics.EvaluateCandidateMetrics`, without building unused contribution
+evidence, rating charts, preference evidence or full summaries for every person.
+To measure uncached all-position computation against a local Archive, set
+`BGMSS_BENCHMARK_ARCHIVE_ROOT` and run `go test ./internal/candidates -run '^$'
+-bench BenchmarkGlobalAllPositions -benchtime=1x -benchmem` with the pinned Go
+toolchain. The benchmark does not change the production computation timeout.
+
 `internal/runtimecache` is the production in-process resource boundary for
 read-only query work. The `internal/app` composition root constructs one
 `QueryRuntime` and shares it with rankings, candidates, person detail,

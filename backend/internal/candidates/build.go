@@ -43,7 +43,7 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 		effective.PositionKeys[index] = position.PositionKey
 		positionResults[index] = clonePositionResult(position)
 	}
-	evaluation, err := statistics.Evaluate(ctx, statistics.EvaluationRequest{
+	evaluation, err := statistics.EvaluateCandidateMetrics(ctx, statistics.EvaluationRequest{
 		DataVersion: request.DataVersion,
 		Result: query.Result{
 			EffectiveQuery:          effective,
@@ -68,15 +68,13 @@ func Build(ctx context.Context, request BuildRequest) (Core, error) {
 			return Core{}, err
 		}
 		row := Row{
-			Person:           clonePerson(references[person.PersonID]),
-			PositionKeys:     append([]string(nil), positionKeysByPerson[person.PersonID]...),
-			WorkCount:        len(person.Units),
-			GlobalAverage:    cloneInt64(person.Global.AverageHundredths),
-			GlobalRatedCount: person.Global.RatedUnitCount,
-		}
-		if person.Personal != nil {
-			row.PersonalAverage = cloneInt64(person.Personal.AverageHundredths)
-			row.PersonalRatedCount = person.Personal.RatedUnitCount
+			Person:             clonePerson(references[person.PersonID]),
+			PositionKeys:       append([]string(nil), positionKeysByPerson[person.PersonID]...),
+			WorkCount:          person.WorkCount,
+			GlobalAverage:      cloneInt64(person.GlobalAverage),
+			GlobalRatedCount:   person.GlobalRatedCount,
+			PersonalAverage:    cloneInt64(person.PersonalAverage),
+			PersonalRatedCount: person.PersonalRatedCount,
 		}
 		rows = append(rows, row)
 	}
