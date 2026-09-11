@@ -1,7 +1,14 @@
-## Task boundary
+## Context
+
+Preflight master is 14c21ac with unrelated untracked README.md and docs/. Production API uses accepted image ce4e34c; Nginx root promotion is already live. Existing Compose SHA256 is 142aaecb996e155c5f60554df85fdb29e247d2cd74c357f037d267ec8a141e3f.
+
+## Goals / Non-Goals
+Restore disk-backed SQLite temporary work with one fixed environment value. Keep all security/resource/mount/network boundaries. Do not expand the tmpfs or change the database pointer manually.
+
+## Boundary
 | Field | Scope |
 |---|---|
-| Status | Explicitly authorized configuration repair |
+| Status | Implemented and activated; actual disk temporary work verified |
 | Owner | Primary, Operations |
 | Writable paths | operations/compose.yaml; operations/test/runtime.sh; operations/README.md; this change; openspec/specs/operations-single-host-deployment/spec.md; myserver:/srv/bgmss-v2/compose/compose.yaml and named sibling temporary; /srv/bgmss-v2/backups/sqlite-temp-20260911; /srv/bgmss-v2/incoming/sqlite-temp-20260911; API container recreation only |
 | Read-only protected inputs | Backend, Frontend, contracts, current image/release env, Nginx, Archive pointer and existing data; unrelated untracked README.md and docs/ |
@@ -16,13 +23,12 @@
 | Operations deferred | Full official Archive rebuilding continues in the existing background scheduler; configuration acceptance must not be mislabeled a completed full update |
 | Stop/rollback conditions | Active config drift, unexpected rendered changes or failed health: restore exact Compose backup and recreate only API; preserve data. No reset --hard, checkout rollback, git clean, git add -A or broad cleanup |
 
-## 1. Primary — repository repair
-- [x] 1.1 Inspect branch/HEAD, dirty state, current host and exact isolated reproduction; protect unrelated files.
-- [x] 1.2 Review artifacts and pass strict validation before editing.
-- [x] 1.3 Add only the fixed API environment entry; update runtime regression, guide and accepted spec.
-- [ ] 1.4 Validate rendered configuration, runtime tests and diff; exact-stage, commit, push and integrate through PR.
+## Decisions
+1. Set API.SQLITE_TMPDIR to its existing /var/lib/bgmss/archive writable bind, not an operator-supplied parameter. Prometheus receives no SQLite environment or Archive mount.
+2. Keep /tmp at 16 MiB and the API root read-only. SQLite creates transient files on the data disk; immutable Archive content and normal activation remain Backend-owned.
+3. Assert rendered API environment and Prometheus exclusion in the existing runtime gate. Verify the rendered old/new documents differ only by this environment entry before activation.
+4. Save an exact change-specific Compose backup, verify its hash, atomically install the candidate, and use compose up --no-deps --force-recreate api. Keep the current image and frontend release; verify readiness/catalog/metrics and other container identities.
+5. Observe SQLite temporary descriptors in the Archive mount and progress past the old 16 MiB failure. The full new Archive build may continue naturally; record its state honestly without adding a separate scheduler or manual pointer action.
 
-## 2. Primary — authorized configuration activation
-- [ ] 2.1 Recheck image, live preimage, health and backup; validate only the declared environment delta.
-- [ ] 2.2 Atomically replace Compose and recreate only API; verify process environment, health/catalog/metrics, Nginx and unrelated containers.
-- [ ] 2.3 Verify actual temporary work uses Archive disk and exceeds the old limit; record background update state honestly, then sync/archive lifecycle evidence.
+## Risks / Trade-offs
+Temporary work now uses free data-disk space, as intended. On regression restore the Compose preimage and recreate API; do not revert data. Existing generic error-code logging is not repaired in this configuration-only change.
