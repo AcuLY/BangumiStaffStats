@@ -303,7 +303,7 @@ describe('pair and group co-star surface', () => {
     expect(
       wrapper.findAll('[data-provenance="exact"]').length,
     ).toBeGreaterThan(0);
-    expect(wrapper.text()).toContain('声优（主角）：主角 · 1 部');
+    expect(wrapper.text()).toContain('声优（主役）：主角 · 1 部');
     expect(wrapper.text()).not.toContain('主角 · 主役');
     expect(wrapper.text()).not.toContain('最佳组合');
     expect(wrapper.text()).not.toContain('最佳搭档');
@@ -835,13 +835,20 @@ describe('co-star contribution copy', () => {
         character: Object.freeze({
           id: 204,
           key: 'character:204',
-          name: 'Unknown Role',
-          nameCN: '未知角色',
+          name: 'Minor Role',
+          nameCN: '闲角角色',
         }),
-        roleLabel: '其他',
+        roleLabel: '闲角',
         roleType: 4,
       } as never,
     );
+    for (const [roleType, roleLabel] of [[5, '旁白'], [6, '声库']] as const) {
+      castParticipant?.credits.push({
+        ...subjectCastCredit,
+        character: { id: 200 + roleType, key: `character:${200 + roleType}`, name: roleLabel, nameCN: roleLabel },
+        roleType, roleLabel,
+      } as never);
+    }
     const subjectItem = Object.freeze({
       globalScore: seriesItem.globalScore,
       key: `subject:${seriesItem.representative.id}`,
@@ -872,26 +879,29 @@ describe('co-star contribution copy', () => {
       },
     });
 
-    expect(wrapper.text()).toContain('声优（主角）：主角');
+    expect(wrapper.text()).toContain('声优（主役）：主角');
     expect(wrapper.findAll('.subject-work-row__meta > li > .n-tag').map(tag => tag.text())).toEqual(['TV', '日本']);
     expect(wrapper.findAll('.subject-work-row__meta > li > .n-tag--round')).toHaveLength(2);
     expect(wrapper.text()).toContain('声优（配角）：配角角色');
     const credits = wrapper.findAll('.credit-list').find((list) =>
       list.attributes('aria-label')?.includes('声优（客串）：客串角色'),
     )!;
-    expect(credits.attributes('aria-label')).toContain('声优：未知角色');
+    expect(credits.attributes('aria-label')).toContain('声优（闲角）：闲角角色');
     expect(credits.text()).toContain('… +');
     await credits.trigger('focus');
     await credits.trigger('click');
     await vi.waitFor(() => {
       const full = document.querySelector('.credit-list__full')?.textContent;
       expect(full).toContain('声优（客串）：客串角色');
-      expect(full).toContain('声优：未知角色');
-      expect(full).not.toContain('声优：未知角色 ·');
+      expect(full).toContain('声优（闲角）：闲角角色');
+      expect(full).toContain('声优（旁白）：旁白');
+      expect(full).toContain('声优（声库）：声库');
+      expect(full).not.toContain('其他');
+      expect(full).not.toContain('声优（闲角）：闲角角色 ·');
     });
     await credits.trigger('keydown', { key: 'Escape' });
-    expect(wrapper.text()).not.toContain('声优（主角）：主角 · 1 部');
-    expect(wrapper.text()).not.toContain('声优：未知角色 ·');
+    expect(wrapper.text()).not.toContain('声优（主役）：主角 · 1 部');
+    expect(wrapper.text()).not.toContain('声优（闲角）：闲角角色 ·');
     expect(wrapper.get('.subject-work-row__primary-link').text()).toBe(
       'One Name Work',
     );

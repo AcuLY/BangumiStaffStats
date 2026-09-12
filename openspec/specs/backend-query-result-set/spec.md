@@ -52,8 +52,9 @@ year-only dates and compare any month-precise/full date by `YYYY-MM`.
 The Backend SHALL treat PositionKey as opaque and consume the accepted typed
 selection plan. Exact staff SHALL use raw matching `staff_credit`; staff sets
 SHALL union their exact members while retaining set and exact-member evidence;
-cast `main` SHALL use exact eligible main roles and cast `all` all exact
-eligible roles. It SHALL not infer cross-subject cast or reinterpret staff
+Each individual cast scope SHALL use only its exact eligible numeric role
+(main=1, supporting=2, guest=3, minor=4, narrator=5, voice-library=6), and
+cast `all` SHALL use all exact eligible roles. It SHALL not infer cross-subject cast or reinterpret staff
 positions 101–106 as cast.
 
 Each position SHALL yield its complete candidate people and de-duplicated raw

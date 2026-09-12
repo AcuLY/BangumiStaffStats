@@ -3,12 +3,13 @@ package query
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"testing"
 )
 
 func TestOperationPositionsPreserveQueryAndExactCastEvidence(t *testing.T) {
-	keys := []string{"staff:anime:2", "staff:anime:3", "cast:anime:main", "cast:anime:all"}
+	keys := []string{"staff:anime:2", "staff:anime:3", "cast:anime:main", "cast:anime:supporting", "cast:anime:guest", "cast:anime:minor", "cast:anime:narrator", "cast:anime:voice-library", "cast:anime:all"}
 	catalog := CatalogContext{}
 	supported := map[string]bool{}
 	for _, key := range keys {
@@ -26,6 +27,13 @@ func TestOperationPositionsPreserveQueryAndExactCastEvidence(t *testing.T) {
 	browse := OperationPositions(normalized.Effective, catalog, supported, "all", true)
 	if !slices.Equal(browse, []string{"cast:anime:all", "staff:anime:2", "staff:anime:3"}) {
 		t.Fatalf("browse = %v", browse)
+	}
+	if exact := OperationPositions(normalized.Effective, catalog, supported, "all", false); len(exact) != len(keys) {
+		t.Fatalf("explicit individual scopes omitted: %v", exact)
+	}
+	delete(supported, "cast:anime:all")
+	if fallback := OperationPositions(normalized.Effective, catalog, supported, "all", true); len(fallback) != len(keys)-1 {
+		t.Fatalf("individual scopes omitted without all: %v", fallback)
 	}
 	evaluated := OperationEvaluation(normalized, append(browse, "cast:anime:main"))
 	if !slices.Equal(normalized.Effective.PositionKeys, []string{"cast:anime:main"}) || evaluated.Digest != normalized.Digest {
@@ -51,6 +59,66 @@ func TestOperationPositionsPreserveQueryAndExactCastEvidence(t *testing.T) {
 	_, err = Normalize(json.RawMessage(`{"scope":"global","subjectType":"anime","positionKeys":["cast:anime:main","cast:anime:all"]}`), catalog)
 	if err == nil {
 		t.Fatal("public query accepted conflicting selectors")
+	}
+}
+
+func TestIndividualCastScopesFilterExactNumericRoles(t *testing.T) {
+	scopes := []string{"main", "supporting", "guest", "minor", "narrator", "voice-library", "all"}
+	for _, subject := range []string{"anime", "game"} {
+		catalog := CatalogContext{}
+		facts := FactSet{}
+		for i, scope := range scopes {
+			key := "cast:" + subject + ":" + scope
+			catalog.Positions = append(catalog.Positions, CatalogPosition{Key: key, SubjectType: subject, Selectable: true})
+			value := fmt.Sprint(i + 1)
+			if scope == "all" {
+				value = "1..6"
+			}
+			plan, err := parseSelectionPlan("exclusive:cast:"+subject, key, "exactCast", value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			facts.Plans = append(facts.Plans, plan)
+			if scope != "all" {
+				role := int64(i + 1)
+				facts.Subjects = append(facts.Subjects, Subject{SubjectID: role, SubjectType: subject})
+				facts.CastCredits = append(facts.CastCredits, CastCredit{SubjectID: role, PersonID: 10, CharacterID: 100 + role, RoleType: role})
+				if _, err := parseSelectionPlan("exclusive:cast:"+subject, key, "exactCast", "1..6"); err == nil {
+					t.Fatalf("accepted widened rule for %s", key)
+				}
+			}
+		}
+		for i, scope := range scopes {
+			key := "cast:" + subject + ":" + scope
+			normalized, err := Normalize([]byte(fmt.Sprintf(`{"scope":"global","subjectType":%q,"positionKeys":[%q]}`, subject, key)), catalog)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := Evaluate(context.Background(), normalized, facts, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			credits := result.PositionResults[0].Contributions
+			want := 1
+			if scope == "all" {
+				want = 6
+			}
+			if len(credits) != want {
+				t.Fatalf("%s credits=%+v", key, credits)
+			}
+			if scope != "all" && credits[0].RoleType != int64(i+1) {
+				t.Fatalf("%s incorrect role %+v", key, credits)
+			}
+			for _, other := range scopes {
+				if scope == other {
+					continue
+				}
+				_, err := Normalize([]byte(fmt.Sprintf(`{"scope":"global","subjectType":%q,"positionKeys":[%q,%q]}`, subject, key, "cast:"+subject+":"+other)), catalog)
+				if err == nil {
+					t.Fatalf("accepted conflicting %s/%s", scope, other)
+				}
+			}
+		}
 	}
 }
 

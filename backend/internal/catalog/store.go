@@ -444,7 +444,7 @@ func buildPosition(position *positionRecord, byKey map[string]*positionRecord, r
 			rule.kind != "exactCast" || rule.key != "exclusive:cast:"+position.subjectType {
 			return result, selection, invalid("invalid cast position")
 		}
-		expectedValue := map[string]string{"main": "1", "all": "1..6"}[match[2]]
+		expectedValue := map[string]string{"main": "1", "supporting": "2", "guest": "3", "minor": "4", "narrator": "5", "voice-library": "6", "all": "1..6"}[match[2]]
 		if rule.value != expectedValue {
 			return result, selection, invalid("invalid cast rule")
 		}

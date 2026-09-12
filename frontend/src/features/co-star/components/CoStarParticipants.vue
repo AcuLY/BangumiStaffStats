@@ -101,7 +101,7 @@ function primaryName(
                       'is-tight-after': /^[（）]/u.test(positionLabel(String(participant.positionKeys[identityIndex + 1]))),
                     }"
                     aria-hidden="true"
-                  >·</span>
+                  >/</span>
                 </template>
               </p>
               <span

@@ -224,7 +224,7 @@ Archive 数字类型只存在于数据适配层。
 | kind | key | 来源 |
 |---|---|---|
 | exact staff | `staff:{type}:{positionId}` | common + `staff_credit` |
-| cast | `cast:{type}:main` / `cast:{type}:all` | eligible `cast_credit` |
+| cast | `cast:{type}:main|supporting|guest|minor|narrator|voice-library|all` | eligible `cast_credit` |
 | future staff set | `staffset:{type}:{slug}` | 人工配置编译出的 exact staff 并集 |
 
 API 和前端把 PositionKey 当 opaque string。不得用中文名、裸整数、旧 168 项 value 或 key 前缀猜业务能力；能力只读 catalog。
@@ -233,12 +233,12 @@ API 和前端把 PositionKey 当 opaque string。不得用中文名、裸整数�
 
 | 类型 | key | 显示名 | 集合 |
 |---|---|---|---|
-| 动画 | `cast:anime:main` | 声优（仅主役） | eligible cast 且 role type = 1 |
+| 动画 | `cast:anime:main` | 声优（主役） | eligible cast 且 role type = 1 |
 | 动画 | `cast:anime:all` | 声优 | 全部 eligible cast |
-| 游戏 | `cast:game:main` | 声优（仅主役） | eligible cast 且 role type = 1 |
+| 游戏 | `cast:game:main` | 声优（主役） | eligible cast 且 role type = 1 |
 | 游戏 | `cast:game:all` | 声优 | 全部 eligible cast |
 
-main 必须是 all 的子集。同类型 main/all 属于同一 exclusive group；前端选择一个时原位替换另一个，后端同时收到时返回 `POSITION_SELECTION_CONFLICT`。
+六种单独范围分别对应 role type 1–6，均必须是 all 的子集。同类型七种范围属于同一 exclusive group；前端选择一个时原位替换另一个，后端同时收到时返回 `POSITION_SELECTION_CONFLICT`。
 
 ### 4.2 catalog DTO
 
@@ -289,7 +289,7 @@ selectionRules  exclusive 等选择规则
 - Bangumi 分类按正整数 order 升序；非正数/缺失排在后面并保留来源顺序。
 - 多分类职位在全部父级出现，不能擅自选 primary。
 - 无分类 staff 进入“其他”；当前类型完全无 Bangumi 分类时使用“全部职位”容器。
-- 动画/游戏增加“配音类”，位于“声音类”之后，只引用对应 main/all。
+- 动画/游戏增加“配音类”，位于“声音类”之后，引用对应 main、supporting、guest、minor、narrator、voice-library、all。
 - 搜索覆盖中/英/日名称、position ID 和分类名称；结果按 positionKey 去重并显示全部所属分类。
 
 正式前端使用独立 `PositionSelector`：桌面 portal 弹层，移动端 Query Editor 内全宽面板。不能依赖 Naive UI 私有 DOM 或把重复 position 强塞进要求 key 唯一的 TreeSelect。
@@ -302,7 +302,7 @@ selectionRules  exclusive 等选择规则
 |---|---:|---|---|
 | 动画 | 1 | 导演 | `staff:anime:2` |
 | 动画 | 2 | 动画制作 | `staff:anime:67` |
-| 动画 | 3 | 声优（仅主役） | `cast:anime:main` |
+| 动画 | 3 | 声优（主役） | `cast:anime:main` |
 | 动画 | 4 | 声优 | `cast:anime:all` |
 | 动画 | 5 | 脚本 | `staff:anime:3` |
 | 动画 | 6 | 系列构成 | `staff:anime:10` |
@@ -313,7 +313,7 @@ selectionRules  exclusive 等选择规则
 | 游戏 | 1 | 剧本 | `staff:game:1004` |
 | 游戏 | 2 | 开发 | `staff:game:1001` |
 | 游戏 | 3 | 声优 | `cast:game:all` |
-| 游戏 | 4 | 声优（仅主役） | `cast:game:main` |
+| 游戏 | 4 | 声优（主役） | `cast:game:main` |
 | 游戏 | 5 | 原画 | `staff:game:1013` |
 
 显示名称来自 catalog；配置只保存有序 key。所有 `staff:*` 保持 exact，“导演”不包含“总导演”，“演出”不隐含其他职位。
@@ -676,7 +676,7 @@ OpenAPI 实现前必须使用真实 Bangumi UID/标签样本冻结足够宽松�
 - positionKeys 至少一项、去重且顺序保留；除 64 KiB body、catalog 合法性和通用资源保护外，不增加旧 168 项或其他缩小动态目录的产品上限。
 - candidates 当前职位、detail 人物、partners source/candidatePositionKey、co-star participants 属于 input。
 - search/sort/order/page/pageSize/section 属于 view。
-- main/all 同时出现返回 `POSITION_SELECTION_CONFLICT`。
+- 任意两个不同声优范围同时出现返回 `POSITION_SELECTION_CONFLICT`。
 
 ## 9. operation 契约
 
@@ -1222,3 +1222,7 @@ update_failed
 - [ ] 向运维侧交付包含 Go builder 的 immutable API、front artifacts 和两组件 compatibility manifest。
 
 退出条件：运维实施稿所需制品、health、metrics、status、回滚兼容信息齐全；实现没有旧协议兼容分支。
+
+### 声优角色范围补充（2026-09-12）
+
+动画和游戏各提供 main=1（主役）、supporting=2（配角）、guest=3（客串）、minor=4（闲角）、narrator=5（旁白）、voice-library=6（声库）、all=1..6。角色详情和共演贡献均按六种实际类型展示，不使用“其他”；职位名称不含“仅”。全部职位候选只自动加入 all，显式选择的单独身份保留至详情、共演及恢复。

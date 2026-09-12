@@ -110,7 +110,7 @@ source order with deterministic tie-breaks.
 The product-defined voice groups SHALL be
 `shortcut:anime:cast` and `shortcut:game:cast`, placed immediately after the
 corresponding pinned common category whose exact key is `music` and current
-Chinese label is `声音类`, referencing exactly main then all. A synthetic
+Chinese label is `声音类`, referencing main, supporting, guest, minor, narrator, voice-library, then all. A synthetic
 `sound` alias or private category-key mapping SHALL NOT be introduced.
 Missing/ambiguous insertion anchors SHALL fail configuration validation rather
 than move the group silently. Fixed featured groups SHALL use
@@ -187,11 +187,13 @@ the exited authority's raw numeric role value exactly, plus source order,
 `provenance=exact`. Subject relations, series identity, a same Character ID in
 another work, and candidate works SHALL never create an edge.
 
-The contract SHALL produce exactly `cast:anime:main`,
-`cast:anime:all`, `cast:game:main`, and `cast:game:all`. Main SHALL select only
-raw role value `1`; all SHALL select every eligible exact raw role and
-therefore be a superset of main. Each same-type pair SHALL share one canonical
-exclusive rule identity; no cast key SHALL exist for book/music/real.
+The contract SHALL produce seven scopes for each of anime and game: main,
+supporting, guest, minor, narrator, voice-library and all. Individual scopes
+SHALL select only raw role 1, 2, 3, 4, 5 and 6 respectively; all SHALL select
+every eligible exact raw role and therefore be a superset of each. All
+same-type scopes SHALL share one canonical exclusive rule identity; no cast
+key SHALL exist for book/music/real. Individual display names SHALL be
+声优（主役）, 声优（配角）, 声优（客串）, 声优（闲角）, 声优（旁白）, 声优（声库）; all SHALL remain 声优.
 
 `correct-archive-raw-domain-semantics` reconciled the root schema, producer
 goldens/verifier, and Go consumer on integer roles `1..6` with `main=1`. This

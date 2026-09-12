@@ -61,7 +61,7 @@ func TestCatalogGeneratedWireIsCatalogOnlyAndCurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(data)
-	if actual := hex.EncodeToString(sum[:]); actual != "a50ccd6a148158a90111de7abb7bced4df1db084b718ad495b8dfcdc5373c04d" {
+	if actual := hex.EncodeToString(sum[:]); actual != "88bedf9708446224ecfb44bea51a91fb83cd0aba0543e5949f6c9abbda023597" {
 		t.Fatalf("catalog generated wire digest = %s", actual)
 	}
 	for _, forbidden := range []string{

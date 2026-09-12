@@ -65,21 +65,21 @@ export type CastContributionV1 = {
     positionKey: PersonDetailPositionKeyV1;
     character: CharacterReferenceV1;
     roleType: number;
-    roleLabel: '主役' | '配角' | '客串' | '其他';
+    roleLabel: '主役' | '配角' | '客串' | '闲角' | '旁白' | '声库';
     provenance: 'exact';
 };
 
 export type CharacterAppearanceV1 = {
     subject: SubjectReferenceV1;
     roleType: number;
-    roleLabel: '主役' | '配角' | '客串' | '其他';
+    roleLabel: '主役' | '配角' | '客串' | '闲角' | '旁白' | '声库';
     positionKeys: Array<PersonDetailPositionKeyV1>;
 };
 
 export type CharacterItemV1 = {
     character: CharacterReferenceV1;
     primaryRole: number;
-    roleLabel: '主役' | '配角' | '客串' | '其他';
+    roleLabel: '主役' | '配角' | '客串' | '闲角' | '旁白' | '声库';
     workCount: JsonSafePositiveIntegerV1;
     appearances: Array<CharacterAppearanceV1>;
 };
@@ -366,7 +366,7 @@ export type SeriesCastContributionV1 = {
     positionKey: PersonDetailPositionKeyV1;
     character: CharacterReferenceV1;
     roleType: number;
-    roleLabel: '主役' | '配角' | '客串' | '其他';
+    roleLabel: '主役' | '配角' | '客串' | '闲角' | '旁白' | '声库';
     provenance: 'exact';
     workCount: JsonSafePositiveIntegerV1;
 };

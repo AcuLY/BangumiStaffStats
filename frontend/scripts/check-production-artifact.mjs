@@ -9,8 +9,6 @@ const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const distRoot = path.join(frontendRoot, 'dist');
 const productionBasePath = '/';
 const maximumInitialJavaScriptGzipBytes = 350 * 1024;
-const expectedBrandHash =
-  'd3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a';
 const expectedDescription =
   '面向 Bangumi 收藏与全站数据的高密度 Staff 排名与共演分析界面';
 
@@ -88,17 +86,19 @@ if (files.some((file) => file.endsWith('.map'))) {
   fail('production source maps are forbidden');
 }
 const pngFiles = files.filter((file) => file.endsWith('.png'));
-const approvedBrandFiles = pngFiles.filter((file) => {
-  const hash = createHash('sha256')
-    .update(fs.readFileSync(path.join(distRoot, file)))
-    .digest('hex');
-  return hash === expectedBrandHash;
-});
-if (pngFiles.length !== 1 || approvedBrandFiles.length !== 1) {
-  fail(
-    `production must contain only the approved brand PNG: ${JSON.stringify(pngFiles)}`,
-  );
+if (pngFiles.length !== 0) {
+  fail(`production must use the themed SVG brands: ${JSON.stringify(pngFiles)}`);
 }
+const approvedBrandFiles = ['light', 'dark'].map((theme) => {
+  const source = fs.readFileSync(path.join(frontendRoot, `src/assets/brand/bgmss-${theme}.svg`));
+  const expectedHash = createHash('sha256').update(source).digest('hex');
+  const matches = files.filter((file) => file.endsWith('.svg') &&
+    createHash('sha256').update(fs.readFileSync(path.join(distRoot, file))).digest('hex') === expectedHash);
+  if (matches.length !== 1) {
+    fail(`production must contain exactly one approved ${theme} brand SVG`);
+  }
+  return matches[0];
+});
 if (
   files.some((file) =>
     /(?:fixture|snapshot|workbench|test|coverage)/i.test(file),
@@ -174,7 +174,7 @@ if (
   iconFiles[0] !== approvedBrandFiles[0]
 ) {
   fail(
-    `production favicon must reuse the approved brand PNG: ${JSON.stringify(iconFiles)}`,
+    `production favicon must reuse the approved light brand SVG: ${JSON.stringify(iconFiles)}`,
   );
 }
 const initialJavaScriptFiles = new Set();

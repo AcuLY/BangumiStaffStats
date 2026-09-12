@@ -9,6 +9,8 @@ const TOOL_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_ROOT = path.resolve(TOOL_DIR, "..");
 const GOLDEN_ROOT = path.resolve(SCHEMA_ROOT, "../../goldens/catalog");
 const SUBJECT_TYPES = ["book", "anime", "music", "game", "real"];
+const CAST_SCOPES = ["main","supporting","guest","minor","narrator","voice-library","all"];
+const CAST_LABELS = ["主役", "配角", "客串", "闲角", "旁白", "声库"];
 const CAST_TYPES = new Set(["anime", "game"]);
 const CAPABILITIES = [
   "rankings",
@@ -48,11 +50,11 @@ const EXPECTED_FEATURED = {
 const EXPECTED_CAST_GROUPS = {
   anime: {
     anchorCategoryKey: "music",
-    positionKeys: ["cast:anime:main", "cast:anime:all"],
+    positionKeys: CAST_SCOPES.map((scope) => `cast:anime:${scope}`),
   },
   game: {
     anchorCategoryKey: "music",
-    positionKeys: ["cast:game:main", "cast:game:all"],
+    positionKeys: CAST_SCOPES.map((scope) => `cast:game:${scope}`),
   },
 };
 const EXPECTED_MUTATIONS = [
@@ -526,21 +528,21 @@ function deriveCase(input, validators) {
     const existingCount = positions.filter(
       (position) => position.subjectType === subjectType,
     ).length;
-    for (const [offset, scope] of ["main", "all"].entries()) {
+    for (const [offset, scope] of CAST_SCOPES.entries()) {
       const positionKey = `cast:${subjectType}:${scope}`;
       const position = {
         positionKey,
         subjectType,
         positionKind: "cast",
         names: {
-          cn: scope === "main" ? "声优（仅主役）" : "声优",
+          cn: scope === "all" ? "声优" : `声优（${CAST_LABELS[offset]}）`,
           en: null,
           jp: null,
         },
         displayOrder: (existingCount + offset + 1) * 10,
         selectable: true,
         capabilities: capabilityRule ? [...capabilityRule.capabilities] : [],
-        selectionRule: scope === "main" ? "roleType=1" : "roleType=1..6",
+        selectionRule: scope === "all" ? "roleType=1..6" : `roleType=${offset + 1}`,
         exclusiveRule: `exclusive:cast:${subjectType}`,
       };
       positions.push(position);

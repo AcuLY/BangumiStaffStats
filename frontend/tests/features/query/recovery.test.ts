@@ -26,6 +26,20 @@ const analysis = {
 };
 
 describe('local recovery validation', () => {
+  it.each(['main', 'supporting', 'guest', 'minor', 'narrator', 'voice-library'])('preserves the explicit %s cast identity in ranking and cross-position co-star recovery', (scope) => {
+    const positionKey = `cast:anime:${scope}`;
+    const rankingPayload = { ...ranking, query: { ...query, positionKeys: [positionKey] } };
+    expect(decodeRecoveryPayload('/ranking', rankingPayload)).toEqual(rankingPayload);
+    const payload = { ...analysis, workspace: { ...analysis.workspace,
+      candidates: { ...candidates, input: { positionKey: null, positionScope: 'all' } },
+      coStar: { ...analysis.workspace.coStar, input: { positionScope: 'all', participants: [
+        { personId: 1, positionKeys: [positionKey] },
+        { personId: 2, positionKeys: ['cast:anime:all'] },
+      ] } },
+    } };
+    expect(decodeRecoveryPayload('/co-star', payload)).toEqual(payload);
+  });
+
   it('preserves candidate participant constraints and rejects invalid identities', () => {
     const participants = [{ personId: 1, positionKeys: ['staff:anime:2'] }];
     const payload = { ...analysis, workspace: { ...analysis.workspace, candidates: { ...candidates,

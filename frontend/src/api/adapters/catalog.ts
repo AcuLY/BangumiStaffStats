@@ -48,7 +48,7 @@ export interface CatalogPosition {
     en: string | null;
     jp: string | null;
   }>;
-  readonly roleScope?: 'all' | 'main';
+  readonly roleScope?: 'all' | 'main' | 'supporting' | 'guest' | 'minor' | 'narrator' | 'voice-library';
   readonly selectable: boolean;
   readonly subjectType: SubjectType;
 }

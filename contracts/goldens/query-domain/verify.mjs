@@ -19,42 +19,42 @@ const exactAuthorities = [
   {
     id: "catalog-complete-derivation",
     path: "contracts/goldens/catalog/cases/complete-derivation.json",
-    sha256: "bd9ba99c3643ef70d58dc9168e2e12f6c88c460390c42777ea0ea6b76e76f23f",
+    sha256: "445f4181c1a69e0a81db9953fab22469c9cb63b4c77a0dc91c26f065e7e6b209",
   },
   {
     id: "catalog-index-v1",
     path: "contracts/goldens/catalog/index.json",
-    sha256: "306ec088acc3f0e0fce61fbbfcb0a5f21be64c9672efe5c60e356f06fa5422a2",
+    sha256: "fcd75915691cee7af5cba98c0177675e7a3753c353393b0d0497af4c0d76c3c2",
   },
   {
     id: "catalog-selection-rule-verifier",
     path: "contracts/schemas/catalog/tooling/verify.mjs",
-    sha256: "3540a1e886c0498a6df2020ff2637404a0d3cb3554ffab4f983d038a3fd881dc",
+    sha256: "f9f763c7c48e02b7af3bb669671deb3703cd21ff72404656ca71add3d32e07c8",
   },
   {
     id: "catalog-synthetic-staff-set-v1",
     path: "contracts/goldens/catalog/config/staff-sets-synthetic-v1.json",
-    sha256: "38377e0572238a1aba089b441ed7aa67e2599e0ada7e4e3422cb002f8d5c60a1",
+    sha256: "ef763503b6f4e71f8a3422d13f22010d447d9fbf18a7757c23d06837a2932aa0",
   },
   {
     id: "effective-query-schema-v1",
     path: "contracts/schemas/query/effective-query-v1.schema.json",
-    sha256: "6c2e8e35992daa69426ce69e599041c51ff311497d2b3294379895f4f9e3c045",
+    sha256: "e6b67aee71868d99c115963ffade3d1c55bd412dd61343786c35be27f9563d53",
   },
   {
     id: "shared-query-cases-v1",
     path: "contracts/goldens/query/cases/queries.json",
-    sha256: "f65ba796d072ae9a0b47d98f8572dfa92787066e3a9dadbe09ff9adbf5741d50",
+    sha256: "d86f1875404daf56ba32179819d725fd690e4a96a8ff2679a0445b95d3499583",
   },
   {
     id: "shared-query-manifest-v1",
     path: "contracts/goldens/query/manifest.json",
-    sha256: "1b08971cfb4a9ebc1fbc075bd4b798c3631544d78aac60289e08f2b9733543dd",
+    sha256: "cef0045a619e495855dd6cd9249c0ba7a86f3c9ec2b8111bdfd3e9b54c77c40e",
   },
   {
     id: "shared-query-schema-v1",
     path: "contracts/schemas/query/shared-query-v1.schema.json",
-    sha256: "df7c96cd7df800703ae9478dedcf6b372fb25f26739e5f542ce592bfd23c0362",
+    sha256: "8a2e294dc17088345d8a7bba076f86ae66ce121f374892c3c4526b011b7bf114",
   },
 ];
 const exactRequiredCoverage = [
@@ -604,7 +604,7 @@ function validateFixture(fixture, catalogAuthority) {
   );
   assert(
     catalogVerifier.includes(
-      'selectionRule: scope === "main" ? "roleType=1" : "roleType=1..6"',
+      'selectionRule: scope === "all" ? "roleType=1..6" : `roleType=${offset + 1}`',
     ),
     "accepted cast selection rule authority",
   );
@@ -637,7 +637,7 @@ function validateFixture(fixture, catalogAuthority) {
       );
     } else if (plan.ruleKind === "exactCast") {
       assert(
-        plan.positionKey === "cast:anime:main" || plan.positionKey === "cast:anime:all",
+        /^cast:anime:(main|supporting|guest|minor|narrator|voice-library|all)$/.test(plan.positionKey),
         `catalog plan ${plan.positionKey}: cast identity`,
       );
       assert(

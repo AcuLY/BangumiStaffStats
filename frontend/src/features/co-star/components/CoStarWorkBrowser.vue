@@ -104,11 +104,6 @@ const {
   target: resultTarget,
 } = useResultReveal(props.targetWindow);
 const visibleSeriesInfoKey = ref<string | null>(null);
-const CAST_ROLE_LABELS: Readonly<Record<string, string>> = Object.freeze({
-  主役: '主角',
-  配角: '配角',
-  客串: '客串',
-});
 let searchTimer: number | undefined;
 
 const compact = computed(() => densityMode.value === 'compact');
@@ -247,8 +242,7 @@ function contributionLabel(
 ): string {
   if (credit.kind === 'cast') {
     const character = credit.character.nameCN ?? credit.character.name;
-    const mappedRole = CAST_ROLE_LABELS[credit.roleLabel];
-    const identity = mappedRole ? `声优（${mappedRole}）` : '声优';
+    const identity = `声优（${credit.roleLabel}）`;
     return joinDisplayText([`${identity}：${character}`, ...(
       'workCount' in credit ? [`${credit.workCount} 部`] : []
     )], ' · ');
@@ -256,7 +250,7 @@ function contributionLabel(
   const exact = props.positionLabel(String(credit.exactPositionKey));
   const selected = props.positionLabel(String(credit.positionKey));
   return joinDisplayText([
-    ...(selected === exact ? [exact] : [selected, exact]),
+    joinDisplayText(selected === exact ? [exact] : [selected, exact], ' / '),
     ...('workCount' in credit ? [`${credit.workCount} 部`] : []),
   ], ' · ');
 }

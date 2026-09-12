@@ -15,7 +15,7 @@ export type CatalogCastPositionV1 = {
     capabilities: Array<CatalogPositionCapabilityNameV1>;
     status: 'selectable' | 'hidden';
     exclusiveGroup: string;
-    roleScope: 'main' | 'all';
+    roleScope: 'main' | 'supporting' | 'guest' | 'minor' | 'narrator' | 'voice-library' | 'all';
 };
 
 export type CatalogDataV1 = {

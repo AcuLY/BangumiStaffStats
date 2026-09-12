@@ -4,56 +4,56 @@
   "files": [
     {
       "path": "cases/errors.json",
-      "sha256": "ff072e7ffad9fdfe874b6638830ddcbe499522850440caf9efed13347b8c2601",
+      "sha256": "ee6dfa4aab6a99f448798465fe628c74dad1d9798cc79ba88552cfc7da0a7402",
       "caseId": "catalog-error-matrix",
       "kind": "error-cases",
       "outcome": "closed-error-envelopes"
     },
     {
       "path": "cases/invalid.json",
-      "sha256": "3e5f4853ef99b289b2e4df241a897b45e072b92269d73d85191990d8596068d6",
+      "sha256": "6393539eb5ca484f4c25d61872c80b6169557c3ade7019417a5d0d71c3ee2762",
       "caseId": "catalog-invalid-matrix",
       "kind": "invalid-cases",
       "outcome": "strict-rejection"
     },
     {
       "path": "cases/success-empty.json",
-      "sha256": "86528455c8ec1ea69bc50fee336581740be6f2a96db795921c66726bee9e1051",
+      "sha256": "de1ccab926eb4fca02b8a24c056c735ddce5b82d557f6105f42879434d206052",
       "caseId": "five-type-empty-staff-sets",
       "kind": "success-case",
       "outcome": "200-valid-dormant"
     },
     {
       "path": "cases/success-synthetic.json",
-      "sha256": "17832d3fa5f41ebc9dd35d092b0189b4915ac0f0b44b9c25c0e9ca2b36fe1479",
+      "sha256": "1617f55fbca83199f24688a2c8040e61cc7ad6e30f6d44835140a1415df2109f",
       "caseId": "synthetic-anime-staff-set",
       "kind": "derived-success-case",
       "outcome": "200-valid-synthetic"
     },
     {
       "path": "generation.json",
-      "sha256": "9c0e6a91c61e1abce5711c2fb37b60953e563f29fd3d182f941571b6fe9752e6",
+      "sha256": "6504d9844a9bbd46c4b9404b6d801f098c19ba00c31f98648211a8a9273fb3d2",
       "caseId": "catalog-generation-evidence",
       "kind": "generation-authority",
       "outcome": "deterministic-compile"
     },
     {
       "path": "package-lock.json",
-      "sha256": "d40177fbab412e2f89a555cefb176c551b27fabf338ee9da5cbc4a6a4374d1e3",
+      "sha256": "4f2b5c85f49f1e437f089c517bee1bb93528568d6f5005889c86ccd285cfd7ca",
       "caseId": "catalog-tool-lock",
       "kind": "tool-authority",
       "outcome": "exact-install"
     },
     {
       "path": "package.json",
-      "sha256": "9b82b3a332097a3932d54d6e0e5b70703d351eb2de231bc4f064c387f78550c8",
+      "sha256": "96a8fad55f29d2c51dbb74b157aa78a4555d572da3f13ba340fa6cce1cf7d178",
       "caseId": "catalog-tool-manifest",
       "kind": "tool-authority",
       "outcome": "exact-commands"
     },
     {
       "path": "verify.mjs",
-      "sha256": "a3844e3d0505ba341addbc255444d17ad6d474f7d315e3acb90e38b2f2a0c67f",
+      "sha256": "1b5f765959665b4798e86909043179268e3f0310d98decc185cf930a677cda4a",
       "caseId": "catalog-strict-verifier",
       "kind": "verification-authority",
       "outcome": "fail-closed"

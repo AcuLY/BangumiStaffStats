@@ -1073,7 +1073,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 96,
-            "pattern": "^cast:(anime|game):(main|all)$"
+            "pattern": "^cast:(anime|game):(main|supporting|guest|minor|narrator|voice-library|all)$"
           },
           "kind": {
             "const": "cast"
@@ -1129,6 +1129,11 @@
             "type": "string",
             "enum": [
               "main",
+              "supporting",
+              "guest",
+              "minor",
+              "narrator",
+              "voice-library",
               "all"
             ]
           }
@@ -1236,7 +1241,7 @@
           }
         }
       },
-    "CatalogGroupV1": {
+      "CatalogGroupV1": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -1248,10 +1253,10 @@
           "positionKeys"
         ],
         "properties": {
-        "key": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 96
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 96
           },
           "kind": {
             "type": "string",
@@ -1287,7 +1292,7 @@
           }
         }
       },
-    "CatalogSelectionRuleV1": {
+      "CatalogSelectionRuleV1": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -1297,10 +1302,10 @@
           "value"
         ],
         "properties": {
-        "key": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 101
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 101
           },
           "kind": {
             "type": "string",

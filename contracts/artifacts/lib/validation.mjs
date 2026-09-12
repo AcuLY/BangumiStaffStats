@@ -29,7 +29,7 @@ export const ARCHIVE_CAST_RULES_VERSION = 'cast-exact-v1';
 export const ARCHIVE_COMPATIBILITY_MATRIX_DIGEST =
   'sha256:7677bf83d62f38e9ac9d7af5eab2e37342a110533b63ce6f6a940d8607b84bd9';
 export const OPENAPI_DIGEST =
-  'sha256:b80b0c8a999e0081520aaa1020eea96723f88ceb60920eb0a7356cafeedb19e1';
+  'sha256:44d6b520ce98695f21bc33ac0f6abaa314371beaa43927c000d6d429afba9963';
 export const ARCHIVE_MANIFEST_SCHEMA_DIGEST =
   'sha256:5a2b0cd7294312e9dcbdd413a1b01c4218652c4c39fd7472b74e40622e7a3e73';
 export const ARCHIVE_SCHEMA_SQL_DIGEST =
@@ -39,7 +39,7 @@ export const DOCKER_BUILDX_VERSION = '0.34.1';
 export const BUILDKIT_IMAGE_DIGEST =
   'sha256:1e110c71d389d6d24f67b9438e2f7b8da749a6ff407b22a1631e025c95599368';
 export const PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST =
-  'sha256:aaffa81b36992189c991f2de2158d2baa45335b11d679e087f1c82567889993d';
+  'sha256:c386eeb13c6267177534a5ce07346840c68e952e75d5913fb249b93161511b85';
 export const SUPPORTED_ARCHIVE_MANIFEST_SCHEMA = 1;
 export const SUPPORTED_ARCHIVE_SQLITE_SCHEMA = 2;
 
@@ -67,7 +67,7 @@ const BACKEND_PRODUCER_INPUTS = Object.freeze(
   new Map([
     [
       'backend/internal/archivebuild/assets/display-v1.yaml',
-      'sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8',
+      'sha256:7368a53fc834bbcafef5b57f9cd38423b7ff83729726ae3c62370988821b90ab',
     ],
     [
       'backend/internal/archivebuild/assets/schema.sql',

@@ -260,8 +260,8 @@ func validateDisplayConfig(value displayConfig) error {
 		delete(expectedFeatured, group.SubjectType)
 	}
 	expectedCast := map[string][]string{
-		"anime": {"cast:anime:main", "cast:anime:all"},
-		"game":  {"cast:game:main", "cast:game:all"},
+		"anime": {"cast:anime:main", "cast:anime:supporting", "cast:anime:guest", "cast:anime:minor", "cast:anime:narrator", "cast:anime:voice-library", "cast:anime:all"},
+		"game":  {"cast:game:main", "cast:game:supporting", "cast:game:guest", "cast:game:minor", "cast:game:narrator", "cast:game:voice-library", "cast:game:all"},
 	}
 	for _, group := range value.CastGroups {
 		expected, ok := expectedCast[group.SubjectType]
@@ -689,9 +689,9 @@ func compileGovernedCatalog(common commonCatalog, config canonicalCatalogConfig)
 		}
 		if subjectType == "anime" || subjectType == "game" {
 			firstOrder := int64(len(positions)+1) * 10
-			for offset, suffix := range []string{"main", "all"} {
+			for offset, suffix := range []string{"main", "supporting", "guest", "minor", "narrator", "voice-library", "all"} {
 				key := "cast:" + subjectType + ":" + suffix
-				label, rule := "声优（仅主役）", "1"
+				label, rule := "声优（"+[]string{"主役", "配角", "客串", "闲角", "旁白", "声库", ""}[offset]+"）", fmt.Sprint(offset+1)
 				if suffix == "all" {
 					label, rule = "声优", "1..6"
 				}

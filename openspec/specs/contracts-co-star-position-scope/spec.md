@@ -26,7 +26,7 @@ Candidates, partners, co-star and explicit identity person-detail SHALL accept i
 
 #### Scenario: Source main cast and all cast partners
 - **WHEN** the source explicitly selects main cast and all-position partners are requested
-- **THEN** source evidence stays main-only while supporting cast partners may qualify, and default candidate output does not duplicate main/all identities
+- **THEN** source evidence stays main-only while supporting cast partners may qualify, and default candidate output includes all without duplicating any individual cast-scope identities
 
 #### Scenario: Pair and detail after cross-role selection
 - **WHEN** director A and script B are selected from an all-scope operation

@@ -23,6 +23,17 @@ const success = JSON.parse(
 ) as { expected: { body: unknown } };
 
 describe('catalog contract adapter', () => {
+  it.each(['anime', 'game'])('admits all seven %s cast scopes with truthful names', (subjectType) => {
+    const snapshot = decodeCatalogEnvelope(success.expected.body);
+    const scopes = ['main', 'supporting', 'guest', 'minor', 'narrator', 'voice-library', 'all'];
+    const labels = ['声优（主役）', '声优（配角）', '声优（客串）', '声优（闲角）', '声优（旁白）', '声优（声库）', '声优'];
+    for (const [index, scope] of scopes.entries()) {
+      expect(snapshot.positionsByKey.get(`cast:${subjectType}:${scope}`)).toMatchObject({
+        kind: 'cast', roleScope: scope, label: labels[index], selectable: true,
+      });
+    }
+  });
+
   it('strictly maps the accepted catalog into immutable entities', () => {
     const snapshot = decodeCatalogEnvelope(success.expected.body);
 

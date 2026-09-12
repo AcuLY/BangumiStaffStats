@@ -12,8 +12,13 @@ import (
 
 // Defines values for CatalogCastPositionV1RoleScope.
 const (
-	All  CatalogCastPositionV1RoleScope = "all"
-	Main CatalogCastPositionV1RoleScope = "main"
+	All          CatalogCastPositionV1RoleScope = "all"
+	Guest        CatalogCastPositionV1RoleScope = "guest"
+	Main         CatalogCastPositionV1RoleScope = "main"
+	Minor        CatalogCastPositionV1RoleScope = "minor"
+	Narrator     CatalogCastPositionV1RoleScope = "narrator"
+	Supporting   CatalogCastPositionV1RoleScope = "supporting"
+	VoiceLibrary CatalogCastPositionV1RoleScope = "voice-library"
 )
 
 // Valid indicates whether the value is a known member of the CatalogCastPositionV1RoleScope enum.
@@ -21,7 +26,17 @@ func (e CatalogCastPositionV1RoleScope) Valid() bool {
 	switch e {
 	case All:
 		return true
+	case Guest:
+		return true
 	case Main:
+		return true
+	case Minor:
+		return true
+	case Narrator:
+		return true
+	case Supporting:
+		return true
+	case VoiceLibrary:
 		return true
 	default:
 		return false

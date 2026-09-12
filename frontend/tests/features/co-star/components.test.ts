@@ -261,7 +261,7 @@ describe('candidate picker', () => {
     expect(wrapper.get('[aria-label="候选职位范围"]').text()).toContain(
       '全部职位',
     );
-    expect(wrapper.get('.candidate-row').text()).toContain('导演 · 声优');
+    expect(wrapper.get('.candidate-row').text()).toContain('导演 / 声优');
     await wrapper.get('.candidate-row').trigger('click');
     expect(selection.identities.value.map((identity) => identity.positionKey)).toEqual([
       'staff:anime:2',

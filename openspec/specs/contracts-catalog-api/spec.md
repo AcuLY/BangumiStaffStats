@@ -58,7 +58,7 @@ A position SHALL require `key`, `kind`, `subjectType`, `label`,
 `capabilities`, and `status`. `kind` SHALL be exactly
 `staff|cast|staffSet`; `status` SHALL be exactly `selectable|hidden`.
 `staff` requires only `positionId`; `cast` requires only
-`roleScope=main|all`; `staffSet` requires only sorted `memberKeys` with at
+`roleScope=main|supporting|guest|minor|narrator|voice-library|all`; `staffSet` requires only sorted `memberKeys` with at
 least two exact staff members. `exclusiveGroup` SHALL appear only for an
 exclusive position. Conditional fields SHALL be mutually exclusive rather
 than nullable catch-alls.
@@ -93,8 +93,8 @@ selection rules SHALL use the exact deterministic order locked by the catalog
 goldens. Repeated display references SHALL not duplicate position entities.
 
 Every group/category/member/rule reference SHALL resolve to one existing
-same-type position of the required kind. `main` and `all` cast positions SHALL
-share the accepted same-type exclusive identity; main SHALL precede all in
+same-type position of the required kind. All seven cast positions SHALL
+share the accepted same-type exclusive identity; main, supporting, guest, minor, narrator and voice-library SHALL precede all in
 the cast shortcut even where a featured shortcut intentionally uses another
 product-approved order. Unknown raw staff credits SHALL never appear.
 

@@ -462,12 +462,14 @@ func parseSelectionPlan(ruleKey, key, kind, value string) (SelectionPlan, error)
 			return SelectionPlan{}, fmt.Errorf("query: invalid exactCast rule for %q", key)
 		}
 		switch {
-		case parts[2] == "main" && value == "1":
-			plan.RoleTypes = []int64{1}
 		case parts[2] == "all" && value == "1..6":
 			plan.RoleTypes = []int64{1, 2, 3, 4, 5, 6}
 		default:
-			return SelectionPlan{}, fmt.Errorf("query: invalid exactCast rule for %q", key)
+			role := map[string]int64{"main": 1, "supporting": 2, "guest": 3, "minor": 4, "narrator": 5, "voice-library": 6}[parts[2]]
+			if role == 0 || value != strconv.FormatInt(role, 10) {
+				return SelectionPlan{}, fmt.Errorf("query: invalid exactCast rule for %q", key)
+			}
+			plan.RoleTypes = []int64{role}
 		}
 	case "staffSetUnion":
 		if len(parts) != 3 || parts[0] != "staffset" ||

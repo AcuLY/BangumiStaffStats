@@ -113,7 +113,7 @@ export const shared_query_v1_schemaSchema = {
                     pattern: '^staff:(book|anime|music|game|real):[1-9][0-9]*$'
                 },
                 {
-                    pattern: '^cast:(anime|game):(main|all)$'
+                    pattern: '^cast:(anime|game):(main|supporting|guest|minor|narrator|voice-library|all)$'
                 },
                 {
                     pattern: '^staffset:(book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*$'
@@ -647,7 +647,7 @@ export const PositionKeyV1Schema = {
             pattern: '^staff:(book|anime|music|game|real):[1-9][0-9]*$'
         },
         {
-            pattern: '^cast:(anime|game):(main|all)$'
+            pattern: '^cast:(anime|game):(main|supporting|guest|minor|narrator|voice-library|all)$'
         },
         {
             pattern: '^staffset:(book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*$'

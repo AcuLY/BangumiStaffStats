@@ -102,12 +102,12 @@ The wire SHALL NOT contain prototype `{enabled,value}` wrappers. An inactive fil
 `PositionKeyV1` SHALL accept only:
 
 - `staff:{book|anime|music|game|real}:{positive-decimal-position-id}`;
-- `cast:{anime|game}:{main|all}`;
+- `cast:{anime|game}:{main|supporting|guest|minor|narrator|voice-library|all}`;
 - `staffset:{book|anime|music|game|real}:{lower-kebab-slug}`.
 
 Consumers SHALL treat the full key as opaque and SHALL NOT infer capability from a localized label, naked integer, legacy 168-item value, or runtime prefix parsing. Every normalized query PositionKey SHALL be selectable in the supplied catalog context and match the query subject type. Submitted arrays MAY repeat a key; normalization SHALL retain its first occurrence and remove later occurrences without moving any other key. The resulting ordinary shared-query array SHALL remain non-empty and preserve first-occurrence order. Candidate mixed browsing is defined by the candidate operation, not by implicitly selecting the first key. The operation-specific query bodies in contracts-co-star-position-scope are the sole empty-position exception: explicit all-scope candidates, partners, co-star and identity-scoped detail may use positionKeys=[]; rankings and query-scope requests remain non-empty.
 
-No arbitrary `maxItems` SHALL shrink the dynamic exact-position catalog beyond the 64 KiB request limit and general resource validation. `cast:{type}:main` and `cast:{type}:all` for the same type SHALL be mutually exclusive.
+No arbitrary `maxItems` SHALL shrink the dynamic exact-position catalog beyond the 64 KiB request limit and general resource validation. All seven `cast:{type}:scope` choices for the same type SHALL be mutually exclusive.
 
 #### Scenario: Every PositionKey family is accepted
 - **WHEN** a syntactically valid exact staff, supported cast, or dormant staff-set key is present and selectable in a matching golden catalog context

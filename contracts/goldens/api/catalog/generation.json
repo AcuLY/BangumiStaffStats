@@ -45,7 +45,7 @@
   },
   "projection": {
     "path": "/catalog",
-    "sha256": "c9cc22ccdd45fd9e02537035a01803ceecc459e712bfcc2bc69936df4757ad7a",
+    "sha256": "f59275b40ff448ffcba5d2c05adffbdfee02f8ccb39f5cc812934a449c04dd48",
     "components": [
       "CatalogCastPositionV1",
       "CatalogDataV1",
@@ -74,14 +74,14 @@
     "filterCapabilities": "a8119720238324cb64b06b4fc8e8996fedafad6c899a96dcbffdee0a473d3ee9",
     "sortCapabilities": "9f83043cf15869b9f8796778a01d4f7f652bae8bfda693220c3d9f6e337aa7b0",
     "dormant": {
-      "positions": "3e9f9fb499247d2e0d0cc142b06d51da5ed7b8c23d88879ce8ed2711f01fefba",
-      "groups": "d7ebeb9bc37d4a6caa5ac5b5f27e3a2c5cef0ef01a55f7444a2a7ee3247f3805",
-      "selectionRules": "f1477638988d91e14b843a9c4071456dbe97e60fa0a07b0c995ecb8805be7c63"
+      "positions": "d4d208b831d83519935d6d2dc81ae3fec9fc934e5ed14d4218464f4c8031fb01",
+      "groups": "cfa94608b0b2442a934e6d8c0c0e1902a5d160b37cfd263b6384b2a90564209b",
+      "selectionRules": "0d6d6c76b509f2ebb674625c9220aa9423e489b3d0342c2346d3652ce2995557"
     },
     "synthetic": {
-      "positions": "72938b368b26bb0c5ce3ebd85b1fe47fd12db86c664e4ff6baea4f2b134de137",
-      "groups": "34760c7acd6eb13b4d6bd6b46d8e018035bf94cf5bcd276bbc101a6ce54687e5",
-      "selectionRules": "40686fae73f6956471d102196f480c5c7016825bcec36b58051a06053102e8d7"
+      "positions": "376076887e06f26ffe147d1943f79c5c3dcfd147e7e64dacf49ce0d1d8634391",
+      "groups": "aa3097bcd9595e54a3fb9618d5effdf2d8058bf9be6915297279282abdae402f",
+      "selectionRules": "290a69ae152b228cf967598197a1c51ef79bd877b55d3ce43da144c4c13fca47"
     }
   },
   "go": {
@@ -121,8 +121,8 @@
       "./..."
     ],
     "output": {
-      "bytes": 38378,
-      "sha256": "52ae1f736170ade845d7e62894ca04ef9e4f60ed31ed6bb7ec8cf116b2e8342e",
+      "bytes": 38835,
+      "sha256": "375da5151fc0a845d706572fce97c6b1f8a77db1b8362dc0286425ffe38f161c",
       "declarations": [
         "CatalogCastPositionV1",
         "CatalogCastPositionV1RoleScope",

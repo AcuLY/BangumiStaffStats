@@ -95,6 +95,14 @@ func TestBuildGlobalUsesAcceptedStatisticsAndExactArchiveEvidence(t *testing.T) 
 	}
 }
 
+func TestRoleLabelsCoverEveryValidCastType(t *testing.T) {
+	for index, want := range []string{"主役", "配角", "客串", "闲角", "旁白", "声库"} {
+		if got := roleLabel(int64(index + 1)); got != want {
+			t.Fatalf("role %d: %q, want %q", index+1, got, want)
+		}
+	}
+}
+
 func TestBuildRejectsMissingRequiredSubjectReferenceAsInternal(t *testing.T) {
 	request := detailBuildRequest(t, false, false)
 	request.Evidence.Subjects = request.Evidence.Subjects[1:]

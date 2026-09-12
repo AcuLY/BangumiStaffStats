@@ -42,7 +42,7 @@
     },
     {
       "op": "add",
-      "path": "/expected/body/data/positions/11",
+      "path": "/expected/body/data/positions/16",
       "value": {
         "key": "staffset:anime:direction",
         "kind": "staffSet",
@@ -54,7 +54,7 @@
           "jp": null
         },
         "categories": [],
-        "displayOrder": 110,
+        "displayOrder": 160,
         "capabilities": [
           "rankings",
           "candidates",
@@ -85,7 +85,7 @@
     },
     {
       "op": "add",
-      "path": "/expected/body/data/selectionRules/11",
+      "path": "/expected/body/data/selectionRules/16",
       "value": {
         "key": "rule:staffset:anime:direction",
         "kind": "staffSetUnion",

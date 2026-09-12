@@ -262,6 +262,21 @@ describe('query model', () => {
     );
   });
 
+  it.each(['anime', 'game'] as const)('validates every individual %s cast scope and keeps scopes exclusive', (subjectType) => {
+    const catalog = catalogFixture();
+    const draft = createDefaultDraft('luca');
+    draft.subjectType = subjectType;
+    for (const scope of ['main', 'supporting', 'guest', 'minor', 'narrator', 'voice-library', 'all']) {
+      const key = `cast:${subjectType}:${scope}`;
+      draft.positionKeys = [key];
+      const result = validateDraft(draft, 'ranking', catalog);
+      expect(result.errors).toEqual({});
+      expect(result.query?.positionKeys).toEqual([key]);
+      draft.positionKeys = [key, `cast:${subjectType}:${scope === 'all' ? 'supporting' : 'all'}`];
+      expect(validateDraft(draft, 'ranking', catalog).errors).toHaveProperty('positionKeys');
+    }
+  });
+
   it('uses canonical dirty signatures for semantically equal numeric forms', () => {
     const catalog = catalogFixture();
     const draft = createDefaultDraft('luca');

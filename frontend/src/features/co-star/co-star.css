@@ -802,6 +802,10 @@
   font-size: 12px;
 }
 
+.co-star-mobile-entry__copy .co-star-multi-person-hint {
+  color: var(--brand);
+}
+
 .co-star-mobile-entry__selections {
   display: flex;
   min-width: 0;

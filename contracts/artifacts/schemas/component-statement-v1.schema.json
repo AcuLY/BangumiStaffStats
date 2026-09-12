@@ -217,7 +217,7 @@
                       "const": "contracts/producer-runtime-inputs-v1"
                     },
                     "sha256": {
-                      "const": "sha256:aaffa81b36992189c991f2de2158d2baa45335b11d679e087f1c82567889993d"
+                      "const": "sha256:c386eeb13c6267177534a5ce07346840c68e952e75d5913fb249b93161511b85"
                     }
                   }
                 },
@@ -249,7 +249,7 @@
                       "const": "backend/internal/archivebuild/assets/display-v1.yaml"
                     },
                     "sha256": {
-                      "const": "sha256:4297791381d106c85f2e78c07aeabe7f05146bc766f3c67cdb5308b958e40fe8"
+                      "const": "sha256:7368a53fc834bbcafef5b57f9cd38423b7ff83729726ae3c62370988821b90ab"
                     }
                   }
                 },

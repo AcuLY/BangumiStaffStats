@@ -1618,7 +1618,8 @@ async function replayRecovery(payload: RecoveryPayload): Promise<boolean> {
         return false;
       }
       selectedPersonId.value = detail.input.personId;
-      drawerOpen.value = detailDrawerLayout.value;
+      // Selection is recoverable; opening the mobile drawer requires activation.
+      drawerOpen.value = false;
     }
     queryWorkspace.value?.closeForExternalAction();
     await nextTick();

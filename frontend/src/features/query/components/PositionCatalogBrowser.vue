@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NEmpty } from 'naive-ui';
+import { NEmpty, NInput } from 'naive-ui';
 import { computed, ref, watch } from 'vue';
 import ContentDivider from '../../../shared/components/ContentDivider.vue';
 
@@ -31,6 +31,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  'update:searchQuery': [value: string];
   selectAll: [];
   close: [];
   toggle: [positionKey: PositionKey];
@@ -263,6 +264,15 @@ function reveal(options: { focusFirstControl: boolean }): void {
   }
 }
 
+function onSearchKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter' || event.key === 'ArrowDown') {
+    event.preventDefault();
+  }
+  if (event.key === 'ArrowDown') {
+    reveal({ focusFirstControl: true });
+  }
+}
+
 defineExpose({ reveal });
 </script>
 
@@ -278,6 +288,18 @@ defineExpose({ reveal });
     tabindex="-1"
     @keydown.esc.stop.prevent="emit('close')"
   >
+    <div class="position-catalog-browser__search">
+      <n-input
+        :value="searchQuery"
+        :disabled="disabled"
+        :size="compact ? 'small' : 'medium'"
+        placeholder="搜索职位"
+        :input-props="{ 'aria-label': '搜索职位' }"
+        clearable
+        @update:value="emit('update:searchQuery', $event)"
+        @keydown="onSearchKeydown"
+      />
+    </div>
     <div
       class="position-catalog-browser__list"
       :aria-label="searching ? '职位搜索结果' : '职位分类'"
@@ -349,7 +371,7 @@ defineExpose({ reveal });
         <n-empty
           v-else
           class="position-catalog-browser__empty"
-          size="small"
+          :size="compact ? 'small' : 'medium'"
           description="没有符合搜索条件的职位"
         />
       </template>
@@ -449,7 +471,7 @@ defineExpose({ reveal });
       <n-empty
         v-else
         class="position-catalog-browser__empty"
-        size="small"
+        :size="compact ? 'small' : 'medium'"
         description="没有可用职位"
       />
     </div>
@@ -472,9 +494,9 @@ defineExpose({ reveal });
   max-width: calc(
     100dvw - var(--scrollbar-shell-size) - 24px
   );
-  height: calc(var(--position-catalog-list-height) + 8px);
+  height: auto;
   min-width: 0;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   padding: 4px;
   border: 0;
@@ -496,6 +518,10 @@ defineExpose({ reveal });
 .position-catalog-browser.is-compact {
   --position-catalog-list-height: 212.8px;
   --position-catalog-option-height: 28px;
+}
+
+.position-catalog-browser__search {
+  padding: 4px 4px 8px;
 }
 
 .position-catalog-browser.is-compact .position-catalog-browser__list {
