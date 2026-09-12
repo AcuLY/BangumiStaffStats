@@ -103,9 +103,10 @@ values, labels, debounce, submission, and focus restoration; they do not overrid
 the toolbar size. The exposed `inputElRef` supports existing result-reveal focus
 restoration without moving request logic into the shared presentation component.
 
-The Header is the only owner of the approved 64×64 RGBA brand mark at
-`src/assets/brand/bgmss.png` (SHA-256
-`d3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a`).
+The Header and theme owner share the approved 64×64 SVG brand marks at
+`src/assets/brand/bgmss-light.svg` and `bgmss-dark.svg`, using the current
+theme's primary pink. The theme owner also updates the favicon. The original
+`bgmss.png` remains an immutable reconstruction reference, not a shipped asset.
 The theme owner persists only `bgmss-theme-v1`; History writes are same-origin
 relative paths and successful personal/global queries are the only source of
 the `?user=` projection.

@@ -73,7 +73,7 @@
       "type": "string",
       "minLength": 12,
       "maxLength": 96,
-      "pattern": "^(?:staff:(?:book|anime|music|game|real):[1-9][0-9]{0,15}|cast:(?:anime|game):(?:main|all))$"
+      "pattern": "^(?:staff:(?:book|anime|music|game|real):[1-9][0-9]{0,15}|cast:(?:anime|game):(?:main|supporting|guest|minor|narrator|voice-library|all))$"
     },
     "label": {
       "type": "string",
@@ -169,8 +169,8 @@
         },
         "positionKeys": {
           "type": "array",
-          "minItems": 2,
-          "maxItems": 2,
+          "minItems": 7,
+          "maxItems": 7,
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/positionKey"

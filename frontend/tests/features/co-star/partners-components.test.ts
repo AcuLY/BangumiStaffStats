@@ -191,7 +191,7 @@ describe('one-person partners surface', () => {
     expect(execute).not.toHaveBeenCalled();
     expect(wrapper.findComponent(RankedPersonList).exists()).toBe(true);
     expect(wrapper.findAll('.selected-person-card__metrics > div')).toHaveLength(3);
-    expect(wrapper.get('.ranked-person-row__identity').text()).toContain('导演 · 主要声优');
+    expect(wrapper.get('.ranked-person-row__identity').text()).toContain('导演 / 主要声优');
     expect(wrapper.get('article').attributes('aria-label')).toBe(
       '单人物共演分析',
     );

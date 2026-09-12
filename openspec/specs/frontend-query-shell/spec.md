@@ -167,11 +167,11 @@ state, URL parameters, local query-recovery state, resource state, or Skeleton b
 the prototype `bgmss-workbench-theme` and superseded `bgmss-theme-v1` and
 `bgmss-theme-override-v2` keys SHALL not be read or written.
 
-The brand SHALL reuse the project's exact 64×64 RGBA mark from
-`frontend/public/bgmss.png` at oracle
-`644b7748674e553f863d0ffd61d029f86fdc0717`, SHA-256
-`d3d1ca5d14d560f3415dfbcc84b58ece72741a51cf860362d09284ed21aa394a`,
-as the production-owned `src/assets/brand/bgmss.png`. No screenshot, fixture,
+The brand SHALL preserve the oracle mark's television, antenna, speech-tail
+and magnifier composition in the approved 64×64 vector reconstructions
+`src/assets/brand/bgmss-light.svg` and `bgmss-dark.svg`. The Header and favicon
+SHALL use the resolved theme's primary pink, respectively #C82A70 and #F16A9C.
+The original PNG SHALL remain a source reference only. No screenshot, fixture,
 prototype path, external request, or replacement visual identity SHALL enter
 the production artifact.
 

@@ -26,6 +26,22 @@ afterEach(() => {
 });
 
 describe('ranking cast evidence list', () => {
+  it('shows all six actual role labels in priority order, including complete keyboard evidence', async () => {
+    const labels = ['主役', '配角', '客串', '闲角', '旁白', '声库'] as const;
+    const contributions = roles().map((role, index) => ({
+      ...role, roleType: index + 1, roleLabel: labels[index]!,
+    })).reverse();
+    const wrapper = mount(AdaptiveRoleList, { attachTo: document.body, props: { contributions } });
+    wrappers.push(wrapper);
+    const trigger = wrapper.get('.adaptive-role-list');
+    const completeLabel = trigger.attributes('aria-label')!;
+    expect(completeLabel).not.toContain('其他');
+    for (const label of labels) expect(completeLabel).toContain(label);
+    (trigger.element as HTMLElement).focus();
+    await vi.waitFor(() => expect(document.querySelectorAll('.adaptive-role-tooltip .character-role-tag')).toHaveLength(6));
+    expect(Array.from(document.querySelectorAll('.adaptive-role-tooltip .character-role-tag'), node => node.textContent?.trim())).toEqual(labels);
+  });
+
   it('retains six equal-role identities with two rows and complete hover, keyboard and touch evidence', async () => {
     const wrapper = mount(AdaptiveRoleList, { attachTo: document.body, props: { contributions: roles() } });
     wrappers.push(wrapper);

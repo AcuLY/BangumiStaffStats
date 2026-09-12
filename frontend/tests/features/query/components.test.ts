@@ -60,8 +60,8 @@ const selectorPositions: readonly CatalogPosition[] = [
     exclusiveGroup: 'cast:anime',
     key: 'cast:anime:main',
     kind: 'cast',
-    label: '声优（仅主役）',
-    names: { cn: '声优（仅主役）', en: null, jp: null },
+    label: '声优（主役）',
+    names: { cn: '声优（主役）', en: null, jp: null },
     roleScope: 'main',
     selectable: true,
     subjectType: 'anime',
@@ -1565,6 +1565,30 @@ describe('PositionSelector hierarchical catalog', () => {
     await flushPromises();
   }
 
+  it.each([true, false])('selects all individual cast roles from the real catalog without changing selector geometry (compact=%s)', async (compact) => {
+    const snapshot = catalogFixture();
+    const wrapper = mountSelector(['cast:anime:main'], compact);
+    await wrapper.setProps({
+      groups: snapshot.groups.filter(group => group.subjectType === 'anime'),
+      positions: snapshot.positions.filter(position => position.subjectType === 'anime'),
+    });
+    for (const [scope, label] of [
+      ['supporting', '配角'], ['guest', '客串'], ['minor', '闲角'],
+      ['narrator', '旁白'], ['voice-library', '声库'], ['main', '主役'],
+    ]) {
+      await openCatalog(wrapper);
+      await wrapper.get('[aria-label="搜索职位"]').setValue(label);
+      await flushPromises();
+      const key = `cast:anime:${scope}`;
+      await wrapper.get(`[data-position-key="${key}"]`).trigger('click');
+      expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual([key]);
+      await wrapper.setProps({ modelValue: [key] });
+      expect(wrapper.get('.position-selector__selected-label').text()).toBe(`声优（${label}）`);
+      expect(wrapper.findAll('.position-selector__toggle')).toHaveLength(1);
+    }
+    wrapper.unmount();
+  });
+
   it('offers All as an exclusive co-star scope without inventing position keys', async () => {
     const wrapper = mountSelector(['staff:anime:2']);
     await wrapper.setProps({ allowAll: true });
@@ -1574,8 +1598,8 @@ describe('PositionSelector hierarchical catalog', () => {
     expect(wrapper.emitted('update:modelValue')).toBeUndefined();
     await wrapper.setProps({ allSelected: true });
     await flushPromises();
-    expect(wrapper.findAll('.position-selector__filter')).toHaveLength(1);
-    expect((wrapper.get('.position-selector__filter').element as HTMLInputElement).value).toBe('全部');
+    expect(wrapper.findAll('.position-selector__toggle')).toHaveLength(1);
+    expect(wrapper.get('.position-selector__selected-label').text()).toBe('全部');
     expect(wrapper.get('[aria-label="在第 1 行后添加职位选择器"]').attributes('disabled')).toBeDefined();
     await openCatalog(wrapper);
     expect(wrapper.get('[data-position-all]').attributes('aria-pressed')).toBe('true');
@@ -1599,7 +1623,7 @@ describe('PositionSelector hierarchical catalog', () => {
     expect(wrapper.find('.app-skeleton').exists()).toBe(false);
     expect(wrapper.get('.position-selector__pending').attributes('aria-busy')).toBe('true');
     await wrapper.setProps({ phase: 'ready' });
-    expect(wrapper.find('.position-selector__filter').exists()).toBe(true);
+    expect(wrapper.find('.position-selector__toggle').exists()).toBe(true);
     wrapper.unmount();
   });
 
@@ -1651,7 +1675,7 @@ describe('PositionSelector hierarchical catalog', () => {
     ).toEqual(['true', 'true']);
     expect(
       wrapper
-        .get<HTMLInputElement>('.position-selector__filter')
+        .get<HTMLInputElement>('.position-selector__toggle')
         .attributes('aria-label'),
     ).toBe('第 1 个职位，当前为导演');
 
@@ -1662,9 +1686,8 @@ describe('PositionSelector hierarchical catalog', () => {
       'cast:anime:main',
     ]);
     expect(
-      wrapper.get<HTMLInputElement>('.position-selector__filter').element
-        .value,
-    ).toBe('声优（仅主役）');
+      wrapper.get('.position-selector__selected-label').text(),
+    ).toBe('声优（主役）');
 
     await wrapper.setProps({ modelValue: ['cast:anime:main'] });
     const emissionsBeforeSameSelection =
@@ -1723,9 +1746,7 @@ describe('PositionSelector hierarchical catalog', () => {
       .trigger('click');
     await flushPromises();
     expect(wrapper.findAll('.position-selector__control')).toHaveLength(2);
-    expect(wrapper.findAll('.position-selector__filter')[1]!.attributes(
-      'placeholder',
-    )).toBe('选择职位');
+    expect(wrapper.findAll('.position-selector__selected-label')[1]!.text()).toBe('选择职位');
     expect(wrapper.find('#query-position-catalog-browser').exists()).toBe(
       true,
     );
@@ -1759,9 +1780,8 @@ describe('PositionSelector hierarchical catalog', () => {
     ]);
     expect(wrapper.findAll('.position-selector__control')).toHaveLength(1);
     expect(
-      wrapper.get<HTMLInputElement>('.position-selector__filter').element
-        .value,
-    ).toBe('声优（仅主役）');
+      wrapper.get('.position-selector__selected-label').text(),
+    ).toBe('声优（主役）');
     expect(
       wrapper
         .get('button[aria-label="移除第 1 个职位选择器"]')
@@ -1772,9 +1792,8 @@ describe('PositionSelector hierarchical catalog', () => {
     await nextTick();
     expect(wrapper.findAll('.position-selector__control')).toHaveLength(1);
     expect(
-      wrapper.get<HTMLInputElement>('.position-selector__filter').element
-        .value,
-    ).toBe('');
+      wrapper.get('.position-selector__selected-label').text(),
+    ).toBe('选择职位');
     expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual([
       'cast:anime:main',
     ]);
@@ -1792,7 +1811,7 @@ describe('PositionSelector hierarchical catalog', () => {
     const wrapper = mountSelector();
     await openCatalog(wrapper);
     await wrapper
-      .get<HTMLInputElement>('.position-selector__filter')
+      .get<HTMLInputElement>('[aria-label="搜索职位"]')
       .setValue(pattern);
     await nextTick();
 
@@ -1840,7 +1859,7 @@ describe('PositionSelector hierarchical catalog', () => {
       false,
     );
     expect(document.activeElement).toBe(
-      wrapper.get('.position-selector__filter').element,
+      wrapper.get('.position-selector__toggle').element,
     );
     wrapper.unmount();
   });

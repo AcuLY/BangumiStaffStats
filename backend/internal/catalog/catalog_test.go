@@ -274,6 +274,8 @@ func assertDormantGoldenCoverage(t *testing.T, fixture catalogSuccessFixture) {
 	for _, identity := range []string{
 		"cast:anime:main:main", "cast:anime:all:all",
 		"cast:game:main:main", "cast:game:all:all",
+		"cast:anime:supporting:supporting", "cast:anime:guest:guest", "cast:anime:minor:minor", "cast:anime:narrator:narrator", "cast:anime:voice-library:voice-library",
+		"cast:game:supporting:supporting", "cast:game:guest:guest", "cast:game:minor:minor", "cast:game:narrator:narrator", "cast:game:voice-library:voice-library",
 	} {
 		if !castScopes[identity] {
 			t.Fatalf("missing cast identity %q", identity)

@@ -16,10 +16,12 @@ let measureFrame = 0;
 let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
 const rolePriority: Record<CastContribution['roleLabel'], number> = {
-  主役: 4,
-  配角: 3,
-  客串: 2,
-  其他: 1,
+  主役: 6,
+  配角: 5,
+  客串: 4,
+  闲角: 3,
+  旁白: 2,
+  声库: 1,
 };
 const entries = computed(() =>
   props.contributions

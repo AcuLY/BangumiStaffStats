@@ -21,7 +21,7 @@ export const CatalogCastPositionV1Schema = {
             type: 'string',
             minLength: 1,
             maxLength: 96,
-            pattern: '^cast:(anime|game):(main|all)$'
+            pattern: '^cast:(anime|game):(main|supporting|guest|minor|narrator|voice-library|all)$'
         },
         kind: {
             const: 'cast'
@@ -77,6 +77,11 @@ export const CatalogCastPositionV1Schema = {
             type: 'string',
             enum: [
                 'main',
+                'supporting',
+                'guest',
+                'minor',
+                'narrator',
+                'voice-library',
                 'all'
             ]
         }

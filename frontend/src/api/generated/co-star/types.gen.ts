@@ -320,7 +320,7 @@ export type CastContributionV1 = {
     positionKey: PersonDetailPositionKeyV1;
     character: CharacterReferenceV1;
     roleType: number;
-    roleLabel: '主役' | '配角' | '客串' | '其他';
+    roleLabel: '主役' | '配角' | '客串' | '闲角' | '旁白' | '声库';
     provenance: 'exact';
 };
 
@@ -419,7 +419,7 @@ export type SeriesCastContributionV1 = {
     positionKey: PersonDetailPositionKeyV1;
     character: CharacterReferenceV1;
     roleType: number;
-    roleLabel: '主役' | '配角' | '客串' | '其他';
+    roleLabel: '主役' | '配角' | '客串' | '闲角' | '旁白' | '声库';
     provenance: 'exact';
     workCount: SuccessEnvelopeV1SchemaJsonSafePositiveIntegerV1;
 };

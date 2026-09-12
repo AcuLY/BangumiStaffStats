@@ -174,7 +174,9 @@ const (
 	PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel enum.
@@ -188,6 +190,10 @@ func (e PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabel
 		return true
 	case PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN3:
 		return true
+	case PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody0Data0Items0ParticipantsCredits1RoleLabelN5:
+		return true
 	default:
 		return false
 	}
@@ -198,7 +204,9 @@ const (
 	PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel enum.
@@ -211,6 +219,10 @@ func (e PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabel
 	case PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN2:
 		return true
 	case PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN3:
+		return true
+	case PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody0Data0Items1ParticipantsCredits1RoleLabelN5:
 		return true
 	default:
 		return false
@@ -276,7 +288,9 @@ const (
 	PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel enum.
@@ -290,6 +304,10 @@ func (e PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabel
 		return true
 	case PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN3:
 		return true
+	case PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody0Data1Items0ParticipantsCredits1RoleLabelN5:
+		return true
 	default:
 		return false
 	}
@@ -300,7 +318,9 @@ const (
 	PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel enum.
@@ -313,6 +333,10 @@ func (e PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabel
 	case PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN2:
 		return true
 	case PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN3:
+		return true
+	case PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody0Data1Items1ParticipantsCredits1RoleLabelN5:
 		return true
 	default:
 		return false
@@ -399,7 +423,9 @@ const (
 	PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel enum.
@@ -413,6 +439,10 @@ func (e PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabel
 		return true
 	case PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN3:
 		return true
+	case PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody1Data0Items0ParticipantsCredits1RoleLabelN5:
+		return true
 	default:
 		return false
 	}
@@ -423,7 +453,9 @@ const (
 	PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel enum.
@@ -436,6 +468,10 @@ func (e PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabel
 	case PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN2:
 		return true
 	case PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN3:
+		return true
+	case PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody1Data0Items1ParticipantsCredits1RoleLabelN5:
 		return true
 	default:
 		return false
@@ -573,7 +609,9 @@ const (
 	PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel enum.
@@ -587,6 +625,10 @@ func (e PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabel
 		return true
 	case PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN3:
 		return true
+	case PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody1Data1Items0ParticipantsCredits1RoleLabelN5:
+		return true
 	default:
 		return false
 	}
@@ -597,7 +639,9 @@ const (
 	PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelEmpty PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel = "主役"
 	PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN1    PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel = "配角"
 	PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN2    PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel = "客串"
-	PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel = "其他"
+	PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN3    PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel = "闲角"
+	PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN4    PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel = "旁白"
+	PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN5    PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel = "声库"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel enum.
@@ -610,6 +654,10 @@ func (e PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabel
 	case PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN2:
 		return true
 	case PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN3:
+		return true
+	case PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN4:
+		return true
+	case PostCoStarV1200JSONResponseBody1Data1Items1ParticipantsCredits1RoleLabelN5:
 		return true
 	default:
 		return false

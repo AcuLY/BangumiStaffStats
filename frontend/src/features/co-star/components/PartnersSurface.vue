@@ -142,7 +142,7 @@ const rankingItems = computed<readonly RankingItem[]>(() =>
 );
 const identityLabels = computed(() => Object.fromEntries(
   (currentPayload.value?.items ?? []).map((item) => [
-    item.person.id, joinDisplayText(item.positionKeys.map(props.positionLabel), ' · '),
+    item.person.id, joinDisplayText(item.positionKeys.map(props.positionLabel), ' / '),
   ]),
 ));
 const fullPending = computed(() => props.resource.phase === 'pending');

@@ -277,8 +277,8 @@
       ]
     },
     "bundle": {
-      "bytes": 690328,
-      "sha256": "43358d35d5ae8d9bd818c59f140c41456f83f0492d04f1a24cc47bc46dcaac07",
+      "bytes": 693640,
+      "sha256": "4c49b76f57d0abb739153758629fd564a8c95668d2993473e0cf97a388c3d6e2",
       "byteIdentical": true,
       "forbiddenKeywordCounts": {
         "$anchor": 0,

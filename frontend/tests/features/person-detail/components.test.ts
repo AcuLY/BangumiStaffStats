@@ -198,7 +198,7 @@ describe('person detail skeleton geometry', () => {
       expect(copyStyle.alignContent).toBe('start');
       expect(copyStyle.alignItems).toBe('start');
       expect(getComputedStyle(fixture.wrapper.get('.detail-skeleton__metrics').element).gridTemplateColumns)
-        .toBe('repeat(3, minmax(0, 1fr))');
+        .toBe('repeat(auto-fit, minmax(min(100%, 7rem), 1fr))');
     } finally {
       fixture.cleanup();
     }
@@ -227,7 +227,7 @@ describe('person detail skeleton geometry', () => {
       expect(pixels(profileStyle.paddingLeft)).toBe(24);
       expect(copyStyle.padding).toBe('4px 0px');
       expect(getComputedStyle(fixture.wrapper.get('.detail-skeleton__metrics').element).gridTemplateColumns)
-        .toBe('repeat(3, minmax(0, 1fr))');
+        .toBe('repeat(auto-fit, minmax(min(100%, 7rem), 1fr))');
     } finally {
       fixture.cleanup();
     }

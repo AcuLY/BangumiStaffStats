@@ -1535,10 +1535,10 @@ function parseProducerCatalog(blob) {
         ["anime", "game"].includes(position.subjectType),
         `${label} cast subject type`,
       );
-      invariant(["main", "all"].includes(keySelector), `${label} cast selector`);
+      invariant(["main","supporting","guest","minor","narrator","voice-library","all"].includes(keySelector), `${label} cast selector`);
       assert.equal(
         position.selectionRule,
-        keySelector === "main" ? "roleType=1" : "roleType=1..6",
+        keySelector === "all" ? "roleType=1..6" : `roleType=${["main", "supporting", "guest", "minor", "narrator", "voice-library"].indexOf(keySelector) + 1}`,
         `${label} numeric cast selection rule`,
       );
     } else {

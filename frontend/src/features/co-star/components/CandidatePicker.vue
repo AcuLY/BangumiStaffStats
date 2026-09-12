@@ -619,7 +619,7 @@ onBeforeUnmount(() => {
                 class="candidate-row__positions"
                 :title="joinDisplayText(item.positionKeys.map(positionLabel), ' / ')"
               >
-                {{ joinDisplayText([...(itemPartiallySelected(item) ? ['已选部分身份'] : []), ...item.positionKeys.map(positionLabel)], ' · ') }}
+                {{ joinDisplayText([...(itemPartiallySelected(item) ? ['已选部分身份'] : []), joinDisplayText(item.positionKeys.map(positionLabel), ' / ')], ' · ') }}
               </span>
               <span
                 v-if="otherSelectedIdentityLabels(item.person.id, item.positionKeys).length"

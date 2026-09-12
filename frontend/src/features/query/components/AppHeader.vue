@@ -2,7 +2,8 @@
 import { NButton, NTab, NTabs } from 'naive-ui';
 import { computed } from 'vue';
 
-import brandMark from '../../../assets/brand/bgmss.png';
+import brandMarkDark from '../../../assets/brand/bgmss-dark.svg?no-inline';
+import brandMarkLight from '../../../assets/brand/bgmss-light.svg?no-inline';
 import type { AppTheme } from '../../../app/theme';
 import { toPublicAppPath } from '../../../shared/navigation/basePath';
 import { useCompactLayout } from '../../../shared/composables/useCompactLayout';
@@ -18,6 +19,7 @@ const props = defineProps<{
 }>();
 
 const compact = useCompactLayout(props.targetWindow);
+const brandMark = computed(() => props.theme === 'dark' ? brandMarkDark : brandMarkLight);
 const modeControlSize = computed(() => (compact.value ? 'small' : 'medium'));
 
 const modes: readonly { label: string; value: QueryMode }[] = [

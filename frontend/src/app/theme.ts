@@ -1,4 +1,6 @@
 import { readonly, ref, type Ref } from 'vue';
+import brandMarkDark from '../assets/brand/bgmss-dark.svg?no-inline';
+import brandMarkLight from '../assets/brand/bgmss-light.svg?no-inline';
 
 export type AppTheme = 'dark' | 'light';
 type ThemePreference = AppTheme | 'auto';
@@ -84,6 +86,8 @@ export function createThemeOwner(
   function apply(): void {
     target.documentElement.dataset.theme = theme.value;
     target.documentElement.style.colorScheme = theme.value;
+    target.querySelector<HTMLLinkElement>('link[rel="icon"]')
+      ?.setAttribute('href', theme.value === 'dark' ? brandMarkDark : brandMarkLight);
     target
       .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
       ?.setAttribute('content', theme.value === 'dark' ? '#0e0e10' : '#f4f4f6');

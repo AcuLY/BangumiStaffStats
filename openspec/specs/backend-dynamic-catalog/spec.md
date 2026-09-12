@@ -91,7 +91,7 @@ being silently removed.
 
 Every accepted common exact position SHALL flow from Store rows to the wire,
 including positions with no credits and future valid additions. The four
-accepted anime/game cast positions SHALL retain exact main/all scope and
+accepted anime/game cast positions SHALL retain exact main/supporting/guest/minor/narrator/voice-library/all scope and
 exclusive identities; official common positions 101–106 SHALL remain staff.
 No cast position may be synthesized for book/music/real.
 

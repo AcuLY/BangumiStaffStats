@@ -239,7 +239,8 @@ describe('App ranking production slice', () => {
     } finally { wrapper.unmount(); }
   });
 
-  it('replays and persists one authoritative detail with its exact view', async () => {
+  it.each([false, true])('replays and persists detail without opening a drawer (compact=%s)', async (compact) => {
+    installCompactLayout(compact);
     const query: AppliedQuery = {
       scope: 'personal',
       uid: 'luca',
@@ -325,10 +326,14 @@ describe('App ranking production slice', () => {
     expect(wrapper.get('.ranked-person-row').attributes('aria-current')).toBe(
       'true',
     );
-    await vi.waitFor(() => {
-      expect(wrapper.find('.person-detail-surface').exists()).toBe(true);
-    });
-    expect(wrapper.find('.person-detail-surface').exists()).toBe(true);
+    if (compact) {
+      expect(wrapper.find('.person-detail-drawer').exists()).toBe(false);
+      expect(wrapper.get('[data-app-root]').attributes('inert')).toBeUndefined();
+    } else {
+      await vi.waitFor(() => {
+        expect(wrapper.find('.person-detail-surface').exists()).toBe(true);
+      });
+    }
     const main = wrapper.get('.app-main');
     const queryWorkspace = wrapper.get('.query-workspace');
     expect(main.element.firstElementChild).toBe(queryWorkspace.element);
@@ -359,6 +364,16 @@ describe('App ranking production slice', () => {
     expect(queryWorkspace.find('.query-editor-panel').exists()).toBe(false);
 
     expect(createQuerySessionOwner(window).read('/ranking')?.workspace).toEqual(workspace);
+    if (compact) {
+      await wrapper.get('.ranked-person-row').trigger('click');
+      await vi.waitFor(() => {
+        expect(wrapper.find('.person-detail-drawer').exists()).toBe(true);
+      });
+      await wrapper.get('.person-detail-drawer__bar button').trigger('click');
+      await vi.waitFor(() => {
+        expect(wrapper.find('.person-detail-drawer').exists()).toBe(false);
+      });
+    }
     wrapper.unmount();
   });
 

@@ -1080,13 +1080,12 @@ function validatePositionKeys(positionKeys, subjectType, catalog) {
   }
   for (const type of ["anime", "game"]) {
     if (
-      positionKeys.includes(`cast:${type}:main`) &&
-      positionKeys.includes(`cast:${type}:all`)
+      positionKeys.filter((key) => key.startsWith(`cast:${type}:`)).length > 1
     ) {
       throw new ContractError(
         "POSITION_SELECTION_CONFLICT",
         "/positionKeys",
-        "cast main and all are mutually exclusive"
+        "cast scopes are mutually exclusive"
       );
     }
   }

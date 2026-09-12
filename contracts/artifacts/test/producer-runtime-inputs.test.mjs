@@ -257,9 +257,9 @@ test('tracked authority manifest is canonical and bound to the accepted digest',
     {
       manifestDigest: PRODUCER_RUNTIME_INPUTS_MANIFEST_DIGEST,
       fileCount: 42,
-      totalSize: 1780175,
+      totalSize: 1780221,
       fileSetDigest:
-        'sha256:8e9c49bed6e0d09ab1439c704ffe2af4dc6fd6eda54c41c888a76fc3c4715c52',
+        'sha256:0af949599382636123335fb2ae8056702343a9985d17def74757cc649c1b438e',
     },
   );
   const runtimeSchema = JSON.parse(

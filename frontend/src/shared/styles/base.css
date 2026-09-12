@@ -296,6 +296,8 @@ select:focus-visible {
   height: 28px;
   flex: 0 0 auto;
   object-fit: contain;
+  /* Align the TV body, rather than its antennas, with the brand capitals. */
+  transform: translateY(-12%);
 }
 
 .app-brand__name {
@@ -316,6 +318,10 @@ select:focus-visible {
 
 .mode-tabs .n-tabs {
   width: 100%;
+}
+
+.mode-tabs .n-tabs .n-tabs-rail .n-tabs-tab-wrapper .n-tabs-tab[aria-selected="true"] {
+  color: var(--n-tab-text-color-active);
 }
 
 .header-icon-action {
@@ -2010,8 +2016,8 @@ select:focus-visible {
   }
 
   .app-brand__mark {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
   }
 
   .app-brand__name {

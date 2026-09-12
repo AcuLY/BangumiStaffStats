@@ -15,7 +15,7 @@
 }
 
 .partners-surface > .single-cooperation__workspace {
-  padding: var(--space-4) var(--analysis-section-inline);
+  padding: 0 var(--analysis-section-inline) var(--space-4);
 }
 
 .partners-surface .single-cooperation__selection-content {
@@ -54,12 +54,16 @@
 }
 
 .partners-surface .single-cooperation__leader {
+  container: partner-leader / inline-size;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-areas: "person metric" "person label";
   min-width: 0;
-  min-height: var(--touch-target);
+  min-height: 72px;
   padding: var(--space-3);
-  align-content: start;
-  gap: var(--space-1);
+  align-content: center;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
   border: 0;
   border-radius: 0;
   color: var(--text-primary);
@@ -84,13 +88,18 @@
 }
 
 .partners-surface .single-cooperation__leader > b {
+  grid-area: metric;
+  text-align: end;
   color: var(--brand);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
+  white-space: nowrap;
 }
 
 .partners-surface .single-cooperation__leader small {
+  grid-area: label;
+  text-align: end;
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
@@ -98,8 +107,11 @@
 
 .partners-surface .single-cooperation__leader-person {
   display: grid;
+  grid-area: person;
+  justify-self: start;
   min-width: 0;
-  margin-top: var(--space-1);
+  max-width: 100%;
+  margin-top: 0;
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: var(--space-2);
@@ -117,8 +129,9 @@
   color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .partners-surface .single-cooperation__leader-person > strong:only-child {
@@ -291,24 +304,30 @@
   }
 
   .partners-surface .single-cooperation__leader {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: var(--space-2);
   }
 
+  .partners-surface .single-cooperation__leader-person {
+    grid-template-columns: minmax(0, 1fr);
+    text-align: start;
+  }
+}
+
+@container partner-leader (width < 10rem) {
   .partners-surface .single-cooperation__leader > b {
-    grid-area: 1 / 1;
+    grid-area: 2 / 1 / 3 / -1;
+    text-align: start;
   }
 
   .partners-surface .single-cooperation__leader > small {
-    grid-area: 2 / 1;
+    grid-area: 3 / 1 / 4 / -1;
+    text-align: start;
   }
 
   .partners-surface .single-cooperation__leader-person {
-    grid-area: 1 / 2 / 3 / 3;
-    grid-template-columns: minmax(0, 1fr);
-    align-self: center;
-    margin-top: 0;
-    text-align: end;
+    grid-area: 1 / 1 / 2 / -1;
+    justify-self: start;
+    text-align: start;
   }
 }
 

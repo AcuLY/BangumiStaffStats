@@ -1067,6 +1067,12 @@ func roleLabel(roleType int64) string {
 		return "配角"
 	case 3:
 		return "客串"
+	case 4:
+		return "闲角"
+	case 5:
+		return "旁白"
+	case 6:
+		return "声库"
 	default:
 		return "其他"
 	}

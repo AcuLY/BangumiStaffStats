@@ -274,8 +274,8 @@ describe('App person workspace links', () => {
     expect(h.wrapper.get('.query-summary').text()).toContain('全部职位');
     await h.wrapper.get('.query-summary').trigger('click');
     await flushPromises();
-    expect(h.wrapper.findAll('.position-selector__filter')).toHaveLength(1);
-    expect((h.wrapper.get('.position-selector__filter').element as HTMLInputElement).value).toBe('全部');
+    expect(h.wrapper.findAll('.position-selector__toggle')).toHaveLength(1);
+    expect(h.wrapper.get('.position-selector__selected-label').text()).toBe('全部');
     expect(h.partners.mock.calls.at(-1)![0].input).toEqual({
       positionScope: 'all', source: { personId: 12, positionKeys: ['staff:anime:2'] },
     });

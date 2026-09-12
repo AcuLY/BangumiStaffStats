@@ -22,7 +22,7 @@ var (
 	ErrInvalidCatalog = errors.New("catalog: invalid Store catalog")
 
 	staffKeyPattern    = regexp.MustCompile(`^staff:(book|anime|music|game|real):([1-9][0-9]*)$`)
-	castKeyPattern     = regexp.MustCompile(`^cast:(anime|game):(main|all)$`)
+	castKeyPattern     = regexp.MustCompile(`^cast:(anime|game):(main|supporting|guest|minor|narrator|voice-library|all)$`)
 	staffSetKeyPattern = regexp.MustCompile(`^staffset:(book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*$`)
 	categoryPattern    = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
 	dataVersionPattern = regexp.MustCompile(`^dv1-[0-9a-f]{64}$`)

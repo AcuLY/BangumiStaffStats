@@ -38,10 +38,9 @@ interface PositionSelectorRow {
   readonly positionKey: PositionKey | null;
 }
 
-type CatalogActivation = 'input' | 'keyboard' | 'toggle';
+type CatalogActivation = 'keyboard' | 'toggle';
 
 let nextRowId = 0;
-let suppressFilterFocus = false;
 
 function createRow(positionKey: PositionKey | null = null): PositionSelectorRow {
   nextRowId += 1;
@@ -117,14 +116,6 @@ const describedBy = computed(() =>
   props.error ? 'query-error-position-keys' : undefined,
 );
 
-function rowInput(rowId: number): HTMLInputElement | null {
-  return (
-    selectorRoot.value?.querySelector<HTMLInputElement>(
-      `[data-position-row-id="${rowId}"] .position-selector__filter`,
-    ) ?? null
-  );
-}
-
 function rowToggle(rowId: number): HTMLButtonElement | null {
   return (
     selectorRoot.value?.querySelector<HTMLButtonElement>(
@@ -139,13 +130,6 @@ function selectedPosition(
   return row.positionKey === null
     ? undefined
     : positionByKey.value.get(row.positionKey);
-}
-
-function rowInputValue(row: PositionSelectorRow): string {
-  if (activeRowId.value === row.id) {
-    return searchDraft.value;
-  }
-  return props.allSelected ? '全部' : selectedPosition(row)?.label ?? row.positionKey ?? '';
 }
 
 function rowAriaLabel(row: PositionSelectorRow, index: number): string {
@@ -219,7 +203,7 @@ function updateRows(value: unknown[]): void {
 
 async function openCatalog(
   rowId: number,
-  activation: CatalogActivation = 'input',
+  activation: CatalogActivation = 'toggle',
 ): Promise<void> {
   if (props.disabled) {
     return;
@@ -233,9 +217,7 @@ async function openCatalog(
   if (activeRowId.value !== rowId) {
     return;
   }
-  if (activation === 'input') {
-    rowInput(rowId)?.focus({ preventScroll: true });
-  } else if (activation === 'toggle') {
+  if (activation === 'toggle') {
     rowToggle(rowId)?.focus({ preventScroll: true });
   }
   catalogBrowser.value?.reveal({
@@ -260,27 +242,7 @@ async function closeCatalog(restoreFocus = true): Promise<void> {
   searchDraft.value = '';
   if (restoreFocus && rowId !== null) {
     await nextTick();
-    suppressFilterFocus = true;
-    rowInput(rowId)?.focus({ preventScroll: true });
-    suppressFilterFocus = false;
-  }
-}
-
-function focusFilterAndOpen(rowId: number): void {
-  rowInput(rowId)?.focus({ preventScroll: true });
-  void openCatalog(rowId, 'input');
-}
-
-function handleFilterFocus(rowId: number): void {
-  if (!suppressFilterFocus) {
-    void openCatalog(rowId, 'input');
-  }
-}
-
-function handleFilterInput(rowId: number, event: Event): void {
-  searchDraft.value = (event.target as HTMLInputElement).value;
-  if (activeRowId.value !== rowId) {
-    void openCatalog(rowId, 'input');
+    rowToggle(rowId)?.focus({ preventScroll: true });
   }
 }
 
@@ -319,25 +281,6 @@ function handleTriggerKeydown(
   void openCatalog(rowId, 'keyboard');
 }
 
-function handleFilterKeydown(
-  event: KeyboardEvent,
-  rowId: number,
-): void {
-  if (event.key === 'ArrowDown') {
-    event.preventDefault();
-    void openCatalog(rowId, 'keyboard');
-  } else if (
-    event.key === 'Escape' &&
-    activeRowId.value === rowId
-  ) {
-    event.stopPropagation();
-    event.preventDefault();
-    void closeCatalog(false);
-  } else if (event.key === 'Enter') {
-    event.preventDefault();
-  }
-}
-
 async function createPositionRow(
   index: number,
   create: (index: number) => void,
@@ -347,7 +290,8 @@ async function createPositionRow(
   await nextTick();
   const createdRow = selectorRows.value[index + 1];
   if (createdRow) {
-    rowInput(createdRow.id)?.focus({ preventScroll: true });
+    rowToggle(createdRow.id)?.focus({ preventScroll: true });
+    void openCatalog(createdRow.id, 'toggle');
   }
 }
 
@@ -419,7 +363,7 @@ defineExpose({
   focus: () => {
     const firstRow = selectorRows.value[0];
     if (firstRow) {
-      rowInput(firstRow.id)?.focus();
+      rowToggle(firstRow.id)?.focus();
     }
   },
 });
@@ -515,34 +459,8 @@ defineExpose({
                 ]"
                 :data-position-row-id="row.id"
                 :data-position-row-index="index"
-                @click.self="focusFilterAndOpen(row.id)"
+                @click.self="toggleCatalog($event, row.id)"
               >
-                <div
-                  class="position-selector__values"
-                  @click="focusFilterAndOpen(row.id)"
-                >
-                  <input
-                    class="position-selector__filter"
-                    type="text"
-                    :value="rowInputValue(row)"
-                    :disabled="disabled"
-                    :placeholder="placeholder"
-                    role="combobox"
-                    aria-haspopup="dialog"
-                    aria-autocomplete="list"
-                    :aria-expanded="activeRowId === row.id"
-                    :aria-controls="panelId"
-                    :aria-describedby="describedBy"
-                    :aria-invalid="Boolean(error)"
-                    :aria-label="rowAriaLabel(row, index)"
-                    autocomplete="off"
-                    spellcheck="false"
-                    @focus="handleFilterFocus(row.id)"
-                    @input="handleFilterInput(row.id, $event)"
-                    @click.stop="openCatalog(row.id, 'input')"
-                    @keydown="handleFilterKeydown($event, row.id)"
-                  />
-                </div>
                 <button
                   class="position-selector__toggle"
                   type="button"
@@ -552,14 +470,14 @@ defineExpose({
                   :aria-controls="panelId"
                   :aria-describedby="describedBy"
                   :aria-invalid="Boolean(error)"
-                  :aria-label="
-                    activeRowId === row.id
-                      ? `收起第 ${index + 1} 个职位目录`
-                      : `打开第 ${index + 1} 个职位目录`
-                  "
+                  :aria-label="rowAriaLabel(row, index)"
                   @click="toggleCatalog($event, row.id)"
                   @keydown="handleTriggerKeydown($event, row.id)"
                 >
+                  <span
+                    class="position-selector__selected-label"
+                    :class="{ 'is-placeholder': !allSelected && !row.positionKey }"
+                  >{{ allSelected ? '全部' : selectedPosition(row)?.label ?? row.positionKey ?? placeholder }}</span>
                   <query-icon name="chevron" :size="16" />
                 </button>
               </div>
@@ -579,6 +497,7 @@ defineExpose({
               "
               :positions="positions"
               :search-query="searchDraft"
+              @update:search-query="searchDraft = $event"
               :unavailable-keys="unavailableKeysFor(row.id)"
               @close="closeCatalog()"
               @toggle="replacePosition(row.id, $event)"
@@ -684,51 +603,17 @@ defineExpose({
   opacity: 0.58;
 }
 
-.position-selector__values {
-  display: flex;
-  min-width: 0;
-  padding: 2px 0 2px var(--space-3);
-  align-items: center;
-  cursor: text;
-}
-
-.position-selector__filter {
-  width: 100%;
-  min-width: 0;
-  min-height: 22px;
-  flex: 1 1 auto;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  outline: 0;
-  color: var(--control-text);
-  background: transparent;
-  font: inherit;
-  font-size: 14px;
-  line-height: 21px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.position-selector__filter::placeholder {
-  color: var(--control-placeholder);
-  opacity: 1;
-}
-
-.position-selector__filter:disabled {
-  cursor: not-allowed;
-}
-
 .position-selector__toggle {
   position: relative;
   display: grid;
-  width: 44px;
+  width: 100%;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) 44px;
   min-height: 100%;
   padding: 0;
   place-items: center;
   border: 0;
-  border-radius: 0 calc(var(--radius-control) - 1px)
-    calc(var(--radius-control) - 1px) 0;
+  border-radius: inherit;
   color: var(--control-placeholder);
   background: transparent;
   cursor: pointer;
@@ -745,15 +630,32 @@ defineExpose({
 }
 
 .position-selector__toggle::before {
-  width: var(--touch-target);
+  width: 100%;
+}
+
+.position-selector__selected-label {
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+  padding-left: var(--space-3);
+  color: var(--control-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 21px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.position-selector__selected-label.is-placeholder {
+  color: var(--control-placeholder);
 }
 
 .position-selector__action-button::before {
   width: 100%;
 }
 
-.position-selector__toggle:disabled,
-.position-selector__control.is-disabled .position-selector__values {
+.position-selector__toggle:disabled {
   cursor: not-allowed;
 }
 

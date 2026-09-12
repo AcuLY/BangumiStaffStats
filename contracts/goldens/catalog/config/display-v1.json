@@ -115,6 +115,11 @@
       "anchorCategoryKey": "music",
       "positionKeys": [
         "cast:anime:main",
+        "cast:anime:supporting",
+        "cast:anime:guest",
+        "cast:anime:minor",
+        "cast:anime:narrator",
+        "cast:anime:voice-library",
         "cast:anime:all"
       ]
     },
@@ -124,6 +129,11 @@
       "anchorCategoryKey": "music",
       "positionKeys": [
         "cast:game:main",
+        "cast:game:supporting",
+        "cast:game:guest",
+        "cast:game:minor",
+        "cast:game:narrator",
+        "cast:game:voice-library",
         "cast:game:all"
       ]
     }

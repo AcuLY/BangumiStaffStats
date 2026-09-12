@@ -48,7 +48,7 @@ const (
 var (
 	monthPattern    = regexp.MustCompile(`^[0-9]{4}-(0[1-9]|1[0-2])$`)
 	staffPattern    = regexp.MustCompile(`^staff:(book|anime|music|game|real):[1-9][0-9]*$`)
-	castPattern     = regexp.MustCompile(`^cast:(anime|game):(main|all)$`)
+	castPattern     = regexp.MustCompile(`^cast:(anime|game):(main|supporting|guest|minor|narrator|voice-library|all)$`)
 	staffSetPattern = regexp.MustCompile(`^staffset:(book|anime|music|game|real):[a-z0-9]+(?:-[a-z0-9]+)*$`)
 )
 
@@ -905,12 +905,17 @@ func validatePositionSelection(positionKeys []string, subjectType string, catalo
 		}
 	}
 	for _, subject := range []string{"anime", "game"} {
-		if containsString(positionKeys, "cast:"+subject+":main") &&
-			containsString(positionKeys, "cast:"+subject+":all") {
+		count := 0
+		for _, key := range positionKeys {
+			if strings.HasPrefix(key, "cast:"+subject+":") {
+				count++
+			}
+		}
+		if count > 1 {
 			return &ContractError{
 				Code:    CodePositionSelectionConflict,
 				Path:    "/positionKeys",
-				Message: "cast main and all are mutually exclusive",
+				Message: "cast scopes are mutually exclusive",
 			}
 		}
 	}

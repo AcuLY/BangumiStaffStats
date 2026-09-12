@@ -212,13 +212,11 @@ describe('PositionSelector compact reveal and breakpoint ownership', () => {
     expect(editorSource).not.toContain('可多选；');
     expect(editorSource).toContain('placeholder="选择职位"');
     expect(editorSource).not.toMatch(/排行职位|参与职位|选择排行职位|选择参与职位/);
-    expect(selectorSource).not.toContain('v-if="!compact"');
     expect(selectorSource).toMatch(
       /@media \(width < 780px\)[\s\S]*?\.position-selector__control::before[\s\S]*?inset-block:\s*-8px;[\s\S]*?\.position-selector__control\.is-small[\s\S]*?min-height:\s*28px;/,
     );
     expect(selectorSource).not.toMatch(/\s:flip="false"/u);
-    expect(selectorSource).toContain('class="position-selector__filter"');
-    expect(browserSource).not.toContain('<n-input');
+    expect(selectorSource).not.toContain('position-selector__filter');
     expect(browserSource).toMatch(
       /\.position-catalog-browser\.is-compact\s*\{[^}]*--position-catalog-list-height:\s*212\.8px;/,
     );
@@ -241,10 +239,10 @@ describe('PositionSelector compact reveal and breakpoint ownership', () => {
       /\.position-selector__control\s*\{[^}]*border:\s*1px solid var\(--control-outline\);[^}]*background:\s*var\(--control-background\);/s,
     );
     expect(selectorSource).toMatch(
-      /\.position-selector__filter\s*\{[^}]*color:\s*var\(--control-text\);[^}]*line-height:\s*21px;/s,
+      /\.position-selector__selected-label\s*\{[^}]*color:\s*var\(--control-text\);[^}]*line-height:\s*21px;/s,
     );
     expect(selectorSource).toMatch(
-      /\.position-selector__filter::placeholder\s*\{[^}]*color:\s*var\(--control-placeholder\);[^}]*opacity:\s*1;/s,
+      /\.position-selector__selected-label\.is-placeholder\s*\{[^}]*color:\s*var\(--control-placeholder\);/s,
     );
     expect(selectorSource).toMatch(
       /\.position-selector__toggle\s*\{[^}]*color:\s*var\(--control-placeholder\);[^}]*background:\s*transparent;/s,
@@ -253,7 +251,7 @@ describe('PositionSelector compact reveal and breakpoint ownership', () => {
       /\.position-selector__toggle::before,[\s\S]*?\.position-selector__action-button::before\s*\{[^}]*height:\s*var\(--touch-target\);[^}]*transform:\s*translate\(-50%, -50%\);/s,
     );
     expect(selectorSource).toMatch(
-      /\.position-selector__toggle::before\s*\{[^}]*width:\s*var\(--touch-target\);/s,
+      /\.position-selector__toggle::before\s*\{[^}]*width:\s*100%;/s,
     );
     expect(selectorSource).toMatch(
       /\.position-selector__action-button::before\s*\{[^}]*width:\s*100%;/s,
@@ -364,38 +362,34 @@ describe('PositionSelector compact reveal and breakpoint ownership', () => {
     wrapper.unmount();
   });
 
-  it('opens and filters from the trigger combobox without a panel search field', async () => {
-    installMedia({ compact: true });
-    Object.defineProperty(Element.prototype, 'scrollIntoView', {
-      configurable: true,
-      value: vi.fn(),
-    });
+  it.each([true, false])('keeps selection out of text inputs and searches only in the panel (compact=%s)', async (compact) => {
+    installMedia({ compact });
     const wrapper = mountSelector();
     await nextTick();
-
-    const filter = wrapper.get<HTMLInputElement>(
-      '.position-selector__filter',
-    );
-    filter.element.focus();
-    await filter.setValue('Director');
+    const toggle = wrapper.get<HTMLButtonElement>('.position-selector__toggle');
+    expect(wrapper.find('.position-selector__filter').exists()).toBe(false);
+    toggle.element.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
     await nextTick();
-
-    expect(wrapper.getComponent(NPopover).props('show')).toBe(true);
-    expect(wrapper.find('.position-catalog-browser__search').exists()).toBe(
-      false,
-    );
-    expect(
-      wrapper.findAll('[data-position-key="staff:anime:2"]'),
-    ).toHaveLength(1);
-    expect(document.activeElement).toBe(filter.element);
-
-    await filter.trigger('keydown', { key: 'Escape' });
     await nextTick();
+    expect(document.activeElement).toBe(toggle.element);
+    const search = wrapper.get<HTMLInputElement>('[aria-label="搜索职位"]');
+    search.element.focus();
+    await search.setValue('missing');
+    expect(wrapper.findAll('[data-position-key]')).toHaveLength(0);
+    await search.setValue('Director');
+    expect(wrapper.findAll('[data-position-key="staff:anime:2"]')).toHaveLength(1);
+    await wrapper.get('[data-position-key="staff:anime:2"]').trigger('click');
+    await nextTick();
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([['staff:anime:2']]);
+    expect(document.activeElement).toBe(toggle.element);
     expect(wrapper.getComponent(NPopover).props('show')).toBe(false);
-    expect(document.activeElement).toBe(filter.element);
-    await filter.setValue('監督');
+    await toggle.trigger('keydown', { key: 'ArrowDown' });
     await nextTick();
-    expect(wrapper.getComponent(NPopover).props('show')).toBe(true);
+    expect(wrapper.get<HTMLInputElement>('[aria-label="搜索职位"]').element.value).toBe('');
+    await wrapper.get('[aria-label="搜索职位"]').trigger('keydown', { key: 'Escape' });
+    await nextTick();
+    expect(document.activeElement).toBe(toggle.element);
+    expect(wrapper.getComponent(NPopover).props('show')).toBe(false);
     wrapper.unmount();
   });
 

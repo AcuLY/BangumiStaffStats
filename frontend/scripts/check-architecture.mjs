@@ -76,6 +76,8 @@ const expectedInventory = [
   'src/app/theme.ts',
   'src/app/themeOverrides.ts',
   'src/assets/brand/bgmss.png',
+  'src/assets/brand/bgmss-dark.svg',
+  'src/assets/brand/bgmss-light.svg',
   'src/features/catalog/store.ts',
   'src/features/co-star/co-star-analysis.css',
   'src/features/co-star/co-star.css',
@@ -413,7 +415,7 @@ for (const [file, source] of sourceByFile) {
   if (/\bNConfigProvider\b/.test(source)) {
     providerOwners.push(relative);
   }
-  if (/assets\/brand\/bgmss\.png/.test(source)) {
+  if (/assets\/brand\/bgmss(?:-(?:dark|light))?\.(?:png|svg)/.test(source)) {
     brandImporters.push(relative);
   }
   if (
@@ -486,6 +488,7 @@ assertExactFiles('Naive provider ownership', providerOwners, [
   'src/app/AppProviders.vue',
 ]);
 assertExactFiles('brand ownership', brandImporters, [
+  'src/app/theme.ts',
   'src/features/query/components/AppHeader.vue',
 ]);
 

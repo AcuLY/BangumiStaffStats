@@ -96,7 +96,7 @@ fi
 
 # The production projection deliberately excludes shared error declarations
 # already owned byte-for-byte by query_wire.gen.go.
-expected_sha="a50ccd6a148158a90111de7abb7bced4df1db084b718ad495b8dfcdc5373c04d"
+expected_sha="88bedf9708446224ecfb44bea51a91fb83cd0aba0543e5949f6c9abbda023597"
 actual_sha="$("$node_command" --input-type=module -e '
   import { createHash } from "node:crypto";
   import { readFileSync } from "node:fs";

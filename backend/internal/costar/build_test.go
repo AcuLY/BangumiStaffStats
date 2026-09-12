@@ -49,6 +49,14 @@ func TestBuildGroupKeepsPairwiseMatrixWhenAllPersonIntersectionIsEmpty(t *testin
 	}
 }
 
+func TestRoleLabelsCoverEveryValidCastType(t *testing.T) {
+	for index, want := range []string{"主役", "配角", "客串", "闲角", "旁白", "声库"} {
+		if got := roleLabel(int64(index + 1)); got != want {
+			t.Fatalf("role %d: %q, want %q", index+1, got, want)
+		}
+	}
+}
+
 func TestBuildIntersectsRawSubjectsBeforeSeriesAggregation(t *testing.T) {
 	request := pairBuildRequest(t, true)
 	request.Query.PositionResults[0].Contributions[0].SubjectID = 101

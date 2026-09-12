@@ -2930,34 +2930,11 @@
 .person-inspector .person-profile .person-profile-metrics.profile-metrics--extended {
   width: calc(100% - (2 * var(--person-detail-inline, 16px)));
   margin: 0 var(--person-detail-inline, 16px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
   border: 0;
   border-radius: var(--radius-card);
   background: transparent;
   overflow: hidden;
-}
-
-@container person-inspector (min-width: 560px) {
-  .person-inspector .person-profile .person-profile-metrics.profile-metrics--extended:not(.profile-metrics--global),
-  .person-inspector .person-profile .person-profile-metrics.profile-metrics--extended.profile-metrics--global.has-character-count {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@container person-inspector (min-width: 760px) {
-  .person-inspector .person-profile .person-profile-metrics.profile-metrics--extended:not(.profile-metrics--global) {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-@container person-inspector (min-width: 1080px) {
-  .person-inspector .person-profile .person-profile-metrics.profile-metrics--extended:not(.profile-metrics--global) {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-  }
-
-  .person-inspector .person-profile .person-profile-metrics.profile-metrics--extended.has-character-count:not(.profile-metrics--global) {
-    grid-template-columns: repeat(9, minmax(0, 1fr));
-  }
 }
 
 .person-inspector

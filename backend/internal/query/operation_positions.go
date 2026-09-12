@@ -39,7 +39,7 @@ func OperationPositionScope(raw json.RawMessage) (string, error) {
 }
 
 // OperationPositions resolves permitted identities from the immutable catalog.
-// A browse set omits the redundant main-cast selector when all cast is available.
+// A browse set omits individual cast selectors when all cast is available.
 func OperationPositions(effective EffectiveQuery, catalog CatalogContext, supported map[string]bool, scope string, browse bool) []string {
 	if scope != "all" {
 		return append([]string(nil), effective.PositionKeys...)
@@ -52,7 +52,7 @@ func OperationPositions(effective EffectiveQuery, catalog CatalogContext, suppor
 	}
 	keys := make([]string, 0, len(allowed))
 	for key := range allowed {
-		if browse && strings.HasPrefix(key, "cast:") && strings.HasSuffix(key, ":main") && allowed[strings.TrimSuffix(key, ":main")+":all"] {
+		if browse && strings.HasPrefix(key, "cast:") && !strings.HasSuffix(key, ":all") && allowed[key[:strings.LastIndex(key, ":")]+":all"] {
 			continue
 		}
 		keys = append(keys, key)
