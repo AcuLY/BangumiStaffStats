@@ -66,7 +66,7 @@ User publishes the script directly to Bangumi. Preserve existing `bangumi_plugin
 
 - [x] 5.1 Run complete affected gates and generator reproducibility using exact pinned toolchain; `git diff --check`; strict change validation. Evidence includes actual commands, exit codes and any not-run checks.
 - [x] 5.2 Exercise real backend + built frontend browser flows for five types, wish-only, NSFW-only, non-first-page target, no works, network error, edit/retry/cancel/stale, choosing other people, desktop/mobile/light/dark/keyboard. Compare preserved surfaces to accepted baseline; do not call mocks live production evidence.
-- [ ] 5.3 Audit all owned diff; complete independent spec and quality reviews; synchronize/ archive this completed feature per repo skills, strict all-spec validation, phase-sized exact-path commits.
+- [x] 5.3 Audit all owned diff; complete independent spec and quality reviews; synchronize/ archive this completed feature per repo skills, strict all-spec validation, phase-sized exact-path commits.
 - [x] 5.4 Hand verified accepted feature and evidence to deploy-unrestricted-person-entry; no premature claim of pushed/merged/released/deployed.
 
 ## Implementation recipe
