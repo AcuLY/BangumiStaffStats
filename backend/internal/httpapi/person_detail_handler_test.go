@@ -5,16 +5,24 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/httpapi/wire"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/observability"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/persondetail"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
 
@@ -409,6 +417,222 @@ func TestPersonDetailTimeoutCancelsExecutionAndEmitsBoundedEvent(t *testing.T) {
 		!strings.Contains(events.String(), `"error_code":"UPSTREAM_TIMEOUT"`) {
 		t.Fatalf("timeout events = %q", events.String())
 	}
+}
+
+func TestUnrestrictedHTTPRealServicesPreserveWishAndLocalAbsence(t *testing.T) {
+	for _, scope := range []string{"global", "personal"} {
+		t.Run(scope, func(t *testing.T) {
+			state := loadUnrestrictedHTTPArchive(t)
+			store, _ := state.Current()
+			rankingBinding, err := ranking.ResultBinding()
+			if err != nil {
+				t.Fatal(err)
+			}
+			detailBinding, err := persondetail.ResultBinding()
+			if err != nil {
+				t.Fatal(err)
+			}
+			now := time.Date(2026, 7, 25, 8, 0, 0, 0, time.UTC)
+			config := runtimecache.DefaultQueryRuntimeConfig()
+			config.Collection.Now = func() time.Time { return now }
+			shared, err := runtimecache.NewQueryRuntime(config, rankingBinding, detailBinding)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var animeCalls, bookCalls atomic.Int64
+			statuses := []string{"wish", "completed", "in_progress", "on_hold", "dropped"}
+			// Only the external public-collection boundary is substituted. Both
+			// HTTP operations use their real services, facts and shared caches.
+			collections := ranking.CollectionProviderFunc(func(_ context.Context, uid, subjectType string, gotStatuses []string) (runtimecache.CollectionSnapshot, error) {
+				if scope != "personal" || uid != "Alice" || !slices.Equal(gotStatuses, statuses) {
+					return runtimecache.CollectionSnapshot{}, fmt.Errorf("unexpected collection arguments: %s %s %v", uid, subjectType, gotStatuses)
+				}
+				switch subjectType {
+				case "anime":
+					animeCalls.Add(1)
+				case "book":
+					bookCalls.Add(1)
+				default:
+					return runtimecache.CollectionSnapshot{}, fmt.Errorf("unexpected subject type: %s", subjectType)
+				}
+				return runtimecache.CollectionSnapshot{Items: []runtimecache.CollectionItem{{
+					SubjectID: 1, SubjectType: subjectType, Status: "wish", Rate: 0,
+					Tags: []string{}, UpdatedAt: now,
+				}}}, nil
+			})
+			rankings, err := ranking.NewServiceWithRuntime(state.Current, collections, shared)
+			if err != nil {
+				t.Fatal(err)
+			}
+			detail, err := persondetail.NewServiceWithRuntime(state.Current, collections, shared)
+			if err != nil {
+				t.Fatal(err)
+			}
+			handler := newHandler(nil, newTestMetrics(t), middlewareOptions{
+				requestTimeout: time.Second, requestID: func() string { return "req-unrestricted-real" },
+				rankings: rankings, personDetail: detail,
+			})
+			applied := `{"scope":"` + scope + `","subjectType":"anime","positionScope":"all","positionKeys":[]`
+			if scope == "personal" {
+				applied += `,"uid":"Alice","collectionStatuses":["wish","completed","in_progress","on_hold","dropped"]`
+			}
+			applied += `}`
+			// Neither success envelope echoes an effective query. Check the actual
+			// transport decoder and normalizer separately, without wrapping Execute.
+			request := httptest.NewRequest(http.MethodPost, routePersonDetail, strings.NewReader(`{"query":`+applied+`,"input":{"personId":100}}`))
+			request.Header.Set("Content-Type", "application/json")
+			decoded, failure := decodePersonDetailRequest(request)
+			if failure != nil || string(decoded.Query) != applied {
+				t.Fatalf("transport changed applied query: %+v, %+v", decoded, failure)
+			}
+			catalog := query.CatalogContext{}
+			rows, err := store.QueryContext(context.Background(), `SELECT position_key, subject_type, selectable FROM catalog_position ORDER BY position_key`)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for rows.Next() {
+				var position query.CatalogPosition
+				if err := rows.Scan(&position.Key, &position.SubjectType, &position.Selectable); err != nil {
+					_ = rows.Close()
+					t.Fatal(err)
+				}
+				catalog.Positions = append(catalog.Positions, position)
+			}
+			if err := rows.Err(); err != nil {
+				_ = rows.Close()
+				t.Fatal(err)
+			}
+			if err := rows.Close(); err != nil {
+				t.Fatal(err)
+			}
+			normalized, err := query.Normalize(decoded.Query, catalog)
+			if err != nil || normalized.Effective.PositionScope != "all" || normalized.Effective.PositionKeys == nil || len(normalized.Effective.PositionKeys) != 0 || normalized.Projection.PositionScope != "all" || len(normalized.Projection.PositionKeys) != 0 {
+				t.Fatalf("unrestricted effective query lost: %+v, %v", normalized, err)
+			}
+			if scope == "personal" && !slices.Equal(normalized.Effective.CollectionStatuses, statuses) {
+				t.Fatalf("effective statuses = %v", normalized.Effective.CollectionStatuses)
+			}
+			decodeSuccess := func(response *httptest.ResponseRecorder) map[string]any {
+				t.Helper()
+				if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != "private, no-store" || response.Header().Get("Content-Type") != "application/json" {
+					t.Fatalf("real-service response = %d %v %s", response.Code, response.Header(), response.Body)
+				}
+				var envelope map[string]any
+				if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+					t.Fatal(err)
+				}
+				meta := envelope["meta"].(map[string]any)
+				_, hasCollection := meta["collection"]
+				if hasCollection != (scope == "personal") || meta["dataVersion"] != store.Identity().DataVersion || meta["requestId"] != "req-unrestricted-real" {
+					t.Fatalf("real-service metadata = %+v", meta)
+				}
+				return envelope["data"].(map[string]any)
+			}
+			assertRankings := func(raw string, wantIDs []int64) {
+				t.Helper()
+				data := decodeSuccess(performRankingsRequest(handler, `{"query":`+raw+`}`))
+				items := data["items"].([]any)
+				ids := make([]int64, 0, len(items))
+				for _, item := range items {
+					row := item.(map[string]any)
+					ids = append(ids, int64(row["person"].(map[string]any)["id"].(float64)))
+					if row["workCount"] != float64(1) || (scope == "personal" && row["average"] != nil) || (scope == "global" && row["average"] != float64(820)) {
+						t.Fatalf("wish/real factual ranking = %+v", row)
+					}
+				}
+				slices.Sort(ids)
+				summary := data["summary"].(map[string]any)
+				if !slices.Equal(ids, wantIDs) || summary["personCount"] != float64(len(wantIDs)) {
+					t.Fatalf("rankings IDs/summary = %v %+v, want %v", ids, summary, wantIDs)
+				}
+			}
+			assertDetail := func(personID int64) {
+				t.Helper()
+				data := decodeSuccess(performPersonDetailRequest(handler, fmt.Sprintf(`{"query":%s,"input":{"personId":%d}}`, applied, personID)))
+				items := data["items"].([]any)
+				if data["person"].(map[string]any)["id"] != float64(personID) || data["summary"].(map[string]any)["workCount"] != float64(1) || len(items) != 1 || items[0].(map[string]any)["subject"].(map[string]any)["id"] != float64(1) {
+					t.Fatalf("real factual detail = %+v", data)
+				}
+				metrics := data["metrics"].(map[string]any)
+				if scope == "personal" && (metrics["average"] != nil || metrics["ratedWorkCount"] != float64(0) || items[0].(map[string]any)["personal"].(map[string]any)["score"] != nil) {
+					t.Fatalf("unrated wish became score zero: %+v", data)
+				}
+			}
+			wantIDs := []int64{100, 101, 102, 103, 104, 105, 106}
+			assertRankings(applied, wantIDs)
+			assertDetail(100)
+			// Book 1 exists (also in Alice's wish collection), but the published
+			// fixture has no book participation. Person 100 exists; 999999 does not.
+			emptyQuery := strings.Replace(applied, `"subjectType":"anime"`, `"subjectType":"book"`, 1)
+			for _, tc := range []struct {
+				id      int64
+				status  int
+				code    errorCode
+				message string
+			}{
+				{100, http.StatusBadRequest, errorCode(persondetail.CodePersonNotInQueryResult), "person is not in the query result"},
+				{999999, http.StatusNotFound, codeEntityNotFound, "person not found"},
+			} {
+				response := performPersonDetailRequest(handler, fmt.Sprintf(`{"query":%s,"input":{"personId":%d}}`, emptyQuery, tc.id))
+				assertPersonDetailError(t, response, tc.status, tc.code, tc.message)
+				if tc.id == 100 && !strings.Contains(response.Body.String(), `"/input/personId":["PERSON_NOT_IN_QUERY_RESULT"]`) {
+					t.Fatalf("missing exact no-participation field error: %s", response.Body)
+				}
+			}
+			assertRankings(emptyQuery, []int64{})
+			assertRankings(applied, wantIDs)
+			assertDetail(101)
+			wantCalls := int64(0)
+			if scope == "personal" {
+				wantCalls = 1
+			}
+			if animeCalls.Load() != wantCalls || bookCalls.Load() != wantCalls {
+				t.Fatalf("collection calls anime=%d book=%d, want %d each", animeCalls.Load(), bookCalls.Load(), wantCalls)
+			}
+		})
+	}
+}
+
+func loadUnrestrictedHTTPArchive(t *testing.T) *archive.State {
+	t.Helper()
+	bundle := filepath.Join("..", "..", "..", "contracts", "goldens", "archive", "valid", "minimal")
+	pointer, err := os.ReadFile(filepath.Join(bundle, "current-pointer.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var current struct {
+		DataVersion string `json:"dataVersion"`
+	}
+	if err := json.Unmarshal(pointer, &current); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	version := filepath.Join(root, "versions", current.DataVersion)
+	if err := os.MkdirAll(version, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"bangumi.sqlite", "archive-manifest.json"} {
+		data, err := os.ReadFile(filepath.Join(bundle, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(version, name), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "current.json"), pointer, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := &archive.State{}
+	if err := state.LoadCurrent(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := state.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	return state
 }
 
 func testPersonDetailProjection(scope string) persondetail.Projection {

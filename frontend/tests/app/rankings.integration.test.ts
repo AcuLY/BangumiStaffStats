@@ -201,6 +201,55 @@ function deferred<T>() {
 }
 
 describe('App ranking production slice', () => {
+  it.each([false, true])('ranking mode guard distinguishes legacy empty keys from explicit shared all (sharedAll=%s)', async sharedAll => {
+    installCompactLayout(false);
+    window.history.replaceState({}, '', '/co-star');
+    window.sessionStorage.clear();
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useQueryStore(pinia);
+    const query: AppliedQuery = {
+      scope: 'personal', uid: 'luca', subjectType: 'anime', collectionStatuses: ['completed'],
+      includeNSFW: false, mergeSeries: false, positionKeys: [],
+      ...(sharedAll ? { positionScope: 'all' as const } : {}),
+    };
+    store.commit(query, 1, 'all');
+    store.restoreDraft();
+    const requests: AppliedQuery[] = [];
+    const resultDrivers: QueryDrivers<RankingPayload, never> = {
+      candidates: { async execute() { throw new Error('candidate projection is outside this mode guard test'); } },
+      rankings: { async execute(request) {
+        requests.push(request.query);
+        return { payload: emptyRankingPayload(), requestId: 'mode-guard-ranking', transactionId: request.transactionId };
+      } },
+    };
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia], stubs: { teleport: true } },
+      props: { services: { catalogApi: { async load() { return catalogFixture(); } }, drivers: resultDrivers, targetWindow: window } },
+    });
+    try {
+      await flushPromises();
+      expect(wrapper.find('#query-editor').exists()).toBe(false);
+      store.draft.includeNSFW = true;
+      await wrapper.get('#mode-tab-ranking').trigger('click');
+      await flushPromises();
+      expect(window.location.pathname).toBe('/ranking');
+      expect(requests).toEqual(sharedAll ? [query] : []);
+      expect(wrapper.find('#query-editor').exists()).toBe(!sharedAll);
+      expect(store.applied).toEqual(query);
+      expect(store.draft.includeNSFW).toBe(true);
+      expect(store.dirty).toBe(true);
+      // The first accepted ranking snapshot advances the precommitted revision.
+      expect(store.revision).toBe(sharedAll ? 2 : 1);
+      if (sharedAll) {
+        await waitForRankingSurface(wrapper);
+        expect(wrapper.get('.query-summary').text()).toContain('不限');
+        expect(wrapper.find('.ranking-page-empty-state').exists()).toBe(true);
+      }
+    } finally { wrapper.unmount(); }
+  });
+
   it.each([false, true])('keeps submitted labels in a deferred ranking shell (mergeSeries=%s)', async (mergeSeries) => {
     installCompactLayout(false);
     const query: AppliedQuery = {

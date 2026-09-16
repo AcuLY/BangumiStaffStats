@@ -114,6 +114,9 @@ function draftForGolden(testCase: QueryGoldenCase) {
   draft.scope = submitted.scope;
   draft.subjectType = submitted.subjectType;
   draft.positionKeys = [...submitted.positionKeys];
+  if (Object.hasOwn(submitted, 'positionScope')) {
+    Object.assign(draft, { positionScope: submitted.positionScope });
+  }
   draft.includeNSFW = submitted.includeNSFW ?? false;
   draft.mergeSeries = submitted.mergeSeries ?? false;
   if (submitted.scope === 'personal') {
@@ -157,6 +160,111 @@ function draftForGolden(testCase: QueryGoldenCase) {
   }
   return draft;
 }
+
+describe('unrestricted query core', () => {
+  const subjectTypes = ['book', 'anime', 'music', 'game', 'real'] as const;
+
+  it.each(subjectTypes)('preserves explicit all for %s in both scopes and modes', (subjectType) => {
+    for (const scope of ['personal', 'global'] as const) {
+      for (const mode of ['ranking', 'co-star'] as const) {
+        for (const operationScope of ['query', 'all'] as const) {
+          const draft = Object.assign(createDefaultDraft('luca'), {
+            subjectType, scope, positionScope: 'all' as const,
+          });
+          const result = validateDraft(draft, mode, catalogFixture(), operationScope);
+          expect(result.errors).toEqual({});
+          expect(result.query).toEqual({
+            scope, subjectType, positionKeys: [], positionScope: 'all',
+            includeNSFW: false, mergeSeries: false,
+            ...(scope === 'personal' ? { uid: 'luca', collectionStatuses: ['completed', 'in_progress'] } : {}),
+          });
+          expect(isCanonicalAppliedQuery(result.query!, operationScope)).toBe(true);
+          expect(draftFromEffective(result.query!)).toEqual({ ...draft, uid: scope === 'personal' ? 'luca' : '' });
+          expect(draftSemanticSignature(draftFromEffective(result.query!))).toBe(draftSemanticSignature(draft));
+          expect(summarizeQuery(result.query!, catalogFixture(), operationScope)[0]).toBe('不限');
+          expect(draft.positionKeys).toEqual([]);
+        }
+      }
+    }
+  });
+
+  it.each(subjectTypes)('does not infer ranking all from empty positions for %s', (subjectType) => {
+    for (const scope of ['personal', 'global'] as const) {
+      const draft = Object.assign(createDefaultDraft('luca'), { subjectType, scope });
+      expect(validateDraft(draft, 'ranking', catalogFixture(), 'all').errors.positionKeys).toBeTruthy();
+    }
+  });
+
+  it.each([
+    ['all', ['staff:anime:2']], ['all', [' ']],
+    [null, []], ['query', []], ['unknown', []],
+    [null, ['staff:anime:2']], ['query', ['staff:anime:2']], ['unknown', ['staff:anime:2']],
+  ])('rejects scope %j with exact keys %j without mutating the draft', (positionScope, keys) => {
+    for (const scope of ['personal', 'global'] as const) {
+      for (const mode of ['ranking', 'co-star'] as const) {
+        for (const operationScope of ['query', 'all'] as const) {
+          const draft = Object.assign(createDefaultDraft('luca'), { scope, positionScope, positionKeys: keys });
+          const before = structuredClone(draft);
+          // Exercise malformed runtime values that TypeScript alone cannot prevent.
+          const result = validateDraft(draft as ReturnType<typeof createDefaultDraft>, mode, catalogFixture(), operationScope);
+          expect(result.query).toBeNull();
+          expect(result.errors.positionKeys).toBeTruthy();
+          expect(draft).toEqual(before);
+        }
+      }
+    }
+  });
+
+  it('rejects malformed query-wide scope during canonical validation even for operation all', () => {
+    const base = validateDraft(Object.assign(createDefaultDraft('luca'), {
+      positionKeys: ['staff:anime:2'],
+    }), 'ranking', catalogFixture()).query!;
+    for (const positionScope of [null, 'query', 'unknown', 'all']) {
+      for (const operationScope of ['query', 'all'] as const) {
+        expect(isCanonicalAppliedQuery({ ...base, positionScope } as typeof base, operationScope)).toBe(false);
+      }
+    }
+  });
+
+  it('preserves legacy absent-scope effective and draft signatures', () => {
+    const draft = createDefaultDraft('luca');
+    draft.positionKeys = ['staff:anime:2', 'staff:anime:101', 'staff:anime:2'];
+    const result = validateDraft(draft, 'ranking', catalogFixture());
+    expect(JSON.stringify(result.query)).toBe('{"scope":"personal","uid":"luca","collectionStatuses":["completed","in_progress"],"subjectType":"anime","positionKeys":["staff:anime:2","staff:anime:101"],"includeNSFW":false,"mergeSeries":false}');
+    expect(draftSemanticSignature(draft)).toBe('{"scope":"personal","subjectType":"anime","positionKeys":["staff:anime:2","staff:anime:101"],"includeNSFW":false,"mergeSeries":false,"subjectDate":null,"globalScore":null,"ratingCount":null,"positiveTags":null,"negativeTags":null,"uid":"luca","collectionStatuses":["completed","in_progress"],"collectionUpdatedAt":null,"personalScore":null,"scoreDifference":null}');
+    expect(draftFromEffective(result.query!)).not.toHaveProperty('positionScope');
+    const legacyEmpty = createDefaultDraft('luca');
+    const explicit = Object.assign(createDefaultDraft('luca'), { positionScope: 'all' as const });
+    expect(draftSemanticSignature(explicit)).not.toBe(draftSemanticSignature(legacyEmpty));
+    expect(validateDraft(legacyEmpty, 'co-star', catalogFixture(), 'all').query).not.toHaveProperty('positionScope');
+  });
+
+  it('normalizes wish first without changing manual defaults', () => {
+    const draft = createDefaultDraft('luca');
+    expect(draft.collectionStatuses).toEqual(['completed', 'in_progress']);
+    expect(draft).not.toHaveProperty('positionScope');
+    draft.positionKeys = ['staff:anime:2'];
+    draft.collectionStatuses = ['dropped', 'wish', 'on_hold', 'completed', 'wish', 'in_progress'];
+    const result = validateDraft(draft, 'ranking', catalogFixture());
+    expect(result.errors).toEqual({});
+    expect(result.query).toHaveProperty('collectionStatuses', ['wish', 'completed', 'in_progress', 'on_hold', 'dropped']);
+    expect(isCanonicalAppliedQuery(result.query!)).toBe(true);
+    expect(validateDraft(draftFromEffective(result.query!), 'ranking', catalogFixture()).query).toEqual(result.query);
+    expect(isCanonicalAppliedQuery({ ...result.query!, collectionStatuses: ['completed', 'wish'] } as NonNullable<typeof result.query>)).toBe(false);
+    expect(draftSemanticSignature(draftFromEffective(result.query!))).toBe(draftSemanticSignature(draft));
+  });
+
+  it.each([
+    ['book', '想读'], ['anime', '想看'], ['music', '想听'], ['game', '想玩'], ['real', '想看'],
+  ] as const)('summarizes wish for %s as %s', (subjectType, label) => {
+    const query = {
+      scope: 'personal' as const, uid: 'luca', subjectType,
+      positionScope: 'all' as const, positionKeys: [],
+      collectionStatuses: ['wish'] as const, includeNSFW: false, mergeSeries: false,
+    };
+    expect(summarizeQuery(query, catalogFixture())).toContain(label);
+  });
+});
 
 describe('query model', () => {
   it('accepts an empty concrete position list only for an explicit all co-star query', () => {

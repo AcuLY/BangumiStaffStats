@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises, mount } from '@vue/test-utils';
 import { NDivider, NDynamicInput, NPopover, NSelect } from 'naive-ui';
-import { nextTick } from 'vue';
+import { defineComponent, h, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../../../src/app/App.vue';
@@ -13,6 +13,7 @@ import type {
   CatalogGroup,
   CatalogPosition,
   PositionKey,
+  SubjectType,
 } from '../../../src/api/adapters/catalog';
 import type { CatalogApi } from '../../../src/api/catalog';
 import type {
@@ -21,12 +22,15 @@ import type {
 import type { RankingPayload } from '../../../src/api/adapters/rankings';
 import AppHeader from '../../../src/features/query/components/AppHeader.vue';
 import PositionSelector from '../../../src/features/query/components/PositionSelector.vue';
+import QueryEditor from '../../../src/features/query/components/QueryEditor.vue';
+import QueryWorkspace from '../../../src/features/query/components/QueryWorkspace.vue';
+import { useCatalogStore } from '../../../src/features/catalog/store';
 import {
   createQueryCoordinator,
   type OperationResponse,
   type QueryDrivers,
 } from '../../../src/features/query/coordinator';
-import type { AppliedQuery } from '../../../src/features/query/model';
+import { createDefaultDraft, validateDraft, type AppliedQuery, type QueryMode } from '../../../src/features/query/model';
 import { createQuerySessionOwner } from '../../../src/features/query/session';
 import type { RecoveryWorkspace } from '../../../src/features/query/recovery';
 import { useQueryStore } from '../../../src/features/query/store';
@@ -1530,6 +1534,314 @@ describe('query shell components', () => {
       ),
     ).toHaveLength(1);
     wrapper.unmount();
+  });
+});
+
+describe('native unrestricted query controls', () => {
+  function mountEditor(options: {
+    mode?: QueryMode;
+    subjectType?: SubjectType;
+    sharedAll?: boolean;
+    operationScope?: 'query' | 'all';
+    omitOperationScope?: boolean;
+    positions?: readonly CatalogPosition[];
+    compact?: boolean;
+    disabled?: boolean;
+  } = {}) {
+    const catalog = catalogFixture();
+    const store = useQueryStore();
+    store.replaceDraft(createDefaultDraft('luca'));
+    store.draft.subjectType = options.subjectType ?? 'anime';
+    store.draft.positionKeys = catalog.positions.filter(position =>
+      position.subjectType === store.draft.subjectType && position.selectable &&
+      position.capabilities.includes('rankings'),
+    ).slice(0, 1).map(position => position.key);
+    if (options.sharedAll) {
+      store.draft.positionScope = 'all';
+      store.draft.positionKeys = [];
+    }
+    store.setCoStarPositionScope(options.operationScope ?? 'query');
+    installMatchMedia(query => Boolean(options.compact) && query === '(width < 780px)');
+    const wrapper = mount(defineComponent({
+      setup: () => () => h(QueryEditor, {
+        catalogPhase: 'ready', compact: options.compact ?? false,
+        disabled: options.disabled ?? false,
+        dirty: store.dirty, draft: store.draft, errors: store.fieldErrors,
+        groups: catalog.groups, hasAppliedQuery: store.applied !== null,
+        mergeSeriesAvailable: true, mode: options.mode ?? 'ranking',
+        positions: options.positions ?? catalog.positions, subjectTypes: catalog.subjectTypes,
+        ...(options.omitOperationScope ? {} : { coStarPositionScope: store.coStarPositionScope }),
+        'onUpdate:coStarPositionScope': (value: 'query' | 'all') => store.setCoStarPositionScope(value),
+      }),
+    }), { attachTo: document.body, global: { stubs: { teleport: true } } });
+    return { wrapper, store, catalog };
+  }
+
+  async function openPositions(wrapper: ReturnType<typeof mountEditor>['wrapper'], row = 0) {
+    await wrapper.findAll('.position-selector__toggle')[row]!.trigger('keydown', { key: 'ArrowDown' });
+    await flushPromises();
+  }
+
+  it.each(['book', 'anime', 'music', 'game', 'real'] as const)(
+    'offers one first-row 不限 for %s and submits exact shared all without changing co-star scope', async subjectType => {
+      const { wrapper, store, catalog } = mountEditor({ subjectType, operationScope: 'all' });
+      try {
+        await openPositions(wrapper);
+        const all = wrapper.find('[data-position-all]');
+        expect(all.exists()).toBe(true);
+        expect(all.text()).toBe('不限');
+        expect(wrapper.get('.position-catalog-browser__list').element.firstElementChild).toBe(all.element);
+        expect(document.activeElement).toBe(all.element);
+        await all.trigger('click');
+        await flushPromises();
+        expect(store.draft.positionScope).toBe('all');
+        expect(store.draft.positionKeys).toEqual([]);
+        expect(store.coStarPositionScope).toBe('all');
+        expect(wrapper.findAll('.position-selector__toggle')).toHaveLength(1);
+        expect(wrapper.get('.position-selector__selected-label').text()).toBe('不限');
+        expect(wrapper.get('.position-selector__toggle').attributes('aria-label')).toBe('第 1 个职位，当前为不限');
+        expect(document.activeElement).toBe(wrapper.get('.position-selector__toggle').element);
+        expect(wrapper.findAll('input[name="positionKeys"]')).toHaveLength(0);
+        expect(wrapper.get('[aria-label="在第 1 行后添加职位选择器"]').attributes('disabled')).toBeDefined();
+        const result = validateDraft(store.draft, 'ranking', catalog);
+        expect(result.errors).toEqual({});
+        if (!result.query) throw new Error('expected valid unrestricted query');
+        expect(result.query).toMatchObject({ subjectType, positionScope: 'all', positionKeys: [] });
+        store.commit(result.query, 1);
+        expect(store.dirty).toBe(false);
+        await openPositions(wrapper);
+        expect(wrapper.get('[data-position-all]').attributes('aria-pressed')).toBe('true');
+      } finally { wrapper.unmount(); }
+    },
+  );
+
+  it.each(['book', 'anime', 'music', 'game', 'real'] as const)(
+    'keeps 不限 selectable with no eligible %s positions', async subjectType => {
+      const { wrapper, store } = mountEditor({ subjectType, positions: [] });
+      try {
+        await openPositions(wrapper);
+        expect(wrapper.findAll('[data-position-key]')).toHaveLength(0);
+        expect(wrapper.findAll('[data-position-all]')).toHaveLength(1);
+        expect(wrapper.get('[data-position-all]').attributes('disabled')).toBeUndefined();
+        await wrapper.get('[data-position-all]').trigger('click');
+        expect(store.draft.positionScope).toBe('all');
+        expect(store.draft.positionKeys).toEqual([]);
+      } finally { wrapper.unmount(); }
+    },
+  );
+
+  it.each([
+    { mode: 'ranking' as const, operationScope: 'all' as const, omitOperationScope: false },
+    { mode: 'co-star' as const, operationScope: 'query' as const, omitOperationScope: false },
+    { mode: 'co-star' as const, operationScope: 'query' as const, omitOperationScope: true },
+    { mode: 'co-star' as const, operationScope: 'all' as const, omitOperationScope: false },
+  ])('exits inherited shared all for a concrete row: %j', async options => {
+    const { wrapper, store, catalog } = mountEditor({ ...options, sharedAll: true });
+    try {
+      expect(wrapper.get('.position-selector__selected-label').text()).toBe(options.mode === 'ranking' ? '不限' : '全部');
+      await openPositions(wrapper);
+      expect(wrapper.get('[data-position-all]').attributes('aria-pressed')).toBe('true');
+      await wrapper.get('[aria-label="搜索职位"]').setValue('staff:anime:2');
+      await wrapper.get('[data-position-key="staff:anime:2"]').trigger('click');
+      expect(Object.hasOwn(store.draft, 'positionScope')).toBe(false);
+      expect(store.draft.positionKeys).toEqual(['staff:anime:2']);
+      expect(store.coStarPositionScope).toBe(options.mode === 'ranking' ? 'all' : 'query');
+      expect(validateDraft(store.draft, options.mode, catalog).errors).toEqual({});
+      expect(wrapper.get('.position-selector__selected-label').text()).toBe('导演');
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each([false, true])('preserves exact query keys when co-star All is chosen (inherited=%s)', async sharedAll => {
+    const { wrapper, store } = mountEditor({ mode: 'co-star', sharedAll });
+    try {
+      const keys = [...store.draft.positionKeys];
+      await openPositions(wrapper);
+      expect(wrapper.get('[data-position-all]').text()).toBe('全部');
+      await wrapper.get('[data-position-all]').trigger('click');
+      expect(store.coStarPositionScope).toBe('all');
+      expect(store.draft.positionKeys).toEqual(keys);
+      expect(Object.hasOwn(store.draft, 'positionScope')).toBe(sharedAll);
+      expect(wrapper.get('.position-selector__selected-label').text()).toBe('全部');
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each([
+    { mode: 'ranking' as const, compact: false },
+    { mode: 'ranking' as const, compact: true },
+    { mode: 'co-star' as const, compact: false },
+    { mode: 'co-star' as const, compact: true },
+  ])('restores focus to the visible All row after choosing All from a later concrete row: %j', async options => {
+    const { wrapper, store } = mountEditor(options);
+    try {
+      const keys: PositionKey[] = ['staff:anime:2', 'cast:anime:main'];
+      store.draft.positionKeys = [...keys];
+      await nextTick();
+      const previousToggle = wrapper.findAll('.position-selector__toggle')[1]!;
+      await openPositions(wrapper, 1);
+      expect(document.activeElement).toBe(wrapper.get('[data-position-all]').element);
+      await wrapper.get('[data-position-all]').trigger('click');
+      await flushPromises();
+      expect(previousToggle.element.isConnected).toBe(false);
+      expect(wrapper.findAll('.position-selector__toggle')).toHaveLength(1);
+      expect(wrapper.get('.position-selector__toggle').attributes('aria-expanded')).toBe('false');
+      expect(document.activeElement).toBe(wrapper.get('.position-selector__toggle').element);
+      expect(wrapper.get('.position-selector__selected-label').text()).toBe(options.mode === 'ranking' ? '不限' : '全部');
+      expect(store.draft.positionKeys).toEqual(options.mode === 'ranking' ? [] : keys);
+      expect(Object.hasOwn(store.draft, 'positionScope')).toBe(options.mode === 'ranking');
+      expect(store.coStarPositionScope).toBe(options.mode === 'ranking' ? 'query' : 'all');
+    } finally { wrapper.unmount(); }
+  });
+
+  it('keeps concrete multirow AND order and cast exclusivity before and after 不限', async () => {
+    const { wrapper, store, catalog } = mountEditor();
+    try {
+      await wrapper.get('[aria-label="在第 1 行后添加职位选择器"]').trigger('click');
+      await flushPromises();
+      await wrapper.get('[aria-label="搜索职位"]').setValue('cast:anime:main');
+      await wrapper.get('[data-position-key="cast:anime:main"]').trigger('click');
+      expect(store.draft.positionKeys).toEqual(['staff:anime:2', 'cast:anime:main']);
+      expect(Object.hasOwn(store.draft, 'positionScope')).toBe(false);
+      const result = validateDraft(store.draft, 'ranking', catalog);
+      expect(result.errors).toEqual({});
+      if (!result.query) throw new Error('expected concrete query');
+      expect(result.query.positionKeys).toEqual(['staff:anime:2', 'cast:anime:main']);
+      expect(Object.hasOwn(result.query, 'positionScope')).toBe(false);
+      await openPositions(wrapper);
+      await wrapper.get('[aria-label="搜索职位"]').setValue('cast:anime:all');
+      expect(wrapper.get('[data-position-key="cast:anime:all"]').attributes('disabled')).toBeDefined();
+      await wrapper.get('[data-position-all]').trigger('click');
+      await flushPromises();
+      expect(store.draft.positionKeys).toEqual([]);
+      expect(wrapper.findAll('.position-selector__toggle')).toHaveLength(1);
+      expect(document.activeElement).toBe(wrapper.get('.position-selector__toggle').element);
+      await openPositions(wrapper);
+      await wrapper.get('[aria-label="搜索职位"]').setValue('cast:anime:all');
+      expect(wrapper.get('[data-position-key="cast:anime:all"]').attributes('disabled')).toBeUndefined();
+      await wrapper.get('[data-position-key="cast:anime:all"]').trigger('click');
+      expect(store.draft.positionKeys).toEqual(['cast:anime:all']);
+      expect(Object.hasOwn(store.draft, 'positionScope')).toBe(false);
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each(['ranking', 'co-star'] as const)('does not expose hidden, other-type or unsupported positions in %s', async mode => {
+    const visible = selectorPositions[0]!;
+    const positions: CatalogPosition[] = [visible,
+      { ...visible, key: 'staff:anime:900', label: 'hidden', selectable: false },
+      { ...visible, key: 'staff:anime:901', label: 'unsupported', capabilities: [mode === 'ranking' ? 'candidates' : 'rankings'] },
+      { ...visible, key: 'staff:book:902', label: 'other type', subjectType: 'book' },
+    ];
+    const { wrapper } = mountEditor({ mode, positions });
+    try {
+      await openPositions(wrapper);
+      await wrapper.get('[aria-label="搜索职位"]').setValue('staff:');
+      expect(wrapper.findAll('[data-position-key]').map(row => row.attributes('data-position-key'))).toEqual(['staff:anime:2']);
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each([
+    ['book', ['想读', '读过', '在读', '搁置', '抛弃']],
+    ['anime', ['想看', '看过', '在看', '搁置', '抛弃']],
+    ['music', ['想听', '听过', '在听', '搁置', '抛弃']],
+    ['game', ['想玩', '玩过', '在玩', '搁置', '抛弃']],
+    ['real', ['想看', '看过', '在看', '搁置', '抛弃']],
+  ] as const)('offers wish first with stable status values and unchanged manual defaults for %s', async (subjectType, labels) => {
+    const { wrapper, store, catalog } = mountEditor({ subjectType });
+    try {
+      const checkboxes = wrapper.findAll('.field--collections [role="checkbox"]');
+      expect(checkboxes.map(checkbox => checkbox.text())).toEqual(labels);
+      expect(checkboxes.map(checkbox => checkbox.attributes('aria-checked'))).toEqual(['false', 'true', 'true', 'false', 'false']);
+      expect(store.draft.collectionStatuses).toEqual(['completed', 'in_progress']);
+      for (const index of [0, 3, 4]) await checkboxes[index]!.trigger('click');
+      const result = validateDraft(store.draft, 'ranking', catalog);
+      expect(result.errors).toEqual({});
+      if (result.query?.scope !== 'personal') throw new Error('expected personal query');
+      expect(result.query.collectionStatuses).toEqual(['wish', 'completed', 'in_progress', 'on_hold', 'dropped']);
+      await checkboxes[0]!.trigger('click');
+      expect(store.draft.collectionStatuses).not.toContain('wish');
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each([false, true])('changes only the scalar subject type and filters old concrete keys without resetting statuses (all=%s)', async sharedAll => {
+    const { wrapper, store } = mountEditor({ sharedAll });
+    try {
+      store.draft.collectionStatuses = ['wish', 'dropped'];
+      const typeSelect = wrapper.findAllComponents(NSelect).find(select => select.props('options')?.some(option => option.value === 'book'))!;
+      for (const subjectType of ['book', 'music', 'game', 'real', 'anime'] as const) {
+        typeSelect.vm.$emit('update:value', subjectType);
+        await nextTick();
+        expect(store.draft.subjectType).toBe(subjectType);
+        expect(typeSelect.props('multiple')).toBe(false);
+        expect(store.draft.positionKeys).toEqual([]);
+        expect(Object.hasOwn(store.draft, 'positionScope')).toBe(sharedAll);
+        expect(store.draft.collectionStatuses).toEqual(['wish', 'dropped']);
+        expect(wrapper.get('.position-selector__selected-label').text()).toBe(sharedAll ? '不限' : '选择职位');
+      }
+    } finally { wrapper.unmount(); }
+  });
+
+  it('explains unrestricted participation and keeps concrete AND help and legacy co-star help', async () => {
+    const { wrapper } = mountEditor();
+    try {
+      const help = wrapper.get('[aria-label^="职位说明："]');
+      expect(help.attributes('aria-label')).toContain('任意参与');
+      expect(help.attributes('aria-label')).toContain('去重');
+      expect(help.attributes('aria-label')).toContain('仅统计同时具备全部已选职位的人物；参与作品按已选职位合并并去重');
+      await help.trigger('click');
+      expect(wrapper.text()).toContain('任意参与');
+    } finally { wrapper.unmount(); }
+  });
+
+  it('disables all five status checkboxes and the native selector during a query', async () => {
+    const { wrapper, store } = mountEditor({ disabled: true });
+    try {
+      const checkboxes = wrapper.findAll('.field--collections [role="checkbox"]');
+      expect(checkboxes).toHaveLength(5);
+      for (const checkbox of checkboxes) {
+        const checked = checkbox.attributes('aria-checked');
+        expect(checkbox.attributes('tabindex')).toBeUndefined();
+        await checkbox.trigger('click');
+        expect(checkbox.attributes('aria-checked')).toBe(checked);
+        for (const key of [' ', 'Enter']) {
+          await checkbox.trigger('keydown', { key });
+          await checkbox.trigger('keyup', { key });
+          expect(checkbox.attributes('aria-checked')).toBe(checked);
+        }
+        expect(store.draft.collectionStatuses).toEqual(['completed', 'in_progress']);
+        expect(checkbox.attributes('aria-disabled')).toBe('true');
+      }
+      expect(store.draft.collectionStatuses).toEqual(['completed', 'in_progress']);
+      expect(wrapper.get('.position-selector__toggle').attributes('disabled')).toBeDefined();
+      await wrapper.get('.position-selector__toggle').trigger('keydown', { key: 'ArrowDown' });
+      expect(wrapper.find('[data-position-all]').exists()).toBe(false);
+    } finally { wrapper.unmount(); }
+  });
+
+  it.each([false, true])('opens the ranking editor only for legacy empty keys on a mode change (sharedAll=%s)', async sharedAll => {
+    const store = useQueryStore();
+    const query: AppliedQuery = {
+      scope: 'personal', uid: 'luca', subjectType: 'anime', collectionStatuses: ['completed'],
+      includeNSFW: false, mergeSeries: false, positionKeys: [], ...(sharedAll ? { positionScope: 'all' as const } : {}),
+    };
+    store.commit(query, 1, 'all');
+    store.restoreDraft();
+    const catalogStore = useCatalogStore();
+    await catalogStore.load(catalogApi());
+    const coordinator = createQueryCoordinator(store, drivers(async request => ({
+      payload: rankingPayload('mode-guard'), requestId: 'mode-guard', transactionId: request.transactionId,
+    })));
+    const wrapper = mount(QueryWorkspace, {
+      attachTo: document.body, global: { stubs: { teleport: true } },
+      props: { catalogStore, coordinator, mode: 'co-star', queryStore: store, retryCatalog: async () => true, targetWindow: window },
+    });
+    try {
+      expect(wrapper.find('#query-editor').exists()).toBe(false);
+      await wrapper.setProps({ mode: 'ranking' });
+      expect(wrapper.find('#query-editor').exists()).toBe(!sharedAll);
+      expect(store.applied).toEqual(query);
+      expect(store.revision).toBe(1);
+      expect(store.dirty).toBe(false);
+      if (sharedAll) expect(wrapper.get('.query-summary').text()).toContain('不限');
+    } finally { wrapper.unmount(); }
   });
 });
 

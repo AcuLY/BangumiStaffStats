@@ -1,0 +1,56 @@
+## Capability Boundary
+
+| Field | Boundary |
+|---|---|
+| Status | User-authorized release after green feature; no deployment implied |
+| Owner | Primary operations owner |
+| Writable paths | Only scoped release/bundle/state env/symlinks and workspace tools/qa/evidence listed exactly in proposal/design; this capability and own change/archive |
+| Read-only protected inputs | Live Nginx/Compose/config/scripts, Archive data, legacy/other services, prior releases and credentials |
+| Deletion complement | Owned disposable QA/builder or failed candidate only; no data/old-release deletion |
+| Mutable refs | Local phase commits, feature remote ref and reviewed PR/master merge only |
+| Consumes | Reviewed feature, exact tools, verified closed linux/amd64 bundle |
+| Produces | Accepted API/frontend and rollback evidence; script publication is user-owned |
+| Dependencies | Feature checks → bundle → API readiness → frontend → public acceptance |
+| Deliverables | User-visible application feature and verifiable application URL |
+| Acceptance | Requirements and scenarios below |
+| Non-goals | Data, routing, dependency-policy or unrelated-service changes |
+| Operations deferred | All unnamed mutations; no failed-gate bypass |
+| Stop/rollback conditions | Changed preimage/denied approval/failed gates → stop or verified app rollback, never destructive cleanup |
+
+## ADDED Requirements
+
+### Requirement: Reviewed immutable candidate before activation
+
+The operations owner SHALL deploy only a committed and reviewed candidate satisfying the affected source, contract, generated-consumer, artifact and browser gates. It SHALL verify the bundle's complete checksum inventory, linux/amd64 API image identity and compatible Backend/Frontend statements before invoking the existing deploy mechanism. Source revisions, CI identities and bundle metadata MUST be actual observed values.
+
+#### Scenario: Rejected candidate
+- **WHEN** a required check fails or artifact identity differs from the accepted commit
+- **THEN** no production application pointers are changed and the failure is reported without substituting fabricated acceptance.
+
+### Requirement: Bounded production activation and recoverability
+
+Activation SHALL use project bgmss-v2, root /srv/bgmss-v2, API 18080 and Prometheus 19090 with the existing pinned Prometheus image. It SHALL retain the old app, wait for candidate readiness and switch the frontend last. It MUST NOT modify Nginx, Archive current.json or unrelated services. Failed activation or failed post-activation feature checks SHALL invoke existing application rollback and verify restoration without data rollback.
+
+#### Scenario: New API is not ready
+- **WHEN** the candidate cannot become ready against the current Archive
+- **THEN** the existing deploy recovery restores the previous app and frontend and no new frontend remains active against the old API.
+
+#### Scenario: Functional acceptance fails after switching
+- **WHEN** candidate readiness passed but the user-visible feature fails acceptance
+- **THEN** existing rollback-app restores the verified previous release and health/public routes are read back before reporting rollback success.
+
+### Requirement: Public feature and non-interference verification
+
+After activation, the owner SHALL verify live/ready/catalog/metrics/Prometheus via the normal operations check and verify the public built app, application entry for anime and the other four subject types, target-present and target-absent detail behavior and continued browsing. It SHALL verify legacy /old/ and byte-preservation of Nginx/Compose. Errors MUST remain distinct from empty participation. Script publication SHALL remain user-owned; installation documentation, a script download and a bundled copy SHALL NOT be release gates. Final reporting SHALL distinguish implemented, tested, committed, integrated, built and deployed states.
+
+#### Scenario: Release is accepted
+- **WHEN** the accepted candidate is active and all scoped public and operational readbacks pass
+- **THEN** report the real deployment revision, public application URL and actual checks, without claiming unperformed tests.
+
+### Requirement: Temporary resource isolation
+
+Temporary QA SHALL bind only free loopback 18081/15174 under the dedicated workspace root; a real-data QA API SHALL disable ArchiveUpdater and never mutate production data. Local toolchain/build preparation SHALL use dedicated workspace paths and an isolated named builder without replacing system or Hermes tools. Existing credentials SHALL be used without being exposed or copied.
+
+#### Scenario: Temporary resource collision
+- **WHEN** an intended QA port, root or builder is already owned by another process/task
+- **THEN** stop and revise the recorded allocation rather than kill or overwrite its owner.

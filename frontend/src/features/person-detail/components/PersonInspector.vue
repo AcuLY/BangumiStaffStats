@@ -24,11 +24,13 @@ import RatingEvidence from './RatingEvidence.vue';
 import StatEvidencePopover from './StatEvidencePopover.vue';
 
 interface PersonDetailResource {
+  readonly noParticipation?: Readonly<{ personId: number; subjectTypeLabel: string }> | null;
   readonly acceptedQuery: Readonly<{
     scope?: 'personal' | 'global';
     mergeSeries?: boolean;
     positionKeys: readonly unknown[];
   }> | null;
+  readonly acceptedInput?: Readonly<{ positionKeys?: readonly string[] }> | null;
   readonly error: string | null;
   readonly feedback: string | null;
   readonly input: Readonly<{ personId: number }>;
@@ -57,7 +59,7 @@ const tagsTitleId = `person-tags-${useId()}`;
 const preferenceTitleId = `person-preference-${useId()}`;
 const itemBrowser = ref<InstanceType<typeof PersonItemBrowser> | null>(null);
 const acceptedPositionKeys = computed(() =>
-  (props.resource.acceptedQuery?.positionKeys ?? []).map(String),
+  props.resource.acceptedInput?.positionKeys ?? (props.resource.acceptedQuery?.positionKeys ?? []).map(String),
 );
 const workUnitLabel = computed(() =>
   payload.value?.summary.workUnit === 'series' ? '系列' : '作品',
@@ -138,6 +140,16 @@ async function focusPreference(
       :section="resource.view.section"
       :page-size="resource.view.pageSize"
     />
+
+    <section
+      v-else-if="!payload && resource.phase === 'error' && resource.noParticipation"
+      class="person-inspector__state"
+      role="status"
+    >
+      <span class="state-icon"><app-icon name="person" :size="24" /></span>
+      <h2>该人物没有参与当前查询条件下的收藏作品</h2>
+      <p>人物 ID：{{ resource.noParticipation.personId }} · {{ resource.noParticipation.subjectTypeLabel }}</p>
+    </section>
 
     <section
       v-else-if="!payload && resource.error"

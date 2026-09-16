@@ -34,6 +34,7 @@ const (
 	PostPartnersV1JSONBodyQuery0CollectionStatusesDropped    PostPartnersV1JSONBodyQuery0CollectionStatuses = "dropped"
 	PostPartnersV1JSONBodyQuery0CollectionStatusesInProgress PostPartnersV1JSONBodyQuery0CollectionStatuses = "in_progress"
 	PostPartnersV1JSONBodyQuery0CollectionStatusesOnHold     PostPartnersV1JSONBodyQuery0CollectionStatuses = "on_hold"
+	PostPartnersV1JSONBodyQuery0CollectionStatusesWish       PostPartnersV1JSONBodyQuery0CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PostPartnersV1JSONBodyQuery0CollectionStatuses enum.
@@ -46,6 +47,23 @@ func (e PostPartnersV1JSONBodyQuery0CollectionStatuses) Valid() bool {
 	case PostPartnersV1JSONBodyQuery0CollectionStatusesInProgress:
 		return true
 	case PostPartnersV1JSONBodyQuery0CollectionStatusesOnHold:
+		return true
+	case PostPartnersV1JSONBodyQuery0CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostPartnersV1JSONBodyQuery0PositionScope.
+const (
+	PostPartnersV1JSONBodyQuery0PositionScopeAll PostPartnersV1JSONBodyQuery0PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostPartnersV1JSONBodyQuery0PositionScope enum.
+func (e PostPartnersV1JSONBodyQuery0PositionScope) Valid() bool {
+	switch e {
+	case PostPartnersV1JSONBodyQuery0PositionScopeAll:
 		return true
 	default:
 		return false
@@ -73,6 +91,21 @@ func (e PostPartnersV1JSONBodyQuery0SubjectType) Valid() bool {
 	case PostPartnersV1JSONBodyQuery0SubjectTypeMusic:
 		return true
 	case PostPartnersV1JSONBodyQuery0SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostPartnersV1JSONBodyQuery1PositionScope.
+const (
+	PostPartnersV1JSONBodyQuery1PositionScopeAll PostPartnersV1JSONBodyQuery1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostPartnersV1JSONBodyQuery1PositionScope enum.
+func (e PostPartnersV1JSONBodyQuery1PositionScope) Valid() bool {
+	switch e {
+	case PostPartnersV1JSONBodyQuery1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -2123,16 +2156,20 @@ type PostPartnersV1JSONBodyQuery0 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                   `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                   `json:"mergeSeries,omitempty"`
-	PositionKeys []string                                `json:"positionKeys"`
-	Scope        interface{}                             `json:"scope"`
-	SubjectType  PostPartnersV1JSONBodyQuery0SubjectType `json:"subjectType"`
-	Uid          string                                  `json:"uid"`
+	IncludeNSFW   *bool                                      `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                      `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                   `json:"positionKeys"`
+	PositionScope *PostPartnersV1JSONBodyQuery0PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                `json:"scope"`
+	SubjectType   PostPartnersV1JSONBodyQuery0SubjectType    `json:"subjectType"`
+	Uid           string                                     `json:"uid"`
 }
 
 // PostPartnersV1JSONBodyQuery0CollectionStatuses defines parameters for PostPartnersV1.
 type PostPartnersV1JSONBodyQuery0CollectionStatuses string
+
+// PostPartnersV1JSONBodyQuery0PositionScope defines parameters for PostPartnersV1.
+type PostPartnersV1JSONBodyQuery0PositionScope string
 
 // PostPartnersV1JSONBodyQuery0SubjectType defines parameters for PostPartnersV1.
 type PostPartnersV1JSONBodyQuery0SubjectType string
@@ -2161,12 +2198,16 @@ type PostPartnersV1JSONBodyQuery1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                   `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                   `json:"mergeSeries,omitempty"`
-	PositionKeys []string                                `json:"positionKeys"`
-	Scope        interface{}                             `json:"scope"`
-	SubjectType  PostPartnersV1JSONBodyQuery1SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                                      `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                      `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                   `json:"positionKeys"`
+	PositionScope *PostPartnersV1JSONBodyQuery1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                `json:"scope"`
+	SubjectType   PostPartnersV1JSONBodyQuery1SubjectType    `json:"subjectType"`
 }
+
+// PostPartnersV1JSONBodyQuery1PositionScope defines parameters for PostPartnersV1.
+type PostPartnersV1JSONBodyQuery1PositionScope string
 
 // PostPartnersV1JSONBodyQuery1SubjectType defines parameters for PostPartnersV1.
 type PostPartnersV1JSONBodyQuery1SubjectType string

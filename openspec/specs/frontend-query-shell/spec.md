@@ -25,9 +25,10 @@ operation port without resubmitting Draft.
 The existing query store SHALL also own draft and accepted co-star position
 scope (`query` or `all`) as defined by frontend-cross-position-co-star. Scope
 SHALL participate in co-star dirty/apply/undo behavior without becoming a catalog
-PositionKey or entering the ranking query signature. An all-only query with no
-concrete positions SHALL open the position editor on a switch to ranking, rather
-than submit an invalid ranking request.
+PositionKey or entering the ranking query signature. A legacy operation-level all query with no concrete positions and no explicit
+query.positionScope SHALL open the position editor on a switch to ranking, rather
+than submit an invalid ranking request. An explicit query.positionScope=all with
+empty positionKeys SHALL remain valid on a switch to ranking.
 
 The configured base root and its `index.html` SHALL replace to the public
 ranking path while preserving safe query parameters; root-domain paths outside
@@ -227,3 +228,44 @@ The frontend SHALL persist only validated successful query and accepted operatio
 #### Scenario: Old session or corrupt data
 - **WHEN** stored data is an old v1 fragment entry or an invalid v2 envelope
 - **THEN** it SHALL be discarded without any share decoding or business request
+
+### Requirement: Single-type unrestricted ranking is an exclusive first option
+The query shell SHALL show “不限” first in each type's ranking position selector, above categories/common positions. It SHALL occupy one exclusive row, not enumerate every job. Choosing a concrete job exits unrestricted mode; selecting unrestricted clears concrete selections. The shared applied query SHALL carry `positionScope: "all", positionKeys: []`; existing concrete-position AND behavior SHALL remain unchanged. Switching modes or restoring valid tab state SHALL not demand concrete ranking positions for this explicit query. Existing co-star operation-level all scope SHALL remain distinct from query-wide all.
+
+#### Scenario: Five independent selectors
+- **WHEN** each single subject type is selected and “不限” is applied
+- **THEN** the UI SHALL submit only that type and one unrestricted query with no fake position key
+- **AND** selector, applied summary, mode switches and local recovery SHALL preserve that meaning
+
+### Requirement: Intention status has type-specific copy and stable identity
+The frontend SHALL expose `wish` as 想读 for book, 想看 for anime/real, 想听 for music and 想玩 for game. Manual defaults SHALL remain unchanged. A new person-entry draft SHALL use `createDefaultDraft(uid)` then override only type, all five collection states and unrestricted position scope, preserving NSFW=false and default advanced options.
+
+#### Scenario: Entry overrides stale saved restrictions
+- **WHEN** a person entry is opened with older local saved score/date/tag/NSFW/series settings
+- **THEN** the entry SHALL start from current defaults, not from those saved restrictions
+- **AND** the user SHALL remain able to edit and apply a later query normally
+
+### Requirement: Unrestricted operation identity admission preserves factual authority
+For explicit query-wide all only, the frontend SHALL distinguish permission to submit an identity for backend validation from selector eligibility. It SHALL NOT require membership in the empty shared positionKeys. Known different-subject-type entries SHALL remain invalid. Current-type canonical staff and anime/game cast-all identities SHALL remain eligible for backend factual validation even when selector visibility or capability metadata does not expose them. This exception SHALL use decoded catalog metadata, never PositionKey prefix parsing. Explicit cast-role and staff-set identities SHALL retain their existing operation-capability checks; concrete queries and legacy operation-all SHALL retain all existing membership, visibility and capability guards. Catalog-absent opaque keys MAY be submitted only under explicit query-wide all, without asserting their existence, fabricating labels, or adding them to the selector. The backend SHALL remain the independent authority rejecting non-factual, wrong-type and invalid explicit identities. Recovery SHALL preserve valid intent without a persisted returned-key authority cache.
+
+#### Scenario: Retained identity is absent or hidden in the selector
+- **WHEN** an unrestricted candidate or restored operation uses actual current-type staff participation whose key is absent from the catalog or represented as a hidden staff entry
+- **THEN** the frontend SHALL preserve the exact identity for backend validation and subsequent detail/co-star operations
+- **AND** ordinary/legacy unsupported selections, known wrong types, malformed keys, duplicates and identity limits SHALL remain rejected by their existing owners
+
+#### Scenario: Real candidate projection under shared all
+- **WHEN** the real candidates driver receives a shared unrestricted query with ordinary query operation scope
+- **THEN** it SHALL validate row identities against the response's ordered positionCounts universe rather than empty shared keys
+- **AND** response uniqueness, ordered membership, single-position, scope, pagination and work-unit checks SHALL remain intact
+
+### Requirement: Unrestricted ranking handoff consumes one complete authoritative identity row
+The ranking-to-co-star handoff SHALL use the unchanged Applied Query and the existing unconstrained candidates projection, omitting participants and selecting only an exact Person ID. Server-side name search MAY narrow candidates but SHALL NOT identify the person; names exceeding the search limit SHALL not be truncated into authority. The handoff SHALL consume one row's complete identity array without unioning pages, reconstructing detail contributions, filling from catalog keys, or truncating an oversized identity set. Its transient owner SHALL preserve existing selection, route and Draft until a complete current 1–20-identity result can be committed atomically. It SHALL check every page's request/context/snapshot and forward progress, and invalidate success, rejection and finalization on primary-request start, cancellation, newer target/selection, mode change and unmount. It SHALL NOT replace the visible candidates resource or persist response data.
+
+#### Scenario: Same-name target appears after the first candidate page
+- **WHEN** an unrestricted ranked person's complete identity row is on a later candidate page among namesakes
+- **THEN** only the exact numeric Person ID SHALL provide the full identity handoff, with no participants constraint or client statistical recomputation
+- **AND** missing, failed, malformed, stale or oversized results SHALL leave the old selection and route unchanged
+
+#### Scenario: A newer main request has started without committing a revision
+- **WHEN** an older identity lookup resolves or rejects after a newer main request starts, even if that request later fails or is canceled
+- **THEN** the obsolete lookup SHALL NOT navigate, replace identities, overwrite current feedback or release a newer pending state

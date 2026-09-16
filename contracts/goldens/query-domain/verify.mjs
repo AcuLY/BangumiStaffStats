@@ -24,7 +24,7 @@ const exactAuthorities = [
   {
     id: "catalog-index-v1",
     path: "contracts/goldens/catalog/index.json",
-    sha256: "fcd75915691cee7af5cba98c0177675e7a3753c353393b0d0497af4c0d76c3c2",
+    sha256: "8d0484fd8fa699fbebca4e644df2acea02e7b171b3c356e0221fba2452c17a28",
   },
   {
     id: "catalog-selection-rule-verifier",
@@ -34,27 +34,27 @@ const exactAuthorities = [
   {
     id: "catalog-synthetic-staff-set-v1",
     path: "contracts/goldens/catalog/config/staff-sets-synthetic-v1.json",
-    sha256: "ef763503b6f4e71f8a3422d13f22010d447d9fbf18a7757c23d06837a2932aa0",
+    sha256: "38377e0572238a1aba089b441ed7aa67e2599e0ada7e4e3422cb002f8d5c60a1",
   },
   {
     id: "effective-query-schema-v1",
     path: "contracts/schemas/query/effective-query-v1.schema.json",
-    sha256: "e6b67aee71868d99c115963ffade3d1c55bd412dd61343786c35be27f9563d53",
+    sha256: "7ec451a243e520dbb83450eea48e34def0dcdba9464a64febe8c9571cb9cd466",
   },
   {
     id: "shared-query-cases-v1",
     path: "contracts/goldens/query/cases/queries.json",
-    sha256: "d86f1875404daf56ba32179819d725fd690e4a96a8ff2679a0445b95d3499583",
+    sha256: "10768d221519b526edb730e1f11bb2c54715ac817d21c125772fed38fe05eb21",
   },
   {
     id: "shared-query-manifest-v1",
     path: "contracts/goldens/query/manifest.json",
-    sha256: "cef0045a619e495855dd6cd9249c0ba7a86f3c9ec2b8111bdfd3e9b54c77c40e",
+    sha256: "3c1bece926f50bfda57848f00e4b1b9e98ace2625be87c8e7b5a99e91cce59bf",
   },
   {
     id: "shared-query-schema-v1",
     path: "contracts/schemas/query/shared-query-v1.schema.json",
-    sha256: "8a2e294dc17088345d8a7bba076f86ae66ce121f374892c3c4526b011b7bf114",
+    sha256: "67e72019c19631e5a2c53e0c15cb542bdc3ef07580da470e3045e8d4f0584f9a",
   },
 ];
 const exactRequiredCoverage = [

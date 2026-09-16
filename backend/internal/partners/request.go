@@ -19,12 +19,19 @@ func normalizeOperationRequest(
 	effective query.EffectiveQuery,
 	request Request,
 ) (Operation, error) {
+	return parseOperationRequest(effective, request, false)
+}
+
+// deferMembership permits syntax-only preflight; admitted facts must validate it.
+func parseOperationRequest(effective query.EffectiveQuery, request Request, deferMembership bool) (Operation, error) {
 	input, err := parseInput(request.Input)
 	if err != nil {
 		return Operation{}, err
 	}
-	if err := validateInputMembership(effective, input); err != nil {
-		return Operation{}, err
+	if !deferMembership {
+		if err := validateInputMembership(effective, input); err != nil {
+			return Operation{}, err
+		}
 	}
 	view, err := parseView(request.View, effective.Scope)
 	if err != nil {

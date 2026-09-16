@@ -25,6 +25,102 @@ const analysis = {
   },
 };
 
+describe('query-wide unrestricted recovery', () => {
+  const allQuery = { ...query, positionScope: 'all', positionKeys: [], collectionStatuses: ['wish', 'completed'] };
+  const identities = [
+    { personId: 1, positionKeys: ['staff:anime:999'] },
+    { personId: 2, positionKeys: ['cast:anime:main'] },
+  ];
+  const allAnalysis = {
+    query: allQuery,
+    workspace: { ...analysis.workspace,
+      candidates: { ...candidates, input: { positionKey: 'staff:anime:999', positionScope: 'query', participants: identities } },
+      coStar: { ...analysis.workspace.coStar, input: { positionScope: 'query', participants: identities } },
+    },
+  };
+
+  it.each(['personal', 'global'])('retains explicit query all in %s ranking and each co-star topology', (scope) => {
+    const { uid: _uid, collectionStatuses: _statuses, ...globalQuery } = allQuery;
+    const recoveredQuery = scope === 'personal' ? allQuery : { ...globalQuery, scope };
+    const payloads = [
+      { query: recoveredQuery, workspace: { ...ranking.workspace,
+        detail: { input: { personId: 1, positionScope: 'query', positionKeys: ['staff:anime:999', 'cast:anime:main'] },
+          view: { ...view, section: 'works', sort: 'globalScore' } } } },
+      { query: recoveredQuery, workspace: { ...empty.workspace, candidates: allAnalysis.workspace.candidates } },
+      { query: recoveredQuery, workspace: { kind: 'co-star', state: 'partners', candidates: allAnalysis.workspace.candidates,
+        partners: { input: { positionScope: 'query', source: identities[0], candidatePositionKey: 'cast:anime:main' }, view } } },
+      { ...allAnalysis, query: recoveredQuery },
+    ];
+    for (const payload of payloads) {
+      const route = payload.workspace.kind === 'ranking' ? '/ranking' : '/co-star';
+      expect(decodeRecoveryPayload(route, payload)).toEqual(payload);
+    }
+  });
+
+  it.each([undefined, 'query', 'all'])('retains narrow hidden and cast identities with operation scope %s', (positionScope) => {
+    const payload = structuredClone(allAnalysis);
+    if (positionScope === undefined) {
+      Reflect.deleteProperty(payload.workspace.candidates.input, 'positionScope');
+      Reflect.deleteProperty(payload.workspace.coStar.input, 'positionScope');
+    } else {
+      payload.workspace.candidates.input.positionScope = positionScope;
+      payload.workspace.coStar.input.positionScope = positionScope;
+    }
+    expect(decodeRecoveryPayload('/co-star', payload)).toEqual(payload);
+  });
+
+  it.each(['candidate', 'analysis'])('keeps %s duplicates and cardinality limits under query all', (target) => {
+    const invalidIdentities = [
+      [identities[0]!, { ...identities[1]!, personId: 1 }],
+      [{ personId: 1, positionKeys: ['staff:anime:999', 'staff:anime:999'] }, identities[1]!],
+      [{ personId: 1, positionKeys: [] }, identities[1]!],
+      Array.from({ length: 11 }, (_, index) => ({ personId: index + 1, positionKeys: ['staff:anime:999'] })),
+      [{ personId: 1, positionKeys: Array.from({ length: 20 }, (_, index) => `staff:anime:${index + 1}`) }, identities[1]!],
+    ];
+    for (const participants of invalidIdentities) {
+      const payload = structuredClone(allAnalysis);
+      if (target === 'candidate') payload.workspace.candidates.input.participants = participants;
+      else payload.workspace.coStar.input.participants = participants;
+      expect(() => decodeRecoveryPayload('/co-star', payload)).toThrow();
+    }
+    if (target === 'analysis') {
+      const payload = structuredClone(allAnalysis);
+      payload.workspace.coStar.input.participants = [identities[0]!];
+      expect(() => decodeRecoveryPayload('/co-star', payload)).toThrow();
+    }
+  });
+
+  it('keeps partner identity limits, detail uniqueness, closed shapes and surrogate rejection', () => {
+    for (const positionKeys of [
+      ['staff:anime:999', 'staff:anime:999'], [],
+      Array.from({ length: 21 }, (_, index) => `staff:anime:${index + 1}`),
+    ]) {
+      expect(() => decodeRecoveryPayload('/co-star', { query: allQuery,
+        workspace: { kind: 'co-star', state: 'partners', candidates,
+          partners: { input: { source: { personId: 1, positionKeys } }, view } },
+      })).toThrow();
+    }
+    expect(() => decodeRecoveryPayload('/ranking', { query: allQuery, workspace: { ...ranking.workspace,
+      detail: { input: { personId: 1, positionKeys: ['staff:anime:999', 'staff:anime:999'] },
+        view: { ...view, section: 'works', sort: 'globalScore' } },
+    } })).toThrow();
+    const malformed = structuredClone(allAnalysis);
+    Object.assign(malformed.workspace.coStar.input.participants[0]!, { name: 'response leak' });
+    expect(() => decodeRecoveryPayload('/co-star', malformed)).toThrow();
+    const surrogate = structuredClone(allAnalysis);
+    surrogate.workspace.candidates.view.search = '\ud800';
+    expect(() => decodeRecoveryPayload('/co-star', surrogate)).toThrow();
+  });
+
+  it.each([null, 'unknown', 'query', 'all'])('rejects invalid concrete query scope %s in recovery', (positionScope) => {
+    for (const payload of [ranking, analysis]) {
+      expect(() => decodeRecoveryPayload(payload.workspace.kind === 'ranking' ? '/ranking' : '/co-star', {
+        ...payload, query: { ...query, positionScope },
+      })).toThrow();
+    }
+  });
+});
+
 describe('local recovery validation', () => {
   it.each(['main', 'supporting', 'guest', 'minor', 'narrator', 'voice-library'])('preserves the explicit %s cast identity in ranking and cross-position co-star recovery', (scope) => {
     const positionKey = `cast:anime:${scope}`;

@@ -17,8 +17,9 @@ interface BrowserGroup {
   positions: readonly CatalogPosition[];
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   allowAll?: boolean;
+  allLabel?: string;
   allSelected?: boolean;
   compact: boolean;
   disabled?: boolean;
@@ -28,7 +29,7 @@ const props = defineProps<{
   positions: readonly CatalogPosition[];
   searchQuery: string;
   unavailableKeys?: readonly PositionKey[];
-}>();
+}>(), { allLabel: '全部' });
 
 const emit = defineEmits<{
   'update:searchQuery': [value: string];
@@ -314,7 +315,7 @@ defineExpose({ reveal });
         data-position-all
         @click="emit('selectAll')"
       >
-        <span class="position-catalog-browser__position-label">全部</span>
+        <span class="position-catalog-browser__position-label">{{ allLabel }}</span>
         <span class="position-catalog-browser__selection-mark">
           <query-icon v-if="allSelected" name="check" :size="16" />
         </span>

@@ -41,7 +41,7 @@ func OperationPositionScope(raw json.RawMessage) (string, error) {
 // OperationPositions resolves permitted identities from the immutable catalog.
 // A browse set omits individual cast selectors when all cast is available.
 func OperationPositions(effective EffectiveQuery, catalog CatalogContext, supported map[string]bool, scope string, browse bool) []string {
-	if scope != "all" {
+	if scope != "all" && effective.PositionScope != "all" {
 		return append([]string(nil), effective.PositionKeys...)
 	}
 	allowed := make(map[string]bool)
@@ -67,6 +67,7 @@ func OperationPositions(effective EffectiveQuery, catalog CatalogContext, suppor
 // include the operation scope and identities in their result cache key.
 func OperationEvaluation(normalized NormalizedQuery, keys []string) NormalizedQuery {
 	normalized.Effective = cloneEffectiveQuery(normalized.Effective)
+	normalized.Effective.PositionScope = ""
 	normalized.Effective.PositionKeys = append([]string(nil), keys...)
 	sort.Strings(normalized.Effective.PositionKeys)
 	normalized.Effective.PositionKeys = uniqueOperationPositions(normalized.Effective.PositionKeys)

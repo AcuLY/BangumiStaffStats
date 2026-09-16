@@ -34,6 +34,7 @@ const (
 	PostPersonDetailV1JSONBodyQuery0CollectionStatusesDropped    PostPersonDetailV1JSONBodyQuery0CollectionStatuses = "dropped"
 	PostPersonDetailV1JSONBodyQuery0CollectionStatusesInProgress PostPersonDetailV1JSONBodyQuery0CollectionStatuses = "in_progress"
 	PostPersonDetailV1JSONBodyQuery0CollectionStatusesOnHold     PostPersonDetailV1JSONBodyQuery0CollectionStatuses = "on_hold"
+	PostPersonDetailV1JSONBodyQuery0CollectionStatusesWish       PostPersonDetailV1JSONBodyQuery0CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PostPersonDetailV1JSONBodyQuery0CollectionStatuses enum.
@@ -46,6 +47,23 @@ func (e PostPersonDetailV1JSONBodyQuery0CollectionStatuses) Valid() bool {
 	case PostPersonDetailV1JSONBodyQuery0CollectionStatusesInProgress:
 		return true
 	case PostPersonDetailV1JSONBodyQuery0CollectionStatusesOnHold:
+		return true
+	case PostPersonDetailV1JSONBodyQuery0CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostPersonDetailV1JSONBodyQuery0PositionScope.
+const (
+	PostPersonDetailV1JSONBodyQuery0PositionScopeAll PostPersonDetailV1JSONBodyQuery0PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostPersonDetailV1JSONBodyQuery0PositionScope enum.
+func (e PostPersonDetailV1JSONBodyQuery0PositionScope) Valid() bool {
+	switch e {
+	case PostPersonDetailV1JSONBodyQuery0PositionScopeAll:
 		return true
 	default:
 		return false
@@ -73,6 +91,21 @@ func (e PostPersonDetailV1JSONBodyQuery0SubjectType) Valid() bool {
 	case PostPersonDetailV1JSONBodyQuery0SubjectTypeMusic:
 		return true
 	case PostPersonDetailV1JSONBodyQuery0SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostPersonDetailV1JSONBodyQuery1PositionScope.
+const (
+	PostPersonDetailV1JSONBodyQuery1PositionScopeAll PostPersonDetailV1JSONBodyQuery1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostPersonDetailV1JSONBodyQuery1PositionScope enum.
+func (e PostPersonDetailV1JSONBodyQuery1PositionScope) Valid() bool {
+	switch e {
+	case PostPersonDetailV1JSONBodyQuery1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -2453,16 +2486,20 @@ type PostPersonDetailV1JSONBodyQuery0 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                       `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                       `json:"mergeSeries,omitempty"`
-	PositionKeys []string                                    `json:"positionKeys"`
-	Scope        interface{}                                 `json:"scope"`
-	SubjectType  PostPersonDetailV1JSONBodyQuery0SubjectType `json:"subjectType"`
-	Uid          string                                      `json:"uid"`
+	IncludeNSFW   *bool                                          `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                          `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                       `json:"positionKeys"`
+	PositionScope *PostPersonDetailV1JSONBodyQuery0PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                    `json:"scope"`
+	SubjectType   PostPersonDetailV1JSONBodyQuery0SubjectType    `json:"subjectType"`
+	Uid           string                                         `json:"uid"`
 }
 
 // PostPersonDetailV1JSONBodyQuery0CollectionStatuses defines parameters for PostPersonDetailV1.
 type PostPersonDetailV1JSONBodyQuery0CollectionStatuses string
+
+// PostPersonDetailV1JSONBodyQuery0PositionScope defines parameters for PostPersonDetailV1.
+type PostPersonDetailV1JSONBodyQuery0PositionScope string
 
 // PostPersonDetailV1JSONBodyQuery0SubjectType defines parameters for PostPersonDetailV1.
 type PostPersonDetailV1JSONBodyQuery0SubjectType string
@@ -2491,12 +2528,16 @@ type PostPersonDetailV1JSONBodyQuery1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                       `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                       `json:"mergeSeries,omitempty"`
-	PositionKeys []string                                    `json:"positionKeys"`
-	Scope        interface{}                                 `json:"scope"`
-	SubjectType  PostPersonDetailV1JSONBodyQuery1SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                                          `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                          `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                       `json:"positionKeys"`
+	PositionScope *PostPersonDetailV1JSONBodyQuery1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                    `json:"scope"`
+	SubjectType   PostPersonDetailV1JSONBodyQuery1SubjectType    `json:"subjectType"`
 }
+
+// PostPersonDetailV1JSONBodyQuery1PositionScope defines parameters for PostPersonDetailV1.
+type PostPersonDetailV1JSONBodyQuery1PositionScope string
 
 // PostPersonDetailV1JSONBodyQuery1SubjectType defines parameters for PostPersonDetailV1.
 type PostPersonDetailV1JSONBodyQuery1SubjectType string

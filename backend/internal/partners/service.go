@@ -130,7 +130,7 @@ func (service *Service) Execute(
 	)
 	membership := normalized.Effective
 	membership.PositionKeys = query.OperationPositions(normalized.Effective, authority.Context, authority.PartnersByPosition, positionScope, false)
-	operation, err := normalizeOperationRequest(membership, request)
+	operation, err := parseOperationRequest(membership, request, normalized.Effective.PositionScope == "all")
 	if err != nil {
 		return Projection{}, err
 	}
@@ -146,15 +146,6 @@ func (service *Service) Execute(
 			false,
 			nil,
 		)
-	}
-
-	if positionScope == "all" {
-		operation.Input.CandidatePositionKeys = query.OperationPositions(normalized.Effective, authority.Context, authority.PartnersByPosition, positionScope, true)
-		if operation.Input.CandidatePositionKey != nil {
-			operation.Input.CandidatePositionKeys = []string{*operation.Input.CandidatePositionKey}
-		}
-		keys := append(append([]string(nil), operation.Input.CandidatePositionKeys...), operation.Input.Source.PositionKeys...)
-		normalized = query.OperationEvaluation(normalized, keys)
 	}
 
 	var access *runtimecache.CollectionAccess
@@ -213,12 +204,35 @@ func (service *Service) Execute(
 		ctx,
 		resultKey,
 		func(buildContext context.Context) (Core, error) {
-			return computeCore(
+			normalized := normalized
+			resolved, err := query.LoadOperationAuthority(buildContext, store, normalized, authority.Context, authority.PartnersByPosition, positionScope, func(duration time.Duration, err error) {
+				querytiming.ObserveSQLiteFromContext(buildContext, duration, err)
+			})
+			if err != nil {
+				return Core{}, err
+			}
+			membership := normalized.Effective
+			membership.PositionKeys = resolved.Membership
+			operation, err := normalizeOperationRequest(membership, request)
+			if err != nil {
+				return Core{}, err
+			}
+			if positionScope == "all" || normalized.Effective.PositionScope == "all" {
+				operation.Input.CandidatePositionKeys = resolved.Browse
+				if operation.Input.CandidatePositionKey != nil {
+					operation.Input.CandidatePositionKeys = []string{*operation.Input.CandidatePositionKey}
+				}
+				keys := append(append([]string(nil), operation.Input.CandidatePositionKeys...), operation.Input.Source.PositionKeys...)
+				normalized = query.OperationEvaluation(normalized, keys)
+			}
+
+			return computeCoreWithFacts(
 				buildContext,
 				store,
 				identity.DataVersion,
 				normalized,
 				entries,
+				resolved.Facts,
 				operation.Input,
 			)
 		},
@@ -271,6 +285,24 @@ func computeCore(
 	if err != nil {
 		return Core{}, err
 	}
+	facts, err = query.OperationFacts(ctx, normalized, facts)
+	if err != nil {
+		return Core{}, err
+	}
+	return computeCoreWithFacts(ctx, store, dataVersion, normalized, entries, facts, input)
+}
+
+func computeCoreWithFacts(
+	ctx context.Context,
+	store *archive.Store,
+	dataVersion string,
+	normalized query.NormalizedQuery,
+	entries []query.CollectionEntry,
+	facts query.FactSet,
+	input Input,
+) (Core, error) {
+	var err error
+	sqliteStarted := time.Now()
 	var collectionSource query.CollectionSource
 	if normalized.Effective.Scope == "personal" {
 		snapshotEntries := cloneCollectionEntries(entries)
@@ -466,6 +498,9 @@ func mapComputeError(ctx context.Context, err error) error {
 			}
 			return failure
 		}
+	}
+	if failure, ok := ErrorDetails(err); ok && failure.Code() == CodeFieldInvalid && strings.HasPrefix(failure.Path(), "/input/") {
+		return err
 	}
 	if code, ok := ErrorCode(err); ok && code == CodeCanceled {
 		return context.Canceled

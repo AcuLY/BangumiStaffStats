@@ -722,6 +722,526 @@
         "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsiY29tcGxldGVkIiwiaW5fcHJvZ3Jlc3MiLCJvbl9ob2xkIiwiZHJvcHBlZCJdLCJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbInN0YWZmOmFuaW1lOjIiXSwic2NvcGUiOiJwZXJzb25hbCIsInN1YmplY3RUeXBlIjoiYW5pbWUifQ",
         "queryDigest": "q1:ffb84d53eeadd6a5aa0ab1e53eb65318491c0dbc137210254be0ba0c37a44f75"
       }
+    },
+    {
+      "id": "unrestricted-personal-book",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Example",
+        "collectionStatuses": [
+          "dropped",
+          "wish",
+          "on_hold",
+          "completed",
+          "wish",
+          "in_progress"
+        ],
+        "subjectType": "book",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:book:2",
+            "subjectType": "book",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "Example",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "book",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "book",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"collectionStatuses\":[\"wish\",\"completed\",\"in_progress\",\"on_hold\",\"dropped\"],\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"personal\",\"subjectType\":\"book\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b2277697368222c22636f6d706c65746564222c22696e5f70726f6772657373222c226f6e5f686f6c64222c2264726f70706564225d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a22626f6f6b227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsid2lzaCIsImNvbXBsZXRlZCIsImluX3Byb2dyZXNzIiwib25faG9sZCIsImRyb3BwZWQiXSwiaW5jbHVkZU5TRlciOmZhbHNlLCJtZXJnZVNlcmllcyI6ZmFsc2UsInBvc2l0aW9uS2V5cyI6W10sInBvc2l0aW9uU2NvcGUiOiJhbGwiLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJib29rIn0",
+        "queryDigest": "q1:7785498006bddd2f6e99c99fa3d18316a2cf82caeda51a8eb67bd5305d3611f4"
+      }
+    },
+    {
+      "id": "unrestricted-personal-anime",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Example",
+        "collectionStatuses": [
+          "dropped",
+          "wish",
+          "on_hold",
+          "completed",
+          "wish",
+          "in_progress"
+        ],
+        "subjectType": "anime",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "Example",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "anime",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"collectionStatuses\":[\"wish\",\"completed\",\"in_progress\",\"on_hold\",\"dropped\"],\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"personal\",\"subjectType\":\"anime\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b2277697368222c22636f6d706c65746564222c22696e5f70726f6772657373222c226f6e5f686f6c64222c2264726f70706564225d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a22616e696d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsid2lzaCIsImNvbXBsZXRlZCIsImluX3Byb2dyZXNzIiwib25faG9sZCIsImRyb3BwZWQiXSwiaW5jbHVkZU5TRlciOmZhbHNlLCJtZXJnZVNlcmllcyI6ZmFsc2UsInBvc2l0aW9uS2V5cyI6W10sInBvc2l0aW9uU2NvcGUiOiJhbGwiLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSJ9",
+        "queryDigest": "q1:df4ef733b531951c27d79901e417fa3492ef53ab0ed147f45326f8006641c9a6"
+      }
+    },
+    {
+      "id": "unrestricted-personal-music",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Example",
+        "collectionStatuses": [
+          "dropped",
+          "wish",
+          "on_hold",
+          "completed",
+          "wish",
+          "in_progress"
+        ],
+        "subjectType": "music",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:music:2",
+            "subjectType": "music",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "Example",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "music",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "music",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"collectionStatuses\":[\"wish\",\"completed\",\"in_progress\",\"on_hold\",\"dropped\"],\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"personal\",\"subjectType\":\"music\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b2277697368222c22636f6d706c65746564222c22696e5f70726f6772657373222c226f6e5f686f6c64222c2264726f70706564225d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a226d75736963227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsid2lzaCIsImNvbXBsZXRlZCIsImluX3Byb2dyZXNzIiwib25faG9sZCIsImRyb3BwZWQiXSwiaW5jbHVkZU5TRlciOmZhbHNlLCJtZXJnZVNlcmllcyI6ZmFsc2UsInBvc2l0aW9uS2V5cyI6W10sInBvc2l0aW9uU2NvcGUiOiJhbGwiLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJtdXNpYyJ9",
+        "queryDigest": "q1:93887216226a2ae1b99899bb3076060e6cf8cfc27a4f09045df28406641f53ce"
+      }
+    },
+    {
+      "id": "unrestricted-personal-game",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Example",
+        "collectionStatuses": [
+          "dropped",
+          "wish",
+          "on_hold",
+          "completed",
+          "wish",
+          "in_progress"
+        ],
+        "subjectType": "game",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:game:2",
+            "subjectType": "game",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "Example",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "game",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "game",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"collectionStatuses\":[\"wish\",\"completed\",\"in_progress\",\"on_hold\",\"dropped\"],\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"personal\",\"subjectType\":\"game\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b2277697368222c22636f6d706c65746564222c22696e5f70726f6772657373222c226f6e5f686f6c64222c2264726f70706564225d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a2267616d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsid2lzaCIsImNvbXBsZXRlZCIsImluX3Byb2dyZXNzIiwib25faG9sZCIsImRyb3BwZWQiXSwiaW5jbHVkZU5TRlciOmZhbHNlLCJtZXJnZVNlcmllcyI6ZmFsc2UsInBvc2l0aW9uS2V5cyI6W10sInBvc2l0aW9uU2NvcGUiOiJhbGwiLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJnYW1lIn0",
+        "queryDigest": "q1:331af56216e04ed66e4e9fa8ed61e2c3d55c6fe0bde1f0be6fef9879fe43a96f"
+      }
+    },
+    {
+      "id": "unrestricted-personal-real",
+      "submitted": {
+        "scope": "personal",
+        "uid": "Example",
+        "collectionStatuses": [
+          "dropped",
+          "wish",
+          "on_hold",
+          "completed",
+          "wish",
+          "in_progress"
+        ],
+        "subjectType": "real",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:real:2",
+            "subjectType": "real",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "personal",
+          "uid": "Example",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "real",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "personal",
+          "collectionStatuses": [
+            "wish",
+            "completed",
+            "in_progress",
+            "on_hold",
+            "dropped"
+          ],
+          "subjectType": "real",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"collectionStatuses\":[\"wish\",\"completed\",\"in_progress\",\"on_hold\",\"dropped\"],\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"personal\",\"subjectType\":\"real\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22636f6c6c656374696f6e5374617475736573223a5b2277697368222c22636f6d706c65746564222c22696e5f70726f6772657373222c226f6e5f686f6c64222c2264726f70706564225d2c22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22706572736f6e616c222c227375626a65637454797065223a227265616c227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJjb2xsZWN0aW9uU3RhdHVzZXMiOlsid2lzaCIsImNvbXBsZXRlZCIsImluX3Byb2dyZXNzIiwib25faG9sZCIsImRyb3BwZWQiXSwiaW5jbHVkZU5TRlciOmZhbHNlLCJtZXJnZVNlcmllcyI6ZmFsc2UsInBvc2l0aW9uS2V5cyI6W10sInBvc2l0aW9uU2NvcGUiOiJhbGwiLCJzY29wZSI6InBlcnNvbmFsIiwic3ViamVjdFR5cGUiOiJyZWFsIn0",
+        "queryDigest": "q1:b693483af36eb4703b1c85ed1cbb29c7c65921021b0d0739cc8f978baf74938f"
+      }
+    },
+    {
+      "id": "unrestricted-global-book",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "book",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:book:2",
+            "subjectType": "book",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "book",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "book",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"global\",\"subjectType\":\"book\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a22626f6f6b227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbXSwicG9zaXRpb25TY29wZSI6ImFsbCIsInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJib29rIn0",
+        "queryDigest": "q1:16c8c628bca259646ab5d7dd31484df9627d595d5879e05949b3279bae3a2035"
+      }
+    },
+    {
+      "id": "unrestricted-global-anime",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "anime",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"global\",\"subjectType\":\"anime\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a22616e696d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbXSwicG9zaXRpb25TY29wZSI6ImFsbCIsInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJhbmltZSJ9",
+        "queryDigest": "q1:bd549199c537f38e66015ea491f05ca9f0a06a03fb40416e63f45cbaadbaa862"
+      }
+    },
+    {
+      "id": "unrestricted-global-music",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "music",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:music:2",
+            "subjectType": "music",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "music",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "music",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"global\",\"subjectType\":\"music\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a226d75736963227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbXSwicG9zaXRpb25TY29wZSI6ImFsbCIsInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJtdXNpYyJ9",
+        "queryDigest": "q1:d8488c0a0f3660ed2807bbcda6643cb113bd84779ead74cbf29e61f7b3275b8f"
+      }
+    },
+    {
+      "id": "unrestricted-global-game",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "game",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:game:2",
+            "subjectType": "game",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "game",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "game",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"global\",\"subjectType\":\"game\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a2267616d65227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbXSwicG9zaXRpb25TY29wZSI6ImFsbCIsInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJnYW1lIn0",
+        "queryDigest": "q1:82d5354a3150f1802aabc6cda6ad0cc9bbb701331ab5f60c67584c3f372d8a33"
+      }
+    },
+    {
+      "id": "unrestricted-global-real",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "real",
+        "positionScope": "all",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:real:2",
+            "subjectType": "real",
+            "selectable": true
+          }
+        ]
+      },
+      "expected": {
+        "effective": {
+          "scope": "global",
+          "subjectType": "real",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "projection": {
+          "scope": "global",
+          "subjectType": "real",
+          "positionScope": "all",
+          "positionKeys": [],
+          "includeNSFW": false,
+          "mergeSeries": false
+        },
+        "canonical": "{\"includeNSFW\":false,\"mergeSeries\":false,\"positionKeys\":[],\"positionScope\":\"all\",\"scope\":\"global\",\"subjectType\":\"real\"}",
+        "preimageHex": "62676d73732e71756572792e7631007b22696e636c7564654e534657223a66616c73652c226d65726765536572696573223a66616c73652c22706f736974696f6e4b657973223a5b5d2c22706f736974696f6e53636f7065223a22616c6c222c2273636f7065223a22676c6f62616c222c227375626a65637454797065223a227265616c227d",
+        "preimageBase64url": "Ymdtc3MucXVlcnkudjEAeyJpbmNsdWRlTlNGVyI6ZmFsc2UsIm1lcmdlU2VyaWVzIjpmYWxzZSwicG9zaXRpb25LZXlzIjpbXSwicG9zaXRpb25TY29wZSI6ImFsbCIsInNjb3BlIjoiZ2xvYmFsIiwic3ViamVjdFR5cGUiOiJyZWFsIn0",
+        "queryDigest": "q1:7f93b086fc10d67958bc26b5e6a332ef9b7584faa2a547c56aa18c919ba2aa46"
+      }
     }
   ],
   "negativeCases": [
@@ -1393,6 +1913,87 @@
       "catalogCase": "personal-normalization",
       "expectedCode": "FIELD_INVALID",
       "expectedPath": "/schemaVersion"
+    },
+    {
+      "id": "unrestricted-all-with-keys",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [
+          "staff:anime:2"
+        ],
+        "positionScope": "all"
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/positionKeys"
+    },
+    {
+      "id": "unrestricted-null-scope",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [],
+        "positionScope": null
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/positionScope"
+    },
+    {
+      "id": "unrestricted-invalid-scope",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": [],
+        "positionScope": "specific"
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/positionScope"
+    },
+    {
+      "id": "unrestricted-empty-without-scope",
+      "submitted": {
+        "scope": "global",
+        "subjectType": "anime",
+        "positionKeys": []
+      },
+      "catalog": {
+        "positions": [
+          {
+            "key": "staff:anime:2",
+            "subjectType": "anime",
+            "selectable": true
+          }
+        ]
+      },
+      "expectedCode": "FIELD_INVALID",
+      "expectedPath": "/positionKeys"
     }
   ],
   "digestExclusionCases": [

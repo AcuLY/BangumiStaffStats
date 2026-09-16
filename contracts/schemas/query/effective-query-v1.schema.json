@@ -127,8 +127,29 @@
           "type": "object",
           "properties": {
             "positionKeys": {
-              "type": "array",
-              "minItems": 1
+              "type": "array"
+            },
+            "positionScope": {
+              "type": "string",
+              "const": "all"
+            }
+          },
+          "if": {
+            "required": [
+              "positionScope"
+            ],
+            "properties": {
+              "positionScope": {
+                "const": "all"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "positionKeys": {
+                "type": "array",
+                "minItems": 1
+              }
             }
           }
         }
@@ -143,8 +164,29 @@
           "type": "object",
           "properties": {
             "positionKeys": {
-              "type": "array",
-              "minItems": 1
+              "type": "array"
+            },
+            "positionScope": {
+              "type": "string",
+              "const": "all"
+            }
+          },
+          "if": {
+            "required": [
+              "positionScope"
+            ],
+            "properties": {
+              "positionScope": {
+                "const": "all"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "positionKeys": {
+                "type": "array",
+                "minItems": 1
+              }
             }
           }
         }
@@ -174,7 +216,7 @@
         "collectionStatuses": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 4,
+          "maxItems": 5,
           "uniqueItems": true,
           "items": {
             "$ref": "shared-query-v1.schema.json#/$defs/CollectionStatusV1"
@@ -198,6 +240,28 @@
         },
         "filters": {
           "$ref": "#/$defs/EffectivePersonalFiltersV1"
+        },
+        "positionScope": {
+          "type": "string",
+          "const": "all"
+        }
+      },
+      "if": {
+        "required": [
+          "positionScope"
+        ],
+        "properties": {
+          "positionScope": {
+            "const": "all"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "positionKeys": {
+            "type": "array",
+            "maxItems": 0
+          }
         }
       }
     },
@@ -233,6 +297,28 @@
         },
         "filters": {
           "$ref": "#/$defs/EffectiveCommonFiltersV1"
+        },
+        "positionScope": {
+          "type": "string",
+          "const": "all"
+        }
+      },
+      "if": {
+        "required": [
+          "positionScope"
+        ],
+        "properties": {
+          "positionScope": {
+            "const": "all"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "positionKeys": {
+            "type": "array",
+            "maxItems": 0
+          }
         }
       }
     },

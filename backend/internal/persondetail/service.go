@@ -147,13 +147,14 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	appliedDigest := normalized.Digest
 	membership := normalized.Effective
 	membership.PositionKeys = query.OperationPositions(normalized.Effective, authority.Context, authority.PersonDetailByPosition, input.PositionScope, false)
-	if input.PositionScope == "all" && input.PositionKeys != nil {
+	admittedQuery := normalized
+	if (input.PositionScope == "all" || normalized.Effective.PositionScope == "all") && input.PositionKeys != nil {
 		allowed := make(map[string]bool, len(membership.PositionKeys))
 		for _, key := range membership.PositionKeys {
 			allowed[key] = true
 		}
 		for index, key := range input.PositionKeys {
-			if !allowed[key] {
+			if normalized.Effective.PositionScope != "all" && !allowed[key] {
 				return Projection{}, inputFailure(fmt.Sprintf("/input/positionKeys/%d", index), "UNSUPPORTED_VALUE")
 			}
 		}
@@ -165,7 +166,7 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		return Projection{}, err
 	}
 	for index, key := range normalized.Effective.PositionKeys {
-		if !authority.PersonDetailByPosition[key] {
+		if normalized.Projection.PositionScope != "all" && !authority.PersonDetailByPosition[key] {
 			path := fmt.Sprintf("/query/positionKeys/%d", index)
 			if input.PositionKeys != nil {
 				path = fmt.Sprintf("/input/positionKeys/%d", index)
@@ -185,6 +186,9 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		normalized.Effective.PositionKeys,
 		authority.CastByPosition,
 	)
+	if normalized.Effective.PositionScope == "all" {
+		castApplicable = normalized.Effective.SubjectType == "anime" || normalized.Effective.SubjectType == "game"
+	}
 	view, err := NormalizeView(
 		normalized.Effective.Scope,
 		workUnit,
@@ -270,13 +274,31 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		ctx,
 		resultKey,
 		func(computeContext context.Context) (Core, error) {
-			return computeCore(
+			resolved, err := query.LoadOperationAuthority(computeContext, store, admittedQuery, authority.Context, authority.PersonDetailByPosition, input.PositionScope, func(duration time.Duration, err error) {
+				querytiming.ObserveSQLiteFromContext(computeContext, duration, err)
+			})
+			if err != nil {
+				return Core{}, err
+			}
+			if admittedQuery.Effective.PositionScope == "all" {
+				allowed := make(map[string]bool, len(resolved.Membership))
+				for _, key := range resolved.Membership {
+					allowed[key] = true
+				}
+				for index, key := range input.PositionKeys {
+					if !allowed[key] {
+						return Core{}, inputFailure(fmt.Sprintf("/input/positionKeys/%d", index), "UNSUPPORTED_VALUE")
+					}
+				}
+			}
+			return computeCoreWithFacts(
 				computeContext,
 				store,
 				dataVersion,
 				normalized,
 				input.PersonID,
 				entries,
+				resolved.Facts,
 			)
 		},
 	)
@@ -326,6 +348,24 @@ func computeCore(
 	if err != nil {
 		return Core{}, err
 	}
+	facts, err = query.OperationFacts(ctx, normalized, facts)
+	if err != nil {
+		return Core{}, err
+	}
+	return computeCoreWithFacts(ctx, store, dataVersion, normalized, personID, entries, facts)
+}
+
+func computeCoreWithFacts(
+	ctx context.Context,
+	store *archive.Store,
+	dataVersion string,
+	normalized query.NormalizedQuery,
+	personID int64,
+	entries []query.CollectionEntry,
+	facts query.FactSet,
+) (Core, error) {
+	var err error
+	sqliteStarted := time.Now()
 	var collectionSource query.CollectionSource
 	if normalized.Effective.Scope == "personal" {
 		snapshotEntries := cloneCollectionEntries(entries)

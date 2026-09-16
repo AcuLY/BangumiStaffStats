@@ -32,7 +32,7 @@ import { createCatalogApi, type CatalogApi } from '../api/catalog';
 import { createApiClient } from '../api/client';
 import { createCoStarDriver } from '../api/coStar';
 import { createPartnersDriver } from '../api/partners';
-import { createPersonDetailDriver } from '../api/personDetail';
+import { createPersonDetailDriver, PersonDetailApiError } from '../api/personDetail';
 import { createRankingsDriver } from '../api/rankings';
 import { useCatalogStore } from '../features/catalog/store';
 import {
@@ -94,6 +94,7 @@ import AppIcon from '../shared/components/AppIcon.vue';
 import DeferredSurfaceState from '../shared/components/DeferredSurfaceState.vue';
 import AppProviders from './AppProviders.vue';
 import { createRouteOwner } from './routes';
+import { createPersonEntryDraft } from './personEntry';
 import { useRuntimeStore } from './store/runtime';
 import { createThemeOwner } from './theme';
 
@@ -264,6 +265,21 @@ const runtime = useRuntimeStore();
 const catalogStore = useCatalogStore();
 const queryStore = useQueryStore();
 const route = createRouteOwner(targetWindow);
+let pendingPersonEntry = route.personEntry.kind === 'valid' ? route.personEntry.intent : null;
+let executingPersonEntry: typeof pendingPersonEntry = null;
+let personEntryDraftInstalled = false;
+let personEntryGeneration = 0;
+function abandonPersonEntry(cancelRequest = true): void {
+  const wasExecuting = executingPersonEntry !== null;
+  pendingPersonEntry = null;
+  executingPersonEntry = null;
+  personEntryGeneration += 1;
+  if (wasExecuting && cancelRequest) coordinator.cancel('ranking');
+}
+watch(() => queryStore.draft, () => {
+  if (personEntryDraftInstalled) abandonPersonEntry();
+}, { deep: true, flush: 'sync' });
+watch(() => route.mode.value, () => abandonPersonEntry(), { flush: 'sync' });
 watch(() => route.mode.value, (mode) => {
   if (mode === 'co-star') {
     // Warm the small analysis layouts while the catalog/candidate requests run.
@@ -351,16 +367,52 @@ const drivers: QueryDrivers<
 // Capture the actual request input so later Draft edits cannot relabel its loading view.
 const pendingRankingsQuery = shallowRef<AppliedQuery | null>(null);
 const pendingCandidatesQuery = shallowRef<AppliedQuery | null>(null);
+let candidateHandoffSequence = 0;
+type DetailRequest = Parameters<NonNullable<typeof drivers.personDetail>['execute']>[0];
+let latestDetailRequest: DetailRequest | null = null;
+const noParticipationFailure = shallowRef<Readonly<{
+  request: DetailRequest;
+  requestId: string;
+  revision: number;
+}> | null>(null);
 const presentationDrivers: typeof drivers = {
   ...drivers,
+  ...(drivers.personDetail ? { personDetail: {
+    async execute(request: DetailRequest) {
+      latestDetailRequest = request;
+      noParticipationFailure.value = null;
+      const revision = queryStore.revision;
+      try {
+        return await drivers.personDetail!.execute(request);
+      } catch (error) {
+        if (latestDetailRequest === request && !request.signal.aborted
+          && error instanceof PersonDetailApiError && error.code === 'PERSON_NOT_IN_QUERY_RESULT') {
+          noParticipationFailure.value = { request, requestId: error.requestId, revision };
+        }
+        throw error;
+      }
+    },
+  } } : {}),
   rankings: {
     execute(request) {
+      if (pendingPersonEntry) abandonPersonEntry(false);
+      const entry = executingPersonEntry;
+      if (entry) {
+        // A canceled or superseded primary must not donate its target to the
+        // next request, even when an abort-ignoring driver resolves later.
+        request.signal.addEventListener('abort', () => {
+          if (executingPersonEntry === entry) abandonPersonEntry(false);
+        }, { once: true });
+      }
+      cancelRankingHandoff();
       pendingRankingsQuery.value = request.query;
       return drivers.rankings.execute(request);
     },
   },
   candidates: {
     execute(request) {
+      abandonPersonEntry(false);
+      cancelRankingHandoff();
       pendingCandidatesQuery.value = request.query;
       return drivers.candidates.execute(request);
     },
@@ -384,7 +436,13 @@ const coordinator = createQueryCoordinator(
       !replayingRankingWorkspace &&
       selectedPersonId.value === null
     ) {
-      activateFirstRankingPerson();
+      if (executingPersonEntry) {
+        const target = executingPersonEntry;
+        executingPersonEntry = null;
+        activatePerson(target.personId, targetWindow.document.body);
+      } else {
+        activateFirstRankingPerson();
+      }
     }
     if (
       context.operation === 'candidates' &&
@@ -418,8 +476,71 @@ const inspectedPerson = personLinks.person;
 const linkedRank = personLinks.location;
 const linkedRankPending = personLinks.rankPending;
 const linkedRankError = personLinks.rankError;
-const linkError = ref<string | null>(null);
+const rankingHandoffError = ref<string | null>(null);
 const linkNavigationPending = ref(false);
+const candidateLookupPending = personLinks.candidateLookupPending;
+const queryAllHandoff = computed(() => queryStore.applied?.positionScope === 'all'
+  && queryStore.applied.positionKeys.length === 0);
+// Present handoff feedback in the active inspector/drawer without changing
+// the coordinator's detail error or blocking a valid handoff retry.
+const rankingDetailEmpty = computed(() => {
+  const failure = noParticipationFailure.value;
+  const detail = coordinator.personDetail;
+  const ranking = coordinator.rankings;
+  const query = queryStore.applied;
+  if (!failure || failure.request.signal.aborted || route.mode.value !== 'ranking'
+    || !query || query.scope !== 'personal' || coordinator.pending.value
+    || ranking.phase !== 'ready' || !ranking.payload || ranking.revision !== queryStore.revision
+    || !ranking.acceptedQuery || querySignature(ranking.acceptedQuery) !== querySignature(query)
+    || detail.phase !== 'error' || detail.payload || !detail.error
+    || detail.requestId !== failure.requestId || detail.revision !== queryStore.revision
+    || failure.revision !== queryStore.revision
+    || querySignature(failure.request.query) !== querySignature(query)
+    || selectedPersonId.value !== failure.request.input.personId
+    || detail.input.personId !== failure.request.input.personId) return null;
+  return {
+    personId: failure.request.input.personId,
+    subjectTypeLabel: catalogStore.snapshot?.subjectTypes.find(type => type.key === query.subjectType)?.label ?? query.subjectType,
+  };
+});
+const rankingDetailResource = computed(() => ({
+  ...coordinator.personDetail,
+  error: coordinator.personDetail.error ?? rankingHandoffError.value,
+  noParticipation: rankingDetailEmpty.value,
+}));
+
+function cancelRankingHandoff(): void {
+  candidateHandoffSequence += 1;
+  personLinks.cancelCandidateLookup();
+  rankingHandoffError.value = null;
+}
+
+function currentRankingDetail(): PersonDetailPayload | null {
+  const detail = coordinator.personDetail;
+  const query = queryStore.applied;
+  const payload = detail.payload;
+  if (!query || !payload || route.mode.value !== 'ranking'
+    || coordinator.pending.value || coordinator.rankings.phase === 'pending'
+    || coordinator.rankings.viewPending || coordinator.candidates.phase === 'pending'
+    || coordinator.candidates.viewPending || detail.phase !== 'ready' || detail.error
+    || detail.viewPending || detail.revision !== queryStore.revision
+    || !detail.acceptedQuery || querySignature(detail.acceptedQuery) !== querySignature(query)
+    || selectedPersonId.value !== payload.person.id
+    || detail.input.personId !== payload.person.id
+    || detail.acceptedInput?.personId !== payload.person.id
+    || JSON.stringify([payload.dataVersion, payload.collection?.fetchedAt ?? null])
+      !== coordinator.snapshotIdentity.value) return null;
+  return payload;
+}
+
+const rankingHandoffDisabled = computed(() => linkNavigationPending.value
+  || candidateLookupPending.value || (queryAllHandoff.value
+    ? currentRankingDetail() === null : coordinator.personDetail.phase !== 'ready'));
+
+// Intent invalidation is synchronous and independent of linked ranking navigation.
+watch([selectedPersonId, () => queryStore.revision, () => route.mode.value],
+  cancelRankingHandoff, { flush: 'sync' });
+watch(drawerOpen, (open) => { if (!open) cancelRankingHandoff(); }, { flush: 'sync' });
 type ScrollPosition = { element: HTMLElement; top: number; left: number };
 let detailOriginScroll: ScrollPosition[] = [];
 let detailOriginTrigger: HTMLElement | null = null;
@@ -448,7 +569,7 @@ async function inspectCoStarPerson(person: LinkedPerson, identities: readonly st
   if (!queryStore.applied || route.mode.value !== 'co-star') return;
   detailOriginScroll = captureScroll(trigger);
   detailOriginTrigger = trigger;
-  linkError.value = null;
+  rankingHandoffError.value = null;
   personLinks.inspect(person, identities);
   await loadPersonDetailSurface();
   await nextTick();
@@ -461,6 +582,7 @@ async function inspectCoStarPerson(person: LinkedPerson, identities: readonly st
 
 function closeCoStarPerson(restore = true): void {
   const wasOpen = inspectedPerson.value !== null;
+  cancelRankingHandoff();
   personLinks.close();
   if (wasOpen && restore) void restoreScroll(detailOriginScroll, detailOriginTrigger);
 }
@@ -468,13 +590,27 @@ function closeCoStarPerson(restore = true): void {
 async function followRankingPerson(): Promise<void> {
   const payload = coordinator.personDetail.payload;
   const query = queryStore.applied;
-  if (!query || !payload || linkNavigationPending.value) return;
-  const next = selectedIdentities(payload.person, query.positionKeys.map(String));
-  if (next.length > MAX_SELECTED_IDENTITIES) { linkError.value = `最多选择 ${MAX_SELECTED_IDENTITIES} 个身份`; return; }
+  if (!query || !payload || rankingHandoffDisabled.value) return;
+  let keys: readonly string[] = query.positionKeys.map(String);
+  if (queryAllHandoff.value) {
+    if (currentRankingDetail() !== payload) return;
+    const sequence = ++candidateHandoffSequence;
+    const isCurrent = () => sequence === candidateHandoffSequence
+      && currentRankingDetail() === payload;
+    rankingHandoffError.value = null;
+    const identities = await personLinks.lookupCandidateIdentities(payload.person, isCurrent);
+    if (!isCurrent()) return;
+    if (!identities) { rankingHandoffError.value = personLinks.candidateLookupError.value; return; }
+    keys = identities;
+  }
+  const next = selectedIdentities(payload.person, keys);
+  if (next.length > MAX_SELECTED_IDENTITIES) { rankingHandoffError.value = `最多选择 ${MAX_SELECTED_IDENTITIES} 个身份`; return; }
+  // replace validates before mutation. Its synchronous watchers invalidate our own
+  // lookup, so finish the accepted selection/scope/navigation commit without awaits.
+  const result = selection.replace(next);
+  if (!result.ok) { rankingHandoffError.value = result.message; return; }
   coordinator.cancelPartners();
   coordinator.cancelCoStar();
-  const result = selection.replace(next);
-  if (!result.ok) { linkError.value = result.message; return; }
   queryStore.setCoStarPositionScope('all', true);
   candidateExpansionRequested.value = queryStore.revision;
   drawerOpen.value = false;
@@ -493,7 +629,7 @@ async function locateInspectedPerson(): Promise<void> {
   const sequence = ++navigationSequence;
   linkNavigationPending.value = true;
   navigationExpectedMode = 'ranking';
-  linkError.value = null;
+  rankingHandoffError.value = null;
   closeCoStarPerson(false);
   selectedPersonId.value = person.id;
   route.navigate('ranking');
@@ -571,6 +707,8 @@ const editorOwnsCandidateError = computed(
 );
 const operationFeedback = computed(() => {
   const feedback = coordinator.lastOperationFeedback.value;
+  if (rankingDetailEmpty.value && feedback?.operation === 'person-detail'
+    && feedback.message === coordinator.personDetail.error) return null;
   const editorOwner = editorOwnedPrimaryFeedback.value;
   return feedback &&
     editorOwner?.operation === feedback.operation &&
@@ -1025,7 +1163,8 @@ function loadAppliedMode(mode: 'ranking' | 'co-star'): void {
   if (!queryStore.applied) {
     return;
   }
-  if (mode === 'ranking' && queryStore.applied.positionKeys.length === 0) {
+  if (mode === 'ranking' && queryStore.applied.positionKeys.length === 0 &&
+    queryStore.applied.positionScope !== 'all') {
     void queryWorkspace.value?.openEditor();
     return;
   }
@@ -1708,7 +1847,17 @@ async function replayRecovery(payload: RecoveryPayload): Promise<boolean> {
 }
 
 async function loadCatalog(): Promise<boolean> {
-  return catalogStore.load(catalogApi);
+  const loaded = await catalogStore.load(catalogApi);
+  if (loaded && pendingPersonEntry) {
+    executingPersonEntry = pendingPersonEntry;
+    pendingPersonEntry = null;
+    const generation = personEntryGeneration;
+    // Failure keeps the target available to an explicit retry of this unchanged
+    // draft. Catalog retries cannot replay it because pendingPersonEntry is gone.
+    const accepted = await coordinator.execute({ catalog: catalogStore.snapshot, mode: 'ranking' });
+    if (accepted && generation === personEntryGeneration) queryWorkspace.value?.closeForExternalAction();
+  }
+  return loaded;
 }
 
 async function retryRanking(): Promise<boolean> {
@@ -1786,6 +1935,7 @@ function activatePerson(
   personId: number,
   _trigger: HTMLElement,
 ): void {
+  cancelRankingHandoff();
   selectedPersonId.value = personId;
   void loadPersonDetailSurface();
   if (detailDrawerLayout.value) {
@@ -1806,10 +1956,12 @@ function activateFirstRankingPerson(): void {
 }
 
 function closePersonDrawer(): void {
+  cancelRankingHandoff();
   drawerOpen.value = false;
 }
 
 function resetPersonDetailSelection(): void {
+  cancelRankingHandoff();
   selectedPersonId.value = null;
   drawerOpen.value = false;
 }
@@ -1817,8 +1969,11 @@ function resetPersonDetailSelection(): void {
 async function initialize(): Promise<void> {
   runtime.markReady();
   const sessionPath = currentRecoveryPath.value;
-  const savedSession = querySession.read(sessionPath);
-  if (!savedSession) {
+  const savedSession = route.personEntry.kind === 'none' ? querySession.read(sessionPath) : null;
+  if (pendingPersonEntry) {
+    queryStore.replaceDraft(createPersonEntryDraft(pendingPersonEntry));
+    personEntryDraftInstalled = true;
+  } else if (!savedSession) {
     queryStore.draft.uid = route.prefilledUser();
   }
   try {
@@ -1918,6 +2073,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  cancelRankingHandoff();
   personLinks.close();
   coordinator.clearPersonDetail();
   coordinator.cancel('ranking');
@@ -1975,7 +2131,6 @@ onBeforeUnmount(() => {
           <p v-if="routeError" class="app-local-error" role="alert">
             {{ routeError }}
           </p>
-          <p v-if="linkError" class="app-local-error" role="alert">{{ linkError }}</p>
 
           <section
             id="mode-panel-ranking"
@@ -2058,17 +2213,18 @@ onBeforeUnmount(() => {
                 :execute-view="executePersonDetailView"
                 :open="selectedPersonId !== null && drawerOpen"
                 :position-label="positionDisplay"
-                :resource="coordinator.personDetail"
+                :resource="rankingDetailResource"
                 :has-character-count="pendingDetailHasCharacters"
                 :retry="executePersonDetail"
                 :target-window="targetWindow"
                 @close="closePersonDrawer"
               >
                 <template #profile-action>
-                  <n-button :size="compact ? 'small' : 'medium'" :disabled="coordinator.personDetail.phase !== 'ready'" icon-placement="right" @click="followRankingPerson">
+                  <n-button :size="compact ? 'small' : 'medium'" :disabled="rankingHandoffDisabled" :loading="candidateLookupPending" icon-placement="right" @click="followRankingPerson">
                     查看共演
                     <template #icon><app-icon name="chevron-right" :size="16" /></template>
                   </n-button>
+                  <n-button v-if="candidateLookupPending" size="small" text @click="cancelRankingHandoff">取消查看共演</n-button>
                 </template>
               </component>
               <deferred-surface-state

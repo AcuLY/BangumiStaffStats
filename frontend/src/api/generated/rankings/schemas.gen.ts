@@ -123,6 +123,7 @@ export const shared_query_v1_schemaSchema = {
         CollectionStatusV1: {
             type: 'string',
             enum: [
+                'wish',
                 'completed',
                 'in_progress',
                 'on_hold',
@@ -315,8 +316,29 @@ export const shared_query_v1_schemaSchema = {
                     type: 'object',
                     properties: {
                         positionKeys: {
-                            type: 'array',
-                            minItems: 1
+                            type: 'array'
+                        },
+                        positionScope: {
+                            type: 'string',
+                            const: 'all'
+                        }
+                    },
+                    if: {
+                        required: [
+                            'positionScope'
+                        ],
+                        properties: {
+                            positionScope: {
+                                const: 'all'
+                            }
+                        }
+                    },
+                    else: {
+                        properties: {
+                            positionKeys: {
+                                type: 'array',
+                                minItems: 1
+                            }
                         }
                     }
                 }
@@ -331,8 +353,29 @@ export const shared_query_v1_schemaSchema = {
                     type: 'object',
                     properties: {
                         positionKeys: {
-                            type: 'array',
-                            minItems: 1
+                            type: 'array'
+                        },
+                        positionScope: {
+                            type: 'string',
+                            const: 'all'
+                        }
+                    },
+                    if: {
+                        required: [
+                            'positionScope'
+                        ],
+                        properties: {
+                            positionScope: {
+                                const: 'all'
+                            }
+                        }
+                    },
+                    else: {
+                        properties: {
+                            positionKeys: {
+                                type: 'array',
+                                minItems: 1
+                            }
                         }
                     }
                 }
@@ -384,6 +427,28 @@ export const shared_query_v1_schemaSchema = {
                 },
                 filters: {
                     $ref: '#/components/schemas/PersonalFiltersInputV1'
+                },
+                positionScope: {
+                    type: 'string',
+                    const: 'all'
+                }
+            },
+            if: {
+                required: [
+                    'positionScope'
+                ],
+                properties: {
+                    positionScope: {
+                        const: 'all'
+                    }
+                }
+            },
+            then: {
+                properties: {
+                    positionKeys: {
+                        type: 'array',
+                        maxItems: 0
+                    }
                 }
             }
         },
@@ -418,6 +483,28 @@ export const shared_query_v1_schemaSchema = {
                 },
                 filters: {
                     $ref: '#/components/schemas/CommonFiltersInputV1'
+                },
+                positionScope: {
+                    type: 'string',
+                    const: 'all'
+                }
+            },
+            if: {
+                required: [
+                    'positionScope'
+                ],
+                properties: {
+                    positionScope: {
+                        const: 'all'
+                    }
+                }
+            },
+            then: {
+                properties: {
+                    positionKeys: {
+                        type: 'array',
+                        maxItems: 0
+                    }
                 }
             }
         },
@@ -438,6 +525,7 @@ export const shared_query_v1_schemaSchema = {
 export const CollectionStatusV1Schema = {
     type: 'string',
     enum: [
+        'wish',
         'completed',
         'in_progress',
         'on_hold',
@@ -496,6 +584,28 @@ export const GlobalSharedQueryFieldsV1Schema = {
         },
         filters: {
             $ref: '#/components/schemas/CommonFiltersInputV1'
+        },
+        positionScope: {
+            type: 'string',
+            const: 'all'
+        }
+    },
+    if: {
+        required: [
+            'positionScope'
+        ],
+        properties: {
+            positionScope: {
+                const: 'all'
+            }
+        }
+    },
+    then: {
+        properties: {
+            positionKeys: {
+                type: 'array',
+                maxItems: 0
+            }
         }
     }
 } as const;
@@ -509,8 +619,29 @@ export const GlobalSharedQueryV1Schema = {
             type: 'object',
             properties: {
                 positionKeys: {
-                    type: 'array',
-                    minItems: 1
+                    type: 'array'
+                },
+                positionScope: {
+                    type: 'string',
+                    const: 'all'
+                }
+            },
+            if: {
+                required: [
+                    'positionScope'
+                ],
+                properties: {
+                    positionScope: {
+                        const: 'all'
+                    }
+                }
+            },
+            else: {
+                properties: {
+                    positionKeys: {
+                        type: 'array',
+                        minItems: 1
+                    }
                 }
             }
         }
@@ -617,6 +748,28 @@ export const PersonalSharedQueryFieldsV1Schema = {
         },
         filters: {
             $ref: '#/components/schemas/PersonalFiltersInputV1'
+        },
+        positionScope: {
+            type: 'string',
+            const: 'all'
+        }
+    },
+    if: {
+        required: [
+            'positionScope'
+        ],
+        properties: {
+            positionScope: {
+                const: 'all'
+            }
+        }
+    },
+    then: {
+        properties: {
+            positionKeys: {
+                type: 'array',
+                maxItems: 0
+            }
         }
     }
 } as const;
@@ -630,8 +783,29 @@ export const PersonalSharedQueryV1Schema = {
             type: 'object',
             properties: {
                 positionKeys: {
-                    type: 'array',
-                    minItems: 1
+                    type: 'array'
+                },
+                positionScope: {
+                    type: 'string',
+                    const: 'all'
+                }
+            },
+            if: {
+                required: [
+                    'positionScope'
+                ],
+                properties: {
+                    positionScope: {
+                        const: 'all'
+                    }
+                }
+            },
+            else: {
+                properties: {
+                    positionKeys: {
+                        type: 'array',
+                        minItems: 1
+                    }
                 }
             }
         }

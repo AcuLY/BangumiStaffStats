@@ -210,7 +210,7 @@ export function createCandidatesDriver(client: ApiClient): CandidatesDriver {
 
       const expectedPage = request.view.page ?? 1;
       const expectedPageSize = request.view.pageSize ?? 10;
-      const expectedPositionKeys = request.input.positionScope === 'all'
+      const expectedPositionKeys = request.input.positionScope === 'all' || request.query.positionScope === 'all'
         ? payload.positionCounts.map((entry) => entry.positionKey)
         : request.query.positionKeys.map(String);
       const expectedPositionKey =

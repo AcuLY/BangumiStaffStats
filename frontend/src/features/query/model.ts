@@ -22,6 +22,7 @@ import {
 
 export type QueryScope = 'global' | 'personal';
 export type QueryMode = 'co-star' | 'ranking';
+// Operation scope is independent of the optional query-wide all selection.
 export type QueryPositionScope = 'query' | 'all';
 export type DeepReadonly<T> = T extends (...args: never[]) => unknown
   ? T
@@ -50,6 +51,7 @@ export interface QueryDraft {
   };
   personalScore: DraftRange;
   positionKeys: PositionKey[];
+  positionScope?: 'all';
   positiveTags: {
     enabled: boolean;
     values: string[];
@@ -120,6 +122,7 @@ export function cloneDraft(draft: QueryDraft): QueryDraft {
 }
 
 const collectionStatusOrder: readonly CollectionStatusV1[] = [
+  'wish',
   'completed',
   'in_progress',
   'on_hold',
@@ -315,7 +318,7 @@ function normalizeTagGroups(
   };
 }
 
-function normalizeUid(value: string): string | null {
+export function normalizeUid(value: string): string | null {
   const uid = trimV1(value);
   if (
     uid.length === 0 ||
@@ -463,7 +466,15 @@ export function validateDraft(
     errors.collectionStatuses = '至少选择一种有效收藏类型';
   }
   const operationScope = mode === 'co-star' ? positionScope : 'query';
-  if (positionKeys.length === 0 && operationScope !== 'all') {
+  if (draft.positionScope !== undefined && draft.positionScope !== 'all') {
+    errors.positionKeys = '职位范围无效';
+  } else if (draft.positionScope === 'all' && draft.positionKeys.length !== 0) {
+    errors.positionKeys = '不限不能与具体职位同时选择';
+  } else if (
+    positionKeys.length === 0 &&
+    draft.positionScope !== 'all' &&
+    operationScope !== 'all'
+  ) {
     errors.positionKeys = '至少选择一个职位';
   } else if (!catalog) {
     errors.positionKeys = '职位目录尚未就绪';
@@ -612,6 +623,7 @@ export function validateDraft(
           collectionStatuses: collectionStatuses!,
           subjectType: draft.subjectType as SubjectTypeV1,
           positionKeys,
+          ...(draft.positionScope === 'all' ? { positionScope: 'all' as const } : {}),
           includeNSFW: draft.includeNSFW,
           mergeSeries: draft.mergeSeries,
           ...(Object.keys(filters).length > 0 ? { filters } : {}),
@@ -620,6 +632,7 @@ export function validateDraft(
           scope: 'global',
           subjectType: draft.subjectType as SubjectTypeV1,
           positionKeys,
+          ...(draft.positionScope === 'all' ? { positionScope: 'all' as const } : {}),
           includeNSFW: draft.includeNSFW,
           mergeSeries: draft.mergeSeries,
           ...(Object.keys(filters).length > 0 ? { filters } : {}),
@@ -678,7 +691,10 @@ export function isCanonicalAppliedQuery(
   positionScope: QueryPositionScope = 'query',
 ): boolean {
   if (
-    (query.positionKeys.length === 0 && positionScope !== 'all') ||
+    (query.positionScope !== undefined && query.positionScope !== 'all') ||
+    (query.positionScope === 'all' && query.positionKeys.length !== 0) ||
+    (query.positionKeys.length === 0 &&
+      query.positionScope !== 'all' && positionScope !== 'all') ||
     new Set(query.positionKeys).size !== query.positionKeys.length ||
     (query.mergeSeries && query.subjectType !== 'anime')
   ) {
@@ -726,6 +742,7 @@ export function draftSemanticSignature(draft: QueryDraft): string {
     scope: draft.scope,
     subjectType: draft.subjectType,
     positionKeys: orderedPositionKeys(draft.positionKeys),
+    ...(draft.positionScope !== undefined ? { positionScope: draft.positionScope } : {}),
     includeNSFW: draft.includeNSFW,
     mergeSeries: draft.mergeSeries,
     subjectDate: draft.subjectDate.enabled
@@ -771,6 +788,9 @@ export function draftFromEffective(
   draft.scope = query.scope;
   draft.subjectType = query.subjectType;
   draft.positionKeys = [...query.positionKeys] as string[];
+  if (query.positionScope === 'all') {
+    draft.positionScope = 'all';
+  }
   draft.includeNSFW = query.includeNSFW;
   draft.mergeSeries = query.mergeSeries;
   if (query.scope === 'personal') {
@@ -830,7 +850,11 @@ export function summarizeQuery(
     catalog?.subjectTypes.find((subject) => subject.key === query.subjectType)
       ?.label ?? query.subjectType;
   const parts = [
-    positionScope === 'all' ? '全部职位' : joinDisplayText(positions, ' + ') || '未选择职位',
+    query.positionScope === 'all'
+      ? '不限'
+      : positionScope === 'all'
+        ? '全部职位'
+        : joinDisplayText(positions, ' + ') || '未选择职位',
     query.scope === 'personal' ? query.uid : '全站数据',
     subjectLabel,
   ];
@@ -840,6 +864,9 @@ export function summarizeQuery(
         .map(
           (status) =>
             ({
+              wish: ({
+                book: '想读', anime: '想看', music: '想听', game: '想玩', real: '想看',
+              })[query.subjectType],
               completed: '已完成',
               dropped: '抛弃',
               in_progress: '进行中',

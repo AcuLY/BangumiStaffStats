@@ -48,6 +48,40 @@ beforeEach(() => {
 });
 
 describe('query session owner', () => {
+  it('round-trips unrestricted wish queries across modes without widening hidden identities', () => {
+    const owner = createQuerySessionOwner(window);
+    const allQuery: AppliedQuery = { ...query, positionScope: 'all', positionKeys: [], collectionStatuses: ['wish', 'completed'] };
+    const workspace: RecoveryWorkspace = {
+      kind: 'co-star', state: 'partners', candidates: coStarWorkspace.candidates,
+      partners: { input: { positionScope: 'query', source: { personId: 1, positionKeys: ['staff:anime:999'] },
+        candidatePositionKey: 'cast:anime:main' }, view: { sort: 'count' } },
+    };
+    expect(owner.write('/ranking', allQuery, rankingWorkspace)).toBe(true);
+    expect(owner.write('/co-star', allQuery, workspace)).toBe(true);
+    const reloaded = createQuerySessionOwner(window);
+    expect(reloaded.read('/ranking')).toEqual({ query: allQuery, workspace: rankingWorkspace });
+    expect(reloaded.read('/co-star')).toEqual({ query: allQuery, workspace });
+    expect(JSON.parse(window.sessionStorage.getItem(QUERY_SESSION_STORAGE_KEY)!)).toEqual({
+      version: 2, ranking: { query: allQuery, workspace: rankingWorkspace }, coStar: { query: allQuery, workspace },
+    });
+  });
+
+  it('distinguishes explicit query all from legacy empty operation-all session identity', () => {
+    const owner = createQuerySessionOwner(window);
+    const legacy: AppliedQuery = { ...query, positionKeys: [] };
+    const allQuery: AppliedQuery = { ...legacy, positionScope: 'all' };
+    const allWorkspace: RecoveryWorkspace = { ...coStarWorkspace,
+      candidates: { ...coStarWorkspace.candidates, input: { positionKey: null, positionScope: 'all' } },
+    };
+    expect(owner.write('/co-star', legacy, allWorkspace)).toBe(true);
+    expect(owner.write('/ranking', allQuery, rankingWorkspace)).toBe(true);
+    expect(owner.read('/co-star')).toBeNull();
+    expect(owner.read('/ranking')?.query).toEqual(allQuery);
+    expect(owner.write('/co-star', legacy, allWorkspace)).toBe(true);
+    expect(owner.read('/ranking')).toBeNull();
+    expect(owner.read('/co-star')?.query).not.toHaveProperty('positionScope');
+  });
+
   it('round-trips compatible ranking and co-star workspaces in one tab session', () => {
     const owner = createQuerySessionOwner(window);
 

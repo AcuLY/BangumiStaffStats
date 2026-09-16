@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { flushPromises } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import { decodeCandidatePayload, type CandidatePayload } from '../../../src/api/adapters/candidates';
 import { decodePersonDetailPayload, type PersonDetailPayload } from '../../../src/api/adapters/personDetail';
 import { decodeRankingPayload, type RankingPayload } from '../../../src/api/adapters/rankings';
 import { catalogFixture } from '../query/fixtures';
@@ -42,17 +43,17 @@ function controlledDriver<Input, View, Payload>() {
   };
 }
 
-function golden(operation: 'person-detail' | 'rankings', scope: 'global' | 'personal'): unknown {
+function golden(operation: 'person-detail' | 'rankings' | 'candidates', scope: 'global' | 'personal'): unknown {
   const filename = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../contracts/goldens/api', operation, 'cases', `${scope}.json`);
   const fixture = JSON.parse(fs.readFileSync(filename, 'utf8')) as { cases: Array<{ expected: { body: unknown } }> };
   return fixture.cases[0]!.expected.body;
 }
 
-function harness(scope: 'global' | 'personal' = 'global', withCatalog = false) {
+function harness(scope: 'global' | 'personal' = 'global', withCatalog = false, withCandidateLookup = false) {
   const detailPayload = decodePersonDetailPayload(golden('person-detail', scope));
   const rankingPayload = decodeRankingPayload(golden('rankings', scope));
   const shared = { subjectType: 'anime', positionKeys: ['staff:anime:2', 'staff:anime:3'], includeNSFW: false, mergeSeries: false } as const;
-  const context: { query: AppliedQuery | null; revision: number } = {
+  const context: { query: AppliedQuery | null; revision: number; snapshot?: string | null } = {
     query: scope === 'global' ? { ...shared, scope } : { ...shared, scope, uid: 'luca', collectionStatuses: ['completed'] },
     revision: 1,
   };
@@ -66,17 +67,23 @@ function harness(scope: 'global' | 'personal' = 'global', withCatalog = false) {
     Parameters<Drivers['rankings']['execute']>[0]['view'],
     RankingPayload
   >();
+  const candidateDriver = controlledDriver<
+    Parameters<Drivers['candidates']['execute']>[0]['input'],
+    Parameters<Drivers['candidates']['execute']>[0]['view'], CandidatePayload
+  >();
   const rankingView: RankingsViewState = { search: '别的人物', sort: 'average', order: 'asc', page: 3, pageSize: 20 };
   const links = createPersonWorkspaceLinks({
     drivers: {
       personDetail: detailDriver,
       rankings: rankDriver,
-      candidates: { async execute(): Promise<never> { throw new Error('Unexpected candidate request'); } },
+      candidates: withCandidateLookup ? candidateDriver : {
+        async execute(): Promise<never> { throw new Error('Unexpected candidate request'); },
+      },
     },
     ...(withCatalog ? { getCatalog: catalogFixture } : {}),
     query: () => context.query,
     revision: () => context.revision,
-    snapshot: () => JSON.stringify([detailPayload.dataVersion, detailPayload.collection?.fetchedAt ?? null]),
+    snapshot: () => context.snapshot !== undefined ? context.snapshot : JSON.stringify([detailPayload.dataVersion, detailPayload.collection?.fetchedAt ?? null]),
     rankingView: () => rankingView,
   });
   const person = { id: detailPayload.person.id, name: detailPayload.person.name, nameCN: detailPayload.person.nameCN };
@@ -88,7 +95,7 @@ function harness(scope: 'global' | 'personal' = 'global', withCatalog = false) {
       location: { personId, rank, page: rank === null ? null : 2 },
     };
   }
-  return { context, links, person, detailPayload, detailDriver, rankDriver, rankingView, rank };
+  return { context, links, person, detailPayload, detailDriver, candidateDriver, rankDriver, rankingView, rank };
 }
 
 describe('cross-workspace person inspection', () => {
@@ -253,6 +260,209 @@ describe('cross-workspace person inspection', () => {
   });
 });
 
+
+
+it.each(['global', 'personal'] as const)('keeps genuine query-all accepted detail and locates its exact ID (%s)', async (scope) => {
+  const h = harness(scope, true);
+  h.context.query = { ...h.context.query!, positionScope: 'all', positionKeys: [] };
+  const query = h.context.query;
+  h.links.inspect(h.person, ['staff:anime:101', 'staff:anime:99999']);
+  expect(h.links.detail.acceptedQuery).toBe(query);
+  expect(h.rankDriver.calls).toHaveLength(1);
+  expect(h.rankDriver.calls[0]!.request).toMatchObject({ query, view: {
+    search: '', sort: 'average', order: 'asc', page: 1, pageSize: 20, locatePersonId: h.person.id,
+  } });
+  h.detailDriver.succeed(0, h.detailPayload);
+  h.rankDriver.succeed(0, h.rank());
+  await flushPromises();
+  expect(h.links.detail.acceptedQuery).toBe(query);
+  expect(h.links.detail.acceptedInput?.positionKeys).toEqual(['staff:anime:101', 'staff:anime:99999']);
+  expect(h.links.location.value?.personId).toBe(h.person.id);
+});
+
+function lookupHarness(scope: 'global' | 'personal' = 'global') {
+  const h = harness(scope, true, true);
+  h.context.query = { ...h.context.query!, positionScope: 'all', positionKeys: [] };
+  const base = decodeCandidatePayload(golden('candidates', scope));
+  function page(ids: number[], number = 1, total = ids.length, keys: readonly string[] = ['staff:anime:101', 'staff:anime:99999']): CandidatePayload {
+    return { ...base, dataVersion: h.detailPayload.dataVersion,
+      ...(h.detailPayload.collection ? { collection: h.detailPayload.collection } : {}),
+      positionKey: null, pagination: { page: number, pageSize: 20, total },
+      items: ids.map((id, index) => ({ ...base.items[0]!, person: { ...h.person, id },
+        rank: (number - 1) * 20 + index + 1, workCount: 1, positionKeys: keys })),
+    };
+  }
+  return { ...h, page };
+}
+
+function lookup(h: ReturnType<typeof lookupHarness>, person = h.person, isCurrent = () => true) {
+  return h.links.lookupCandidateIdentities(person, isCurrent);
+}
+
+describe('transient complete candidate identity lookup', () => {
+  it.each(['global', 'personal'] as const)('pages namesakes by exact numeric ID without mutating other resources (%s)', async (scope) => {
+    const h = lookupHarness(scope);
+    const query = h.context.query;
+    const before = { ...h.links.detail };
+    const fullName = { ...h.person, name: '  完整原文名😀  ', nameCN: '不能用于查询' };
+    const result = lookup(h, fullName);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    const first = h.candidateDriver.calls[0]!.request;
+    expect(first.query).toBe(query);
+    expect(first.input).toEqual({ positionKey: null, positionScope: 'query' });
+    expect(first.input).not.toHaveProperty('participants');
+    expect(first.view).toEqual({ search: fullName.name, sort: 'count', order: 'desc', page: 1, pageSize: 20 });
+    expect(h.links.candidateLookupPending.value).toBe(true);
+    h.candidateDriver.succeed(0, h.page(Array.from({ length: 20 }, (_, i) => 1000 + i), 1, 21));
+    await flushPromises();
+    expect(h.candidateDriver.calls).toHaveLength(2);
+    expect(h.candidateDriver.calls[1]!.request.view).toEqual({ ...first.view, page: 2 });
+    expect(h.candidateDriver.calls[1]!.request.transactionId).not.toBe(first.transactionId);
+    expect(h.candidateDriver.calls[1]!.request.sequence).toBeGreaterThan(first.sequence);
+    const keys = ['staff:anime:99999', 'staff:anime:101', 'cast:anime:all'];
+    h.candidateDriver.succeed(1, h.page([h.person.id], 2, 21, keys));
+    await expect(result).resolves.toEqual(keys);
+    expect(h.links.candidateLookupPending.value).toBe(false);
+    expect(h.links.candidateLookupError.value).toBeNull();
+    expect(h.links.detail).toEqual(before);
+    expect(h.links.person.value).toBeNull();
+    expect(h.links.positionKeys.value).toEqual([]);
+    expect(h.context.query).toBe(query);
+    expect(h.context.revision).toBe(1);
+    expect(h.detailDriver.calls).toHaveLength(0);
+    expect(h.rankDriver.calls).toHaveLength(0);
+  });
+
+  it.each([256, 257])('uses the full original name only within %i Unicode codepoints', async (length) => {
+    const h = lookupHarness();
+    const name = '😀'.repeat(length);
+    const result = lookup(h, { ...h.person, name });
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    expect(h.candidateDriver.calls[0]!.request.view.search).toBe(length === 256 ? name : '');
+    h.candidateDriver.succeed(0, h.page([h.person.id]));
+    await expect(result).resolves.toEqual(['staff:anime:101', 'staff:anime:99999']);
+  });
+
+  it.each([null, 'request:1', 'garbage', '[null,null]', '["version"]'])('refuses an unverifiable snapshot %s', async (snapshot) => {
+    const h = lookupHarness();
+    h.context.snapshot = snapshot;
+    expect(await lookup(h)).toBeNull();
+    expect(h.candidateDriver.calls).toHaveLength(0);
+    expect(h.links.candidateLookupError.value).toBeTruthy();
+  });
+
+  it.each(['legacy empty', 'specific', 'malformed all'] as const)('does not use lookup for %s Query', async (kind) => {
+    const h = lookupHarness();
+    h.context.query = kind === 'legacy empty' ? { ...h.context.query!, positionScope: undefined } :
+      { ...h.context.query!, positionScope: kind === 'specific' ? undefined : 'all', positionKeys: ['staff:anime:2'] };
+    expect(await lookup(h)).toBeNull();
+    expect(h.candidateDriver.calls).toHaveLength(0);
+  });
+
+  it.each(['query', 'revision', 'snapshot', 'owner', 'target', 'cancel', 'close', 'inspect'] as const)('invalidates delayed lookup on %s', async (change) => {
+    const h = lookupHarness();
+    let owner = true;
+    const person = { ...h.person };
+    const result = lookup(h, person, () => owner);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    if (change === 'query') h.context.query = { ...h.context.query!, includeNSFW: true };
+    if (change === 'revision') h.context.revision++;
+    if (change === 'snapshot') h.context.snapshot = '["new-version",null]';
+    if (change === 'owner') owner = false;
+    if (change === 'target') person.id++;
+    if (change === 'cancel') h.links.cancelCandidateLookup();
+    if (change === 'close') h.links.close();
+    if (change === 'inspect') h.links.inspect(h.person, ['staff:anime:101']);
+    h.candidateDriver.succeed(0, h.page([h.person.id]));
+    await expect(result).resolves.toBeNull();
+    expect(h.links.candidateLookupError.value).toBeNull();
+    expect(h.links.candidateLookupPending.value).toBe(false);
+  });
+
+  it.each(['success', 'error'] as const)('stale %s and finally cannot clear newer lookup pending or feedback', async (outcome) => {
+    const h = lookupHarness();
+    const old = lookup(h);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    const person = { ...h.person, id: h.person.id + 1 };
+    const next = lookup(h, person);
+    expect(h.candidateDriver.calls[0]!.request.signal.aborted).toBe(true);
+    if (outcome === 'success') h.candidateDriver.succeed(0, h.page([h.person.id]));
+    else h.candidateDriver.calls[0]!.result.reject(new Error('obsolete failure'));
+    await expect(old).resolves.toBeNull();
+    expect(h.links.candidateLookupPending.value).toBe(true);
+    expect(h.links.candidateLookupError.value).toBeNull();
+    h.candidateDriver.succeed(1, h.page([person.id]));
+    await expect(next).resolves.toEqual(['staff:anime:101', 'staff:anime:99999']);
+  });
+
+  it.each(['transaction', 'page', 'size', 'total', 'short', 'empty', 'duplicates', 'scope', 'workUnit', 'positionKey', 'dataVersion', 'collection'] as const)('rejects invalid %s before accepting a target anywhere on the page', async (kind) => {
+    const h = lookupHarness('personal');
+    const result = lookup(h);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    let payload = h.page([h.person.id, 1001]);
+    if (kind === 'page') payload = { ...payload, pagination: { ...payload.pagination, page: 2 } };
+    if (kind === 'size') payload = { ...payload, pagination: { ...payload.pagination, pageSize: 10 } };
+    if (kind === 'total') payload = { ...payload, pagination: { ...payload.pagination, total: -1 } };
+    if (kind === 'short') payload = { ...payload, pagination: { ...payload.pagination, total: 21 } };
+    if (kind === 'empty') payload = { ...payload, items: [] };
+    if (kind === 'duplicates') payload = h.page([h.person.id, 1001, 1001]);
+    if (kind === 'scope') payload = { ...payload, scope: 'global' };
+    if (kind === 'workUnit') payload = { ...payload, workUnit: 'series' };
+    if (kind === 'positionKey') payload = { ...payload, positionKey: 'staff:anime:2' };
+    if (kind === 'dataVersion') payload = { ...payload, dataVersion: 'other' };
+    if (kind === 'collection') payload = { ...payload, collection: { ...payload.collection!, fetchedAt: '2026-09-09T00:00:00Z' } };
+    const call = h.candidateDriver.calls[0]!;
+    call.result.resolve({ payload, requestId: 'test', transactionId: kind === 'transaction' ? 'wrong' : call.request.transactionId });
+    await expect(result).resolves.toBeNull();
+    expect(h.links.candidateLookupError.value).toBeTruthy();
+    expect(h.links.candidateLookupPending.value).toBe(false);
+  });
+
+  it.each(['total changes', 'duplicate people', 'duplicate page', 'no progress'] as const)('rejects %s on a later page', async (kind) => {
+    const h = lookupHarness();
+    const result = lookup(h);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    h.candidateDriver.succeed(0, h.page(Array.from({ length: 20 }, (_, i) => 1000 + i), 1, 22));
+    await flushPromises();
+    h.candidateDriver.succeed(1, h.page(kind === 'no progress' ? [] : [h.person.id, kind === 'duplicate people' ? 1000 : 1020], kind === 'duplicate page' ? 1 : 2, kind === 'total changes' ? 23 : 22));
+    await expect(result).resolves.toBeNull();
+    expect(h.links.candidateLookupError.value).toBeTruthy();
+    expect(h.candidateDriver.calls).toHaveLength(2);
+  });
+
+  it.each([0, 1, 20, 21])('never repairs a complete row with %i identities', async (count) => {
+    const h = lookupHarness();
+    const result = lookup(h);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    const keys = Array.from({ length: count }, (_, i) => `staff:anime:${90000 + i}`);
+    h.candidateDriver.succeed(0, h.page([h.person.id], 1, 1, keys));
+    await expect(result).resolves.toEqual(count > 0 && count <= 20 ? keys : null);
+    expect(Boolean(h.links.candidateLookupError.value)).toBe(count === 0 || count === 21);
+  });
+
+  it.each([{ keys: ['staff:anime:2', 'staff:anime:2'] }, { keys: [' bad '] }, { keys: [123] }, { keys: ['staff:book:1'] }])('rejects malformed, repeated or wrong-type identities %j', async ({ keys }) => {
+    const h = lookupHarness();
+    const result = lookup(h);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    h.candidateDriver.succeed(0, h.page([h.person.id], 1, 1, keys as string[]));
+    await expect(result).resolves.toBeNull();
+    expect(h.links.candidateLookupError.value).toBeTruthy();
+  });
+
+  it('reports genuinely exhausted missing targets and allows an uncached retry', async () => {
+    const h = lookupHarness();
+    const result = lookup(h);
+    expect(h.candidateDriver.calls).toHaveLength(1);
+    h.candidateDriver.succeed(0, h.page([1000]));
+    await expect(result).resolves.toBeNull();
+    expect(h.links.candidateLookupError.value).toContain('未找到');
+    const retry = lookup(h);
+    expect(h.candidateDriver.calls).toHaveLength(2);
+    expect(h.links.candidateLookupError.value).toBeNull();
+    h.candidateDriver.succeed(1, h.page([h.person.id]));
+    await expect(retry).resolves.toEqual(['staff:anime:101', 'staff:anime:99999']);
+  });
+});
 
 it('opens cross-role detail using all scope without widening ranking lookup', () => {
   const h = harness('global', true);
