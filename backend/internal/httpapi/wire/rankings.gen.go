@@ -16,6 +16,7 @@ const (
 	Dropped    PostRankingsV1JSONBodyQuery0CollectionStatuses = "dropped"
 	InProgress PostRankingsV1JSONBodyQuery0CollectionStatuses = "in_progress"
 	OnHold     PostRankingsV1JSONBodyQuery0CollectionStatuses = "on_hold"
+	Wish       PostRankingsV1JSONBodyQuery0CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PostRankingsV1JSONBodyQuery0CollectionStatuses enum.
@@ -28,6 +29,23 @@ func (e PostRankingsV1JSONBodyQuery0CollectionStatuses) Valid() bool {
 	case InProgress:
 		return true
 	case OnHold:
+		return true
+	case Wish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostRankingsV1JSONBodyQuery0PositionScope.
+const (
+	PostRankingsV1JSONBodyQuery0PositionScopeAll PostRankingsV1JSONBodyQuery0PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostRankingsV1JSONBodyQuery0PositionScope enum.
+func (e PostRankingsV1JSONBodyQuery0PositionScope) Valid() bool {
+	switch e {
+	case PostRankingsV1JSONBodyQuery0PositionScopeAll:
 		return true
 	default:
 		return false
@@ -55,6 +73,21 @@ func (e PostRankingsV1JSONBodyQuery0SubjectType) Valid() bool {
 	case PostRankingsV1JSONBodyQuery0SubjectTypeMusic:
 		return true
 	case PostRankingsV1JSONBodyQuery0SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostRankingsV1JSONBodyQuery1PositionScope.
+const (
+	PostRankingsV1JSONBodyQuery1PositionScopeAll PostRankingsV1JSONBodyQuery1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostRankingsV1JSONBodyQuery1PositionScope enum.
+func (e PostRankingsV1JSONBodyQuery1PositionScope) Valid() bool {
+	switch e {
+	case PostRankingsV1JSONBodyQuery1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1932,16 +1965,20 @@ type PostRankingsV1JSONBodyQuery0 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                   `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                   `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}                           `json:"positionKeys"`
-	Scope        interface{}                             `json:"scope"`
-	SubjectType  PostRankingsV1JSONBodyQuery0SubjectType `json:"subjectType"`
-	Uid          string                                  `json:"uid"`
+	IncludeNSFW   *bool                                      `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                      `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                              `json:"positionKeys"`
+	PositionScope *PostRankingsV1JSONBodyQuery0PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                `json:"scope"`
+	SubjectType   PostRankingsV1JSONBodyQuery0SubjectType    `json:"subjectType"`
+	Uid           string                                     `json:"uid"`
 }
 
 // PostRankingsV1JSONBodyQuery0CollectionStatuses defines parameters for PostRankingsV1.
 type PostRankingsV1JSONBodyQuery0CollectionStatuses string
+
+// PostRankingsV1JSONBodyQuery0PositionScope defines parameters for PostRankingsV1.
+type PostRankingsV1JSONBodyQuery0PositionScope string
 
 // PostRankingsV1JSONBodyQuery0SubjectType defines parameters for PostRankingsV1.
 type PostRankingsV1JSONBodyQuery0SubjectType string
@@ -1970,12 +2007,16 @@ type PostRankingsV1JSONBodyQuery1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                   `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                   `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}                           `json:"positionKeys"`
-	Scope        interface{}                             `json:"scope"`
-	SubjectType  PostRankingsV1JSONBodyQuery1SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                                      `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                      `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                              `json:"positionKeys"`
+	PositionScope *PostRankingsV1JSONBodyQuery1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                `json:"scope"`
+	SubjectType   PostRankingsV1JSONBodyQuery1SubjectType    `json:"subjectType"`
 }
+
+// PostRankingsV1JSONBodyQuery1PositionScope defines parameters for PostRankingsV1.
+type PostRankingsV1JSONBodyQuery1PositionScope string
 
 // PostRankingsV1JSONBodyQuery1SubjectType defines parameters for PostRankingsV1.
 type PostRankingsV1JSONBodyQuery1SubjectType string

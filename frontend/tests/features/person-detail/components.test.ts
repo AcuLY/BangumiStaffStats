@@ -1173,6 +1173,48 @@ describe('person inspector production presentation', () => {
   });
 });
 
+
+describe('accepted identity presentation under genuine query-all', () => {
+  it('uses accepted explicit identities, never pending input, and retains ordinary fallback', async () => {
+    const detail = structuredClone(payload('global.json'));
+    const noBiography = { ...detail, person: { ...detail.person, summary: '', careers: [] } };
+    const ordinary = resource(noBiography);
+    const wrapper = mount(PersonInspector, { props: {
+      executeView: vi.fn(async () => true), retry: vi.fn(async () => true),
+      positionLabel: (key: string) => ({ label: key === 'staff:anime:101' ? '已接受身份' : '普通查询身份' }),
+      resource: resource(noBiography, { acceptedQuery: { scope: 'global', positionScope: 'all', positionKeys: [] },
+        acceptedInput: { personId: detail.person.id, positionKeys: ['staff:anime:101'] },
+        input: { personId: detail.person.id, positionKeys: ['staff:anime:2'] },
+      }),
+    } });
+    wrappers.push(wrapper);
+    expect(wrapper.get('.person-profile__summary').text()).toContain('已接受身份');
+    expect(wrapper.get('.person-profile__summary').text()).not.toContain('普通查询身份');
+    await wrapper.setProps({ resource: ordinary });
+    expect(wrapper.get('.person-profile__summary').text()).toContain('普通查询身份');
+  });
+
+  it.each(['global.json', 'personal.json'] as const)('keeps ready character capability based on zero versus omission (%s)', async (filename) => {
+    const detail = payload(filename);
+    const makeResource = (hasCharacters: boolean) => resource({ ...detail,
+      summary: { ...detail.summary, ...(hasCharacters ? { characterCount: 0 } : {}) },
+    }, { acceptedQuery: { scope: detail.scope, positionScope: 'all', positionKeys: [] } });
+    const wrapper = mount(PersonInspector, { props: {
+      executeView: vi.fn(async () => true), retry: vi.fn(async () => true), positionLabel,
+      resource: makeResource(true),
+    } });
+    wrappers.push(wrapper);
+    expect(wrapper.get('.person-profile-metrics').classes()).toContain('has-character-count');
+    const metric = wrapper.findAll('.metric-unit').find((item) => item.text().includes('角色数'))!;
+    expect(metric.get('strong').text()).toBe('0');
+    expect(wrapper.getComponent(PersonItemBrowser).props('payload').summary.characterCount).toBe(0);
+    await wrapper.setProps({ resource: makeResource(false) });
+    expect(wrapper.get('.person-profile-metrics').classes()).not.toContain('has-character-count');
+    expect(wrapper.get('.person-profile-metrics').text()).not.toContain('角色数');
+    expect(wrapper.get('.person-profile-metrics').classes().includes('profile-metrics--global')).toBe(filename === 'global.json');
+  });
+});
+
 describe('person-detail oracle cascade guards', () => {
   it('keeps workspace actions and a unique panel ID while moving focus across the drawer breakpoint', async () => {
     const wrapper = mount(PersonDetailSurface, {

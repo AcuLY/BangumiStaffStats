@@ -78,9 +78,16 @@ UID SHALL reject control/NUL characters and exceed neither 256 Unicode code poin
 - **WHEN** `mergeSeries=true` and `subjectType` is not `anime`
 - **THEN** semantic validation fails with a subject-type field error
 
+A query SHALL optionally accept `positionScope: "all"` with required empty `positionKeys: []` as the exclusive unrestricted selection. The field SHALL be absent for legacy specific-position semantics; any other value, null, or non-empty keys combined with all SHALL be invalid. Existing explicitly all-position operation requests with empty keys and absent query scope SHALL remain compatible. Each query SHALL still select exactly one subject type.
+
+#### Scenario: Unrestricted query is explicit and exclusive
+- **WHEN** personal or global submits `positionScope: "all", positionKeys: []`
+- **THEN** it validates without a fake PositionKey or catalog expansion in the wire
+- **AND** empty keys without the field remain invalid for ordinary ranking, while all plus a concrete key is invalid
+
 ### Requirement: Collection statuses and inactive filters have canonical wire forms
 
-Personal `collectionStatuses` SHALL use only `completed`, `in_progress`, `on_hold`, and `dropped`. Normalization SHALL remove duplicates and emit them in that fixed order. Global queries SHALL forbid the field.
+Personal `collectionStatuses` SHALL use only `wish`, `completed`, `in_progress`, `on_hold`, and `dropped`. Normalization SHALL remove duplicates and emit them in that fixed order. Global queries SHALL forbid the field.
 
 The wire SHALL NOT contain prototype `{enabled,value}` wrappers. An inactive filter SHALL be omitted. A present range SHALL contain at least one of `min` or `max`; an empty range SHALL be invalid rather than equivalent to inactive.
 
@@ -216,7 +223,7 @@ preimage = ASCII("bgmss.query.v1") || OCTET(0x00) || UTF8(canonical)
 queryDigest = "q1:" || lowercase_hex(SHA-256(preimage))
 ```
 
-`QueryDigestProjectionV1` SHALL contain exactly effective `scope`, `subjectType`, ordered unique `positionKeys`, personal `collectionStatuses`, explicit `includeNSFW`/`mergeSeries`, and normalized active filters; it SHALL omit personal `uid`. The fixed prefix SHALL be 15 bytes total: the 14 ASCII bytes for `bgmss.query.v1` followed by exactly one NUL octet `0x00`, never the printable characters backslash and zero. Every successful digest golden SHALL record the projection, separator, and complete preimage as lowercase hexadecimal and unpadded base64url so Go, TypeScript, and the contract verifier compare exact bytes without source-language escape ambiguity.
+`QueryDigestProjectionV1` SHALL contain exactly effective `scope`, `subjectType`, ordered unique `positionKeys`, optional `positionScope: "all"` only when unrestricted, personal `collectionStatuses`, explicit `includeNSFW`/`mergeSeries`, and normalized active filters; it SHALL omit personal `uid`. The fixed prefix SHALL be 15 bytes total: the 14 ASCII bytes for `bgmss.query.v1` followed by exactly one NUL octet `0x00`, never the printable characters backslash and zero. Every successful digest golden SHALL record the projection, separator, and complete preimage as lowercase hexadecimal and unpadded base64url so Go, TypeScript, and the contract verifier compare exact bytes without source-language escape ambiguity.
 
 `uid`, `dataVersion`, operation, operation input, view,
 search, sort, order, page, pageSize, section, query revision, input digest,
@@ -249,6 +256,11 @@ composes it with separately owned dimensions.
 #### Scenario: Mode or digest field is submitted
 - **WHEN** `mode`, `operation`, `queryDigest`, `inputDigest`, `dataVersion`, or `queryRevision` appears inside the shared query
 - **THEN** strict validation rejects it as the wrong layer or an unknown field
+
+#### Scenario: Unrestricted mode has a distinct cache identity
+- **WHEN** equivalent unrestricted requests normalize in Go and TypeScript
+- **THEN** effective query, canonical projection and digest SHALL match shared goldens with `positionScope: "all"`
+- **AND** legacy concrete-position projections/digests SHALL remain byte-identical and distinct from unrestricted mode
 
 ### Requirement: Search, sort, order, and pagination are strict view values
 

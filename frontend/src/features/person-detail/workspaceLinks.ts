@@ -4,6 +4,8 @@ import type { CandidatePayload } from '../../api/adapters/candidates';
 import type { CoStarPayload } from '../../api/adapters/coStar';
 import type { PartnersPayload } from '../../api/adapters/partners';
 import type { PersonDetailPayload } from '../../api/adapters/personDetail';
+import { decodePersonDetailInput, decodePositionKey } from '../../api/adapters/queryWire';
+import { candidateErrorMessage, CandidatesApiError } from '../../api/candidates';
 import type { RankingPayload } from '../../api/adapters/rankings';
 import { personDetailErrorMessage, PersonDetailApiError } from '../../api/personDetail';
 import { rankingErrorMessage, RankingsApiError } from '../../api/rankings';
@@ -48,8 +50,14 @@ export function createPersonWorkspaceLinks(options: {
   let rankSequence = 0;
   let detailController: AbortController | null = null;
   let rankController: AbortController | null = null;
+  const candidateLookupPending = ref(false);
+  const candidateLookupError = ref<string | null>(null);
+  let candidateController: AbortController | null = null;
+  let candidateGeneration = 0;
+  let candidateSequence = 0;
 
   function close(): void {
+    cancelCandidateLookup();
     generation += 1;
     detailController?.abort();
     rankController?.abort();
@@ -89,8 +97,7 @@ export function createPersonWorkspaceLinks(options: {
     detail.viewPending = viewOnly;
     if (!viewOnly) detail.phase = 'pending';
     detail.input = input;
-    // Presentation scope only; the wire request below uses the unchanged Applied Query.
-    detail.acceptedQuery = { ...query, positionKeys: [...positionKeys.value] } as AppliedQuery;
+    detail.acceptedQuery = query;
     detail.revision = revision;
     try {
       if (!options.drivers.personDetail) throw new Error('人物详情服务不可用');
@@ -123,7 +130,7 @@ export function createPersonWorkspaceLinks(options: {
     const query = options.query();
     if (!query || !person.value) return false;
     rankController?.abort();
-    if (query.positionKeys.length === 0) {
+    if (query.positionKeys.length === 0 && query.positionScope !== 'all') {
       rankController = null;
       rankPending.value = false;
       rankError.value = '选择排行职位后可定位人物';
@@ -163,6 +170,123 @@ export function createPersonWorkspaceLinks(options: {
     }
   }
 
+  /** Call immediately on primary start, target/selection/mode change and unmount. */
+  function cancelCandidateLookup(): void {
+    candidateGeneration += 1;
+    candidateController?.abort();
+    candidateController = null;
+    candidateLookupPending.value = false;
+    candidateLookupError.value = null;
+  }
+
+  /**
+   * Resolve one complete backend row, not a visible candidate view or an identity cache.
+   * The caller supplies the current detail's numeric ID and full original name, and an
+   * ownership predicate covering primary-start/target/selection/mode generations. The
+   * caller must also cancel immediately on invalidation; this method never commits UI state.
+   */
+  async function lookupCandidateIdentities(
+    target: LinkedPerson,
+    isCurrent: () => boolean,
+  ): Promise<readonly string[] | null> {
+    cancelCandidateLookup();
+    const query = options.query();
+    if (!query || query.positionScope !== 'all' || query.positionKeys.length !== 0) return null;
+    const controller = new AbortController();
+    candidateController = controller;
+    const token = candidateGeneration;
+    const detailToken = generation;
+    const signature = querySignature(query);
+    const revision = options.revision();
+    const snapshot = options.snapshot();
+    const personId = target.id;
+    const name = target.name;
+    const ownsLookup = () => candidateController === controller && !controller.signal.aborted
+      && candidateGeneration === token && generation === detailToken
+      && options.revision() === revision && options.snapshot() === snapshot
+      && options.query() !== null && querySignature(options.query()!) === signature
+      && target.id === personId && target.name === name && isCurrent();
+    try {
+      if (!ownsLookup()) return null;
+      decodePersonDetailInput({ personId });
+      if (typeof name !== 'string') throw new Error('人物资料不完整，请重新打开详情');
+      // Null and request-only fallback snapshots cannot establish response authority.
+      const parts: unknown = snapshot === null ? null : JSON.parse(snapshot);
+      if (!Array.isArray(parts) || parts.length !== 2 || typeof parts[0] !== 'string' || !parts[0]
+        || (query.scope === 'global' ? parts[1] !== null : typeof parts[1] !== 'string' || !parts[1])) {
+        throw new Error('查询快照不可用，请重新应用查询后重试');
+      }
+      const search = [...name].length <= 256 ? name : '';
+      const seenPeople = new Set<number>();
+      let total: number | null = null;
+      candidateLookupPending.value = true;
+      for (let page = 1; ; page += 1) {
+        if (!ownsLookup()) return null;
+        const sequence = ++candidateSequence;
+        const transactionId = `linked-candidates-${sequence}`;
+        const response = await options.drivers.candidates.execute({
+          query, input: { positionKey: null, positionScope: 'query' },
+          view: { search, sort: 'count', order: 'desc', page, pageSize: 20 },
+          sequence, transactionId, signal: controller.signal,
+        });
+        if (!ownsLookup()) return null;
+        const payload = response.payload;
+        if (response.transactionId !== transactionId || payload.scope !== query.scope
+          || payload.positionKey !== null || payload.workUnit !== (query.mergeSeries ? 'series' : 'subject')
+          || JSON.stringify([payload.dataVersion, payload.collection?.fetchedAt ?? null]) !== snapshot) {
+          throw new Error('候选人物响应与当前查询不匹配，请重新应用查询后重试');
+        }
+        const pagination = payload.pagination;
+        if (pagination.page !== page || pagination.pageSize !== 20
+          || !Number.isSafeInteger(pagination.total) || pagination.total < 0
+          || (total !== null && pagination.total !== total)) {
+          throw new Error('候选人物分页不一致，请重试');
+        }
+        total = pagination.total;
+        if (!Array.isArray(payload.items) || payload.items.length !== Math.min(20, total - seenPeople.size)) {
+          throw new Error('候选人物分页不完整，请重试');
+        }
+        const items: CandidatePayload['items'] = payload.items;
+        // Validate the WHOLE page before considering a match, including later duplicates.
+        for (const item of items) {
+          decodePersonDetailInput({ personId: item.person.id });
+          if (seenPeople.has(item.person.id)) throw new Error('候选人物重复，请重试');
+          seenPeople.add(item.person.id);
+          if (!Array.isArray(item.positionKeys) || item.positionKeys.length === 0
+            || new Set(item.positionKeys).size !== item.positionKeys.length) {
+            throw new Error('候选人物身份不完整，请重试');
+          }
+          for (const key of item.positionKeys) decodePositionKey(key);
+        }
+        const match = items.find((item) => item.person.id === personId);
+        if (match) {
+          if (match.positionKeys.length > 20) throw new Error('该人物的完整身份超过 20 个，无法查看共演');
+          // Validate the exact identity array; never repair or truncate it.
+          decodePersonDetailInput({ personId, positionKeys: match.positionKeys, positionScope: 'all' });
+          if (match.positionKeys.some((key) => !operationPositionAllowed(
+            query, 'query', key, options.getCatalog?.() ?? null, 'candidates',
+          ))) throw new Error('候选人物身份不受当前查询支持，请重新应用查询后重试');
+          return ownsLookup() ? [...match.positionKeys] : null;
+        }
+        if (seenPeople.size === total) throw new Error('当前查询中未找到该人物的完整身份，请重试');
+      }
+    } catch (error) {
+      if (!ownsLookup()) return null;
+      candidateLookupError.value = error instanceof CandidatesApiError ? candidateErrorMessage(error.code)
+        : error instanceof Error && !(error instanceof SyntaxError) ? error.message
+          : '查询快照不可用，请重新应用查询后重试';
+      return null;
+    } finally {
+      if (ownsLookup()) {
+        candidateLookupPending.value = false;
+        candidateController = null;
+      } else if (candidateController === controller) {
+        // Release only this obsolete request; never a newer lookup's pending/error state.
+        cancelCandidateLookup();
+      }
+    }
+  }
+
   function inspect(nextPerson: LinkedPerson, identities: readonly string[]): void {
     close();
     const query = options.query();
@@ -179,5 +303,6 @@ export function createPersonWorkspaceLinks(options: {
     void loadRank();
   }
 
-  return { person, positionKeys, detail, location, rankPending, rankError, rankingView, inspect, close, loadDetail, loadRank };
+  return { person, positionKeys, detail, location, rankPending, rankError, rankingView, inspect, close, loadDetail, loadRank,
+    lookupCandidateIdentities, cancelCandidateLookup, candidateLookupPending, candidateLookupError };
 }

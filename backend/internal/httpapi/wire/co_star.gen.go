@@ -34,6 +34,7 @@ const (
 	PostCoStarV1JSONBodyQuery0CollectionStatusesDropped    PostCoStarV1JSONBodyQuery0CollectionStatuses = "dropped"
 	PostCoStarV1JSONBodyQuery0CollectionStatusesInProgress PostCoStarV1JSONBodyQuery0CollectionStatuses = "in_progress"
 	PostCoStarV1JSONBodyQuery0CollectionStatusesOnHold     PostCoStarV1JSONBodyQuery0CollectionStatuses = "on_hold"
+	PostCoStarV1JSONBodyQuery0CollectionStatusesWish       PostCoStarV1JSONBodyQuery0CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PostCoStarV1JSONBodyQuery0CollectionStatuses enum.
@@ -46,6 +47,23 @@ func (e PostCoStarV1JSONBodyQuery0CollectionStatuses) Valid() bool {
 	case PostCoStarV1JSONBodyQuery0CollectionStatusesInProgress:
 		return true
 	case PostCoStarV1JSONBodyQuery0CollectionStatusesOnHold:
+		return true
+	case PostCoStarV1JSONBodyQuery0CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostCoStarV1JSONBodyQuery0PositionScope.
+const (
+	PostCoStarV1JSONBodyQuery0PositionScopeAll PostCoStarV1JSONBodyQuery0PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostCoStarV1JSONBodyQuery0PositionScope enum.
+func (e PostCoStarV1JSONBodyQuery0PositionScope) Valid() bool {
+	switch e {
+	case PostCoStarV1JSONBodyQuery0PositionScopeAll:
 		return true
 	default:
 		return false
@@ -73,6 +91,21 @@ func (e PostCoStarV1JSONBodyQuery0SubjectType) Valid() bool {
 	case PostCoStarV1JSONBodyQuery0SubjectTypeMusic:
 		return true
 	case PostCoStarV1JSONBodyQuery0SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostCoStarV1JSONBodyQuery1PositionScope.
+const (
+	PostCoStarV1JSONBodyQuery1PositionScopeAll PostCoStarV1JSONBodyQuery1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PostCoStarV1JSONBodyQuery1PositionScope enum.
+func (e PostCoStarV1JSONBodyQuery1PositionScope) Valid() bool {
+	switch e {
+	case PostCoStarV1JSONBodyQuery1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -2491,16 +2524,20 @@ type PostCoStarV1JSONBodyQuery0 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                 `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                 `json:"mergeSeries,omitempty"`
-	PositionKeys []string                              `json:"positionKeys"`
-	Scope        interface{}                           `json:"scope"`
-	SubjectType  PostCoStarV1JSONBodyQuery0SubjectType `json:"subjectType"`
-	Uid          string                                `json:"uid"`
+	IncludeNSFW   *bool                                    `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                    `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                 `json:"positionKeys"`
+	PositionScope *PostCoStarV1JSONBodyQuery0PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                              `json:"scope"`
+	SubjectType   PostCoStarV1JSONBodyQuery0SubjectType    `json:"subjectType"`
+	Uid           string                                   `json:"uid"`
 }
 
 // PostCoStarV1JSONBodyQuery0CollectionStatuses defines parameters for PostCoStarV1.
 type PostCoStarV1JSONBodyQuery0CollectionStatuses string
+
+// PostCoStarV1JSONBodyQuery0PositionScope defines parameters for PostCoStarV1.
+type PostCoStarV1JSONBodyQuery0PositionScope string
 
 // PostCoStarV1JSONBodyQuery0SubjectType defines parameters for PostCoStarV1.
 type PostCoStarV1JSONBodyQuery0SubjectType string
@@ -2529,12 +2566,16 @@ type PostCoStarV1JSONBodyQuery1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                 `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                 `json:"mergeSeries,omitempty"`
-	PositionKeys []string                              `json:"positionKeys"`
-	Scope        interface{}                           `json:"scope"`
-	SubjectType  PostCoStarV1JSONBodyQuery1SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                                    `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                    `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                 `json:"positionKeys"`
+	PositionScope *PostCoStarV1JSONBodyQuery1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                              `json:"scope"`
+	SubjectType   PostCoStarV1JSONBodyQuery1SubjectType    `json:"subjectType"`
 }
+
+// PostCoStarV1JSONBodyQuery1PositionScope defines parameters for PostCoStarV1.
+type PostCoStarV1JSONBodyQuery1PositionScope string
 
 // PostCoStarV1JSONBodyQuery1SubjectType defines parameters for PostCoStarV1.
 type PostCoStarV1JSONBodyQuery1SubjectType string

@@ -16,6 +16,11 @@ func normalizeOperationRequest(
 	effective query.EffectiveQuery,
 	request Request,
 ) (Operation, error) {
+	return parseOperationRequest(effective, request, false)
+}
+
+// deferMembership permits syntax-only preflight; admitted facts must validate it.
+func parseOperationRequest(effective query.EffectiveQuery, request Request, deferMembership bool) (Operation, error) {
 	positionKey, err := parsePositionInput(request.Input)
 	if err != nil {
 		return Operation{}, err
@@ -24,7 +29,7 @@ func normalizeOperationRequest(
 	if err != nil {
 		return Operation{}, requestFailure("invalid position scope", "/input/positionScope", "UNSUPPORTED_VALUE")
 	}
-	participants, err := parseParticipants(request.Input, effective)
+	participants, err := parseParticipants(request.Input, effective, deferMembership)
 	if err != nil {
 		return Operation{}, err
 	}
@@ -32,7 +37,7 @@ func normalizeOperationRequest(
 	if err != nil {
 		return Operation{}, err
 	}
-	if positionKey != "" && !containsPosition(effective.PositionKeys, positionKey) {
+	if !deferMembership && positionKey != "" && !containsPosition(effective.PositionKeys, positionKey) {
 		return Operation{}, requestFailure(
 			"the candidate position is not selected by the query",
 			"/input/positionKey",
@@ -278,7 +283,8 @@ func unknownFieldFailure(path string) *Error {
 }
 
 // parseParticipants accepts semantic identities only, never picker presentation state.
-func parseParticipants(raw json.RawMessage, effective query.EffectiveQuery) ([]query.ParticipantPerson, error) {
+func parseParticipants(raw json.RawMessage, effective query.EffectiveQuery, deferred ...bool) ([]query.ParticipantPerson, error) {
+	deferMembership := len(deferred) > 0 && deferred[0]
 	fields, err := decodeObject(raw)
 	if err != nil {
 		return nil, requestFailure("candidate input must be an object", "/input", "INVALID_TYPE")
@@ -347,7 +353,7 @@ func parseParticipants(raw json.RawMessage, effective query.EffectiveQuery) ([]q
 				return nil, requestFailure("duplicate identity", keyPath, "DUPLICATE")
 			}
 			seen[key] = true
-			if !containsPosition(effective.PositionKeys, key) {
+			if !deferMembership && !containsPosition(effective.PositionKeys, key) {
 				return nil, requestFailure("identity is not permitted", keyPath, string(CodePositionNotFound))
 			}
 			positions = append(positions, key)

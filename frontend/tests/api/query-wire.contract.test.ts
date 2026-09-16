@@ -203,6 +203,42 @@ function unknownDecoder(
   }
 }
 
+describe('query-wide unrestricted wire compatibility', () => {
+  it.each(['book', 'anime', 'music', 'game', 'real'])('accepts explicit all and wish for %s without operation-scope rewriting', (subjectType) => {
+    for (const scope of ['global', 'personal']) {
+      const query = {
+        scope, subjectType, positionScope: 'all', positionKeys: [], includeNSFW: false, mergeSeries: false,
+        ...(scope === 'personal' ? { uid: 'luca', collectionStatuses: ['wish', 'completed', 'in_progress', 'on_hold', 'dropped'] } : {}),
+      };
+      expect(decodeSharedQuery(query)).toBe(query);
+      expect(decodeEffectiveQuery(query)).toBe(query);
+      for (const operationScope of ['query', 'all'] as const) {
+        expect(decodeSharedQueryForOperation(query, operationScope)).toBe(query);
+        expect(decodeEffectiveQueryForOperation(query, operationScope)).toBe(query);
+      }
+    }
+  });
+
+  it.each([null, 'query', 'unknown', 'all'])('rejects invalid query scope %s independently of operation all', (positionScope) => {
+    for (const scope of ['global', 'personal']) {
+      for (const positionKeys of [[], ['staff:anime:2']]) {
+        if (positionScope === 'all' && positionKeys.length === 0) continue;
+        const query = {
+          scope, subjectType: 'anime', positionScope, positionKeys, includeNSFW: false, mergeSeries: false,
+          ...(scope === 'personal' ? { uid: 'luca', collectionStatuses: ['wish'] } : {}),
+        };
+        for (const decode of [decodeSharedQueryForOperation, decodeEffectiveQueryForOperation]) {
+          for (const operationScope of ['query', 'all'] as const) {
+            expectDecodeFailure(() => decode(query, operationScope));
+          }
+        }
+        expectDecodeFailure(() => decodeSharedQuery(query));
+        expectDecodeFailure(() => decodeEffectiveQuery(query));
+      }
+    }
+  });
+});
+
 describe('shared query wire positive cases', () => {
   it('admits empty positions only through explicit all operation decoding', () => {
     const submitted = {

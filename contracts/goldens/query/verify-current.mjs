@@ -94,7 +94,7 @@ const forbiddenBundleKeywords = new Set([
 
 const manifest = JSON.parse(fs.readFileSync(path.join(goldenRoot, 'manifest.json'), 'utf8'));
 const mode = process.argv[2] ?? '--check';
-assert(['--check', '--refresh'].includes(mode), 'usage: node verify.mjs [--check|--refresh]');
+assert(['--check', '--refresh', '--authority-only'].includes(mode), 'usage: node verify.mjs [--check|--refresh|--authority-only]');
 assert.equal(process.version, 'v24.18.0', 'query verification requires pinned Node');
 const [{ default: Ajv2020 }, { default: addFormats }, { default: canonicalize }] = await Promise.all([import('ajv/dist/2020.js'), import('ajv-formats'), import('canonicalize')]);
 function fail(message) { throw new Error(message); }
@@ -561,7 +561,7 @@ function queryAuthorityEvidence(state, audit) {
 const UTF8 = new TextEncoder();
 const SAFE_MAX = 9007199254740991;
 const DIGEST_DOMAIN = Buffer.from("bgmss.query.v1", "ascii");
-const STATUS_ORDER = ["completed", "in_progress", "on_hold", "dropped"];
+const STATUS_ORDER = ["wish", "completed", "in_progress", "on_hold", "dropped"];
 const TRIM_CODE_POINTS = new Set([
   0x0009,
   0x000a,
@@ -639,7 +639,7 @@ const actualCaseFiles = fs
   .sort();
 assert.deepEqual(actualCaseFiles, declaredCaseFiles);
 assert.deepEqual(listPhysicalFiles(goldenRoot), [
-  "manifest.json", "package-lock.json", "package.json", "verify.mjs", "verify-current.mjs",
+  "manifest.json", "package-lock.json", "package.json", "verify.mjs", "verify-current.mjs", "test-unrestricted.mjs",
   "fixtures/go-module/go.mod.lock", "fixtures/go-module/go.sum.lock",
   ...declaredCaseFiles, ...manifest.unicode.files.map(entry => entry.path)
 ].sort(), "committed query contract inventory");
@@ -1177,6 +1177,7 @@ function normalizeQuery(submitted, catalog) {
   }
   effective.subjectType = submitted.subjectType;
   effective.positionKeys = positionKeys;
+  if (submitted.positionScope === "all") effective.positionScope = "all";
   effective.includeNSFW = submitted.includeNSFW ?? false;
   effective.mergeSeries = submitted.mergeSeries ?? false;
   const filters = buildFilters(submitted.filters, "/filters");
@@ -1194,6 +1195,7 @@ function projectQuery(effective) {
   }
   projection.subjectType = effective.subjectType;
   projection.positionKeys = cloneJson(effective.positionKeys);
+  if (effective.positionScope === "all") projection.positionScope = "all";
   projection.includeNSFW = effective.includeNSFW;
   projection.mergeSeries = effective.mergeSeries;
   if (effective.filters) {
@@ -1749,7 +1751,9 @@ function closedCompositionConstraint(value, pointer, root) {
   if (!reference?.startsWith('#/$defs/')) return false;
   const base = jsonPointerValue(root, reference, pointer);
   return base.additionalProperties === false &&
-    Object.keys(value).every(key => key === 'type' || key === 'properties') &&
+    Object.keys(value).every(key => ['type', 'properties', 'if', 'else'].includes(key)) &&
+    ((value.if === undefined && value.else === undefined) || (JSON.stringify(value.if) === JSON.stringify({ required: ['positionScope'], properties: { positionScope: { const: 'all' } } }) &&
+      JSON.stringify(value.else) === JSON.stringify({ properties: { positionKeys: { type: 'array', minItems: 1 } } }))) &&
     Object.keys(value.properties ?? {}).every(key => Object.hasOwn(base.properties ?? {}, key));
 }
 
@@ -2122,6 +2126,12 @@ function listPhysicalFiles(root, relative = "") {
     }
   }
   return result.sort();
+}
+
+// Authority-only acceptance is explicit; default acceptance still requires consumers.
+if (mode === '--authority-only') {
+  console.log(`verified ${schemas.length} strict schemas, ${allCaseIds.length} golden cases, ${normalizationAssertions} pinned NFKC assertions; consumer gates not run`);
+  process.exit(0);
 }
 
 // Current portable acceptance; historical host-bound transcripts live in the retirement archive.

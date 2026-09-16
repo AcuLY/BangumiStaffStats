@@ -280,3 +280,86 @@ it('accepts all-position response ordering independently of the original query a
   expect(JSON.parse(String(fetchImplementation.mock.calls[0]![1]!.body))).toMatchObject({ input: { positionScope: 'all' }, query });
   await expect(driver.execute({ ...request, input: { positionKey: null } })).rejects.toBeInstanceOf(ApiDecodeError);
 });
+
+describe('query-wide all candidates projection', () => {
+  // Cloned golden envelopes exercise the production fetch client/driver, not a live service.
+  function fixture(scope: 'personal' | 'global') {
+    const original = golden(`${scope}.json`).cases[0]!;
+    const envelope = structuredClone(original.expected.body) as {
+      data: {
+        positionKey: string | null;
+        workUnit: string;
+        summary: { positionCounts: { positionKey: string; count: number }[] };
+        items: { person: { id: number }; positionKeys: string[] }[];
+      };
+      meta: { pagination: { page: number; pageSize: number; total: number }; collection?: unknown };
+    };
+    const keys = ['staff:anime:999991', 'cast:anime:all'];
+    envelope.data.positionKey = null;
+    envelope.data.summary.positionCounts = keys.map((positionKey) => ({
+      positionKey, count: envelope.data.items.length,
+    }));
+    envelope.data.items.forEach((item) => { item.positionKeys = [...keys]; });
+    return {
+      envelope,
+      request: {
+        input: { positionKey: null },
+        query: { ...original.request.query, positionScope: 'all', positionKeys: [] },
+        view: original.request.view ?? {},
+        signal: new AbortController().signal,
+        transactionId: 'query-all-projection',
+      },
+    };
+  }
+
+  it.each(['personal', 'global'] as const)('uses response identities and preserves all three input scopes for %s', async (scope) => {
+    for (const positionScope of [undefined, 'query', 'all'] as const) {
+      const { envelope, request } = fixture(scope);
+      const input = { ...request.input, ...(positionScope === undefined ? {} : { positionScope }) };
+      const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(envelope));
+      const driver = createCandidatesDriver(createApiClient(fetchImplementation));
+      const response = await driver.execute({ ...request, input } as never);
+      expect(response.payload.items[0]!.positionKeys).toEqual(['staff:anime:999991', 'cast:anime:all']);
+      expect(response.payload.scope).toBe(scope);
+      expect(JSON.parse(String(fetchImplementation.mock.calls[0]![1]?.body))).toEqual({
+        input, query: request.query, view: request.view,
+      });
+      expect(request.query.positionKeys).toEqual([]);
+    }
+  });
+
+  it('accepts an exact single-position projection without changing the shared query', async () => {
+    const { envelope, request } = fixture('global');
+    envelope.data.positionKey = 'staff:anime:999991';
+    envelope.data.items.forEach((item) => { item.positionKeys = ['staff:anime:999991']; });
+    const fetchImplementation = vi.fn<FetchImplementation>(async () => jsonResponse(envelope));
+    await expect(createCandidatesDriver(createApiClient(fetchImplementation)).execute({
+      ...request, input: { positionKey: 'staff:anime:999991', positionScope: 'query' },
+    } as never)).resolves.toBeDefined();
+    expect(JSON.parse(String(fetchImplementation.mock.calls[0]![1]?.body)).query.positionKeys).toEqual([]);
+  });
+
+  it.each(['row-order', 'counts-order', 'membership', 'duplicate-count', 'duplicate-row-key',
+    'single-position', 'position-echo', 'page', 'page-size', 'scope', 'work-unit'] as const)(
+    'retains the typed rejection for corrupt %s', async (corruption) => {
+      const { envelope, request } = fixture('global');
+      if (corruption === 'row-order') envelope.data.items[0]!.positionKeys.reverse();
+      if (corruption === 'counts-order') envelope.data.summary.positionCounts.reverse();
+      if (corruption === 'membership') envelope.data.items[0]!.positionKeys = ['staff:anime:999992'];
+      if (corruption === 'duplicate-count') envelope.data.summary.positionCounts.push({ ...envelope.data.summary.positionCounts[0]! });
+      if (corruption === 'duplicate-row-key') envelope.data.items[0]!.positionKeys.push(envelope.data.items[0]!.positionKeys[0]!);
+      if (corruption === 'single-position' || corruption === 'position-echo') envelope.data.positionKey = 'staff:anime:999991';
+      if (corruption === 'page') envelope.meta.pagination.page = 2;
+      if (corruption === 'page-size') envelope.meta.pagination.pageSize = 5;
+      if (corruption === 'scope') envelope.meta.collection = {
+        fetchedAt: '2026-07-25T08:00:00Z', stale: false, warningCodes: [],
+      };
+      if (corruption === 'work-unit') envelope.data.workUnit = 'series';
+      const driver = createCandidatesDriver(createApiClient(async () => jsonResponse(envelope)));
+      await expect(driver.execute({
+        ...request,
+        ...(corruption === 'single-position' ? { input: { positionKey: envelope.data.positionKey } } : {}),
+      } as never)).rejects.toBeInstanceOf(ApiDecodeError);
+    },
+  );
+});

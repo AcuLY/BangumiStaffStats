@@ -14,8 +14,9 @@ import PositionCatalogBrowser from './PositionCatalogBrowser.vue';
 import QueryIcon from './QueryIcon.vue';
 import type { QueryControlSize } from './controlTheme';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   allowAll?: boolean;
+  allLabel?: string;
   allSelected?: boolean;
   controlSize: QueryControlSize;
   disabled?: boolean;
@@ -25,7 +26,7 @@ const props = defineProps<{
   phase: CatalogPhase;
   placeholder: string;
   positions: readonly CatalogPosition[];
-}>();
+}>(), { allLabel: '全部' });
 
 const emit = defineEmits<{
   'update:allSelected': [value: boolean];
@@ -133,7 +134,7 @@ function selectedPosition(
 }
 
 function rowAriaLabel(row: PositionSelectorRow, index: number): string {
-  const label = props.allSelected ? '全部' : selectedPosition(row)?.label ?? row.positionKey;
+  const label = props.allSelected ? props.allLabel : selectedPosition(row)?.label ?? row.positionKey;
   return label
     ? `第 ${index + 1} 个职位，当前为${label}`
     : `第 ${index + 1} 个职位，尚未选择`;
@@ -242,7 +243,13 @@ async function closeCatalog(restoreFocus = true): Promise<void> {
   searchDraft.value = '';
   if (restoreFocus && rowId !== null) {
     await nextTick();
-    rowToggle(rowId)?.focus({ preventScroll: true });
+    if (props.disabled || !selectorRoot.value?.isConnected) {
+      return;
+    }
+    // All can replace the active row or hide it behind the first row.
+    const allRow = props.allSelected ? visibleRows.value[0] : undefined;
+    const toggle = rowToggle(rowId) ?? (allRow ? rowToggle(allRow.id) : null);
+    toggle?.focus({ preventScroll: true });
   }
 }
 
@@ -477,7 +484,7 @@ defineExpose({
                   <span
                     class="position-selector__selected-label"
                     :class="{ 'is-placeholder': !allSelected && !row.positionKey }"
-                  >{{ allSelected ? '全部' : selectedPosition(row)?.label ?? row.positionKey ?? placeholder }}</span>
+                  >{{ allSelected ? allLabel : selectedPosition(row)?.label ?? row.positionKey ?? placeholder }}</span>
                   <query-icon name="chevron" :size="16" />
                 </button>
               </div>
@@ -489,6 +496,7 @@ defineExpose({
               :id="panelId"
               :compact="compact"
               :allow-all="allowAll"
+              :all-label="allLabel"
               :all-selected="allSelected"
               :disabled="disabled"
               :groups="groups"

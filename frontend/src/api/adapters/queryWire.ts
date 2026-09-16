@@ -104,6 +104,10 @@ function decoder<T>(
   };
 }
 
+export const decodePositionKey = decoder<string>(
+  'Position key',
+  `${schemaIds.shared}#/$defs/PositionKeyV1`,
+);
 export const decodeSharedQuery = decoder<SharedQueryWire>(
   'Shared query',
   schemaIds.shared,

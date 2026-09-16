@@ -284,8 +284,9 @@ Live host mutations require explicit authorization. Before them:
   non-interference after activation.
 
 For `search.bgmss.fun`, preserve the currently accepted route contract unless
-a new operations change says otherwise: legacy remains at the root path and
-the new application is under `/v2/`.
+a new operations change says otherwise: the new application remains at the root path and
+the legacy application is under `/old/`, as stated in PRODUCT.md. This is
+a documentation reconciliation, not authorization to mutate routing.
 
 ## Completion criteria
 

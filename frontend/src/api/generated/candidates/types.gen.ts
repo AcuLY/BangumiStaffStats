@@ -140,7 +140,7 @@ export type SortOrderV1 = 'asc' | 'desc';
  */
 export type SharedQueryV1Schema = PersonalSharedQueryV1 | GlobalSharedQueryV1;
 
-export type CollectionStatusV1 = 'completed' | 'in_progress' | 'on_hold' | 'dropped';
+export type CollectionStatusV1 = 'wish' | 'completed' | 'in_progress' | 'on_hold' | 'dropped';
 
 export type CommonFiltersInputV1 = {
     subjectDate?: MonthRangeV1;
@@ -156,10 +156,12 @@ export type GlobalSharedQueryFieldsV1 = {
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: CommonFiltersInputV1;
+    positionScope?: 'all';
 };
 
 export type GlobalSharedQueryV1 = GlobalSharedQueryFieldsV1 & {
     positionKeys?: Array<unknown>;
+    positionScope?: 'all';
 };
 
 export type SharedQueryV1SchemaJsonSafePositiveIntegerV1 = number;
@@ -195,10 +197,12 @@ export type PersonalSharedQueryFieldsV1 = {
     includeNSFW?: boolean;
     mergeSeries?: boolean;
     filters?: PersonalFiltersInputV1;
+    positionScope?: 'all';
 };
 
 export type PersonalSharedQueryV1 = PersonalSharedQueryFieldsV1 & {
     positionKeys?: Array<unknown>;
+    positionScope?: 'all';
 };
 
 export type PositionKeyV1 = unknown | unknown | unknown;

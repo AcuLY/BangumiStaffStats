@@ -89,6 +89,7 @@ type EffectiveQuery struct {
 	UID                string   `json:"uid,omitempty"`
 	CollectionStatuses []string `json:"collectionStatuses,omitempty"`
 	SubjectType        string   `json:"subjectType"`
+	PositionScope      string   `json:"positionScope,omitempty"`
 	PositionKeys       []string `json:"positionKeys"`
 	IncludeNSFW        bool     `json:"includeNSFW"`
 	MergeSeries        bool     `json:"mergeSeries"`
@@ -139,6 +140,7 @@ type QueryDigestProjection struct {
 	Scope              string   `json:"scope"`
 	CollectionStatuses []string `json:"collectionStatuses,omitempty"`
 	SubjectType        string   `json:"subjectType"`
+	PositionScope      string   `json:"positionScope,omitempty"`
 	PositionKeys       []string `json:"positionKeys"`
 	IncludeNSFW        bool     `json:"includeNSFW"`
 	MergeSeries        bool     `json:"mergeSeries"`
@@ -314,12 +316,12 @@ func normalizeQueryObject(object map[string]any, catalog CatalogContext, allowEm
 	switch scope {
 	case "personal":
 		allowed = []string{
-			"scope", "uid", "collectionStatuses", "subjectType", "positionKeys",
+			"scope", "uid", "collectionStatuses", "subjectType", "positionScope", "positionKeys",
 			"includeNSFW", "mergeSeries", "filters",
 		}
 	case "global":
 		allowed = []string{
-			"scope", "subjectType", "positionKeys", "includeNSFW", "mergeSeries", "filters",
+			"scope", "subjectType", "positionScope", "positionKeys", "includeNSFW", "mergeSeries", "filters",
 		}
 	default:
 		return EffectiveQuery{}, fieldError("/scope", "scope must be personal or global")
@@ -335,9 +337,19 @@ func normalizeQueryObject(object map[string]any, catalog CatalogContext, allowEm
 	if !validSubjectType(subjectType) {
 		return EffectiveQuery{}, fieldError("/subjectType", "unsupported subject type")
 	}
-	positionKeys, err := parsePositionKeys(object["positionKeys"], "/positionKeys", allowEmptyPositions)
+	positionScope := ""
+	if value, exists := object["positionScope"]; exists {
+		if value != "all" {
+			return EffectiveQuery{}, fieldError("/positionScope", "positionScope must be all")
+		}
+		positionScope = "all"
+	}
+	positionKeys, err := parsePositionKeys(object["positionKeys"], "/positionKeys", allowEmptyPositions || positionScope == "all")
 	if err != nil {
 		return EffectiveQuery{}, err
+	}
+	if positionScope == "all" && len(positionKeys) != 0 {
+		return EffectiveQuery{}, fieldError("/positionKeys", "unrestricted selection requires empty positionKeys")
 	}
 	includeNSFW, err := optionalBool(object, "includeNSFW", false, "")
 	if err != nil {
@@ -349,11 +361,12 @@ func normalizeQueryObject(object map[string]any, catalog CatalogContext, allowEm
 	}
 
 	effective := EffectiveQuery{
-		Scope:        scope,
-		SubjectType:  subjectType,
-		PositionKeys: positionKeys,
-		IncludeNSFW:  includeNSFW,
-		MergeSeries:  mergeSeries,
+		Scope:         scope,
+		SubjectType:   subjectType,
+		PositionScope: positionScope,
+		PositionKeys:  positionKeys,
+		IncludeNSFW:   includeNSFW,
+		MergeSeries:   mergeSeries,
 	}
 	if scope == "personal" {
 		uid, err := requiredString(object, "uid", "")
@@ -396,12 +409,13 @@ func normalizeQueryObject(object map[string]any, catalog CatalogContext, allowEm
 
 func projectQuery(effective EffectiveQuery) QueryDigestProjection {
 	projection := QueryDigestProjection{
-		Scope:        effective.Scope,
-		SubjectType:  effective.SubjectType,
-		PositionKeys: append([]string{}, effective.PositionKeys...),
-		IncludeNSFW:  effective.IncludeNSFW,
-		MergeSeries:  effective.MergeSeries,
-		Filters:      cloneFilters(effective.Filters),
+		Scope:         effective.Scope,
+		SubjectType:   effective.SubjectType,
+		PositionScope: effective.PositionScope,
+		PositionKeys:  append([]string{}, effective.PositionKeys...),
+		IncludeNSFW:   effective.IncludeNSFW,
+		MergeSeries:   effective.MergeSeries,
+		Filters:       cloneFilters(effective.Filters),
 	}
 	if effective.Scope == "personal" {
 		projection.CollectionStatuses = append([]string(nil), effective.CollectionStatuses...)
@@ -422,7 +436,7 @@ func parseCollectionStatuses(value any) ([]string, error) {
 		}
 		selected[status] = struct{}{}
 	}
-	order := []string{"completed", "in_progress", "on_hold", "dropped"}
+	order := []string{"wish", "completed", "in_progress", "on_hold", "dropped"}
 	result := make([]string, 0, len(selected))
 	for _, status := range order {
 		if _, ok := selected[status]; ok {
@@ -1142,7 +1156,7 @@ func validSubjectType(value string) bool {
 
 func validCollectionStatus(value string) bool {
 	switch value {
-	case "completed", "in_progress", "on_hold", "dropped":
+	case "wish", "completed", "in_progress", "on_hold", "dropped":
 		return true
 	default:
 		return false

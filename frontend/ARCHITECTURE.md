@@ -55,7 +55,14 @@ result authority. Failed-chunk retry saves this same intent before reloading
 and does not reload if storage cannot preserve it.
 
 Routes clear initial URL fragments without interpreting or replaying them.
-The ordinary `?user=` UID prefill remains. The Header includes an always
+`app/personEntry.ts` validates only the exact initial Bangumi person-entry
+envelope; `routes.ts` captures and consumes it before normal navigation. A
+valid entry takes priority over tab recovery and supplies a fresh personal
+query for one type, all five collection statuses, unrestricted positions, and
+NSFW/series merge disabled. App runs it once after catalog admission, then
+opens the actual target even when it is outside the ranking page or the ranking
+is empty. Invalid entry envelopes suppress automatic recovery execution.
+Ordinary `?user=` remains prefill-only and does not replace valid tab recovery. The Header includes an always
 available same-tab link to `https://search.bgmss.fun/old/`, immediately left of
 theme; it neither derives from the SPA deployment base nor carries query state.
 
@@ -75,18 +82,34 @@ server-authoritative candidate, partner, pair, and group projections.
 PositionKey is opaque application data: the frontend validates references and
 capabilities but never derives meaning from its string prefix.
 
-Co-star operations carry an optional positionScope separate from Shared Query.
-The coordinator and preview owner validate all-scope identities against the
-current catalog; default source selection first consumes query-scope candidates,
-then the same candidate resource browses all positions. Operation scope travels
-with accepted inputs through replay and caching; ranking Query remains unchanged.
-The query store owns draft and accepted co-star position scope for the explicit
-All selector, including scope-only dirty/undo/apply behavior. All is not a
-PositionKey. Operation-aware decoders admit empty concrete positions only for
-all-scope operations; ordinary shared-query/ranking decoders remain strict.
-Detail handoff selects All and the existing target identities without changing
-other Query/Draft fields. All-only queries entering ranking require concrete
-positions before any ranking request; no placeholder position is generated.
+Shared Query admits the optional literal `positionScope: "all"` only with
+empty position keys. This means unrestricted participation within one subject
+type, not a synthetic PositionKey. Concrete query selections retain their
+previous validation and intersection semantics. Manual collection defaults stay
+completed/in-progress; wish is an independently selectable, type-labeled status.
+
+Co-star operation scope remains independent of Shared Query. The query store
+owns draft/accepted operation scope and its dirty/undo/apply behavior. Legacy
+operation-all without explicit query-all still requires concrete positions
+before entering ranking; explicit unrestricted queries do not. The coordinator
+and preview owner use contract decoders for factual identities returned under
+query-all, without inventing selector entries or display labels for catalog-absent
+facts. Other operation/catalog capability guards remain in force.
+
+Ranking-to-co-star handoff uses the current accepted detail and unchanged Applied
+Query. For query-all, `workspaceLinks.ts` pages the real candidate projection,
+accepts the exact numeric person ID and its complete ordered identity list, and
+checks snapshot, revision, pagination and request ownership. It never unions or
+truncates identities. The validated selection, operation scope and navigation
+commit together. Concrete-position handoff performs no additional lookup. New
+primary intent, changed selection, navigation, closure and cancellation invalidate
+the transient lookup; stale responses cannot overwrite newer state.
+
+Only typed `PERSON_NOT_IN_QUERY_RESULT` from the matching active personal query,
+request and person becomes the inspector/drawer local empty state. It shows the
+actual ID/type without fabricated profile or statistics; other failures retain
+the existing error/retry path. Entry targets yield to later user intent, and
+explicit primary retry retains the original target only while ownership remains.
 
 `features/ranking` renders backend rank, complete summary, metric scale, and
 pagination without recomputation. `shared/components/SafeImage.vue` accepts only
@@ -107,7 +130,7 @@ The Header and theme owner share the approved 64×64 SVG brand marks at
 `src/assets/brand/bgmss-light.svg` and `bgmss-dark.svg`, using the current
 theme's primary pink. The theme owner also updates the favicon. The original
 `bgmss.png` remains an immutable reconstruction reference, not a shipped asset.
-The theme owner persists only `bgmss-theme-v1`; History writes are same-origin
+The theme owner persists only `bgmss-theme-preference-v3`; History writes are same-origin
 relative paths and successful personal/global queries are the only source of
 the `?user=` projection.
 

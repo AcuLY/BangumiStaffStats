@@ -230,7 +230,8 @@ watch(
   },
 );
 watch(() => props.mode, (mode) => {
-  if (mode === 'ranking' && props.queryStore.applied?.positionKeys.length === 0) {
+  if (mode === 'ranking' && props.queryStore.applied?.positionKeys.length === 0 &&
+    props.queryStore.applied.positionScope !== 'all') {
     editing.value = true;
   }
 });

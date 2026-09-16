@@ -18,7 +18,13 @@ import { RankingsApiError } from '../../api/rankings';
 import { PersonDetailApiError } from '../../api/personDetail';
 import { candidateParticipantsSignature } from '../co-star/model';
 import type { CatalogOperation, CatalogSnapshot } from '../../api/adapters/catalog';
-import { decodeEffectiveQueryForOperation } from '../../api/adapters/queryWire';
+import {
+  decodeCandidatesInput,
+  decodeCoStarInput,
+  decodeEffectiveQueryForOperation,
+  decodePartnersInput,
+  decodePositionKey,
+} from '../../api/adapters/queryWire';
 import {
   type AppliedQuery,
   querySignature,
@@ -348,6 +354,23 @@ export function operationPositionAllowed(
   capability: CatalogOperation,
 ): boolean {
   if (positionScope !== undefined && positionScope !== 'query' && positionScope !== 'all') return false;
+  if (query.positionScope === 'all') {
+    if (query.positionKeys.length !== 0) return false;
+    try {
+      decodePositionKey(positionKey);
+    } catch {
+      return false;
+    }
+    const position = catalog?.positionsByKey.get(positionKey);
+    // Absence only defers factual validation to the backend; it does not establish an identity.
+    if (!position) return true;
+    if (position.subjectType !== query.subjectType) return false;
+    if (position.kind === 'staff' || (
+      position.kind === 'cast' && position.roleScope === 'all' &&
+      (position.subjectType === 'anime' || position.subjectType === 'game')
+    )) return true;
+    return position.selectable && position.capabilities.includes(capability);
+  }
   if (positionScope !== 'all' && !query.positionKeys.includes(positionKey)) return false;
   if (!catalog) return query.positionKeys.includes(positionKey);
   const position = catalog.positionsByKey.get(positionKey);
@@ -370,11 +393,27 @@ function assertCandidatePositions(
   }
 }
 
+/** Validate new query-all inputs before legacy canonicalization can repair them. */
+function validQueryAllInput(
+  query: AppliedQuery,
+  input: unknown,
+  decode: (value: unknown) => unknown,
+): boolean {
+  if (query.positionScope !== 'all') return true;
+  try {
+    decode(input);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function validCandidateParticipants(
   query: AppliedQuery,
   input: Readonly<CandidatesInputV1>,
   catalog: CatalogSnapshot | null,
 ): boolean {
+  if (!validQueryAllInput(query, input, decodeCandidatesInput)) return false;
   const people = new Set<number>();
   let identities = 0;
   for (const person of input.participants ?? []) {
@@ -394,6 +433,7 @@ function canonicalCoStarInput(
   input: Readonly<CoStarInputV1>,
   catalog: CatalogSnapshot | null,
 ): Readonly<CoStarInputV1> | null {
+  if (!validQueryAllInput(query, input, decodeCoStarInput)) return null;
   if (
     input.participants.length < 2 ||
     input.participants.length > 10
@@ -487,6 +527,7 @@ function canonicalPartnersInput(
   input: Readonly<PartnersInputV1>,
   catalog: CatalogSnapshot | null,
 ): Readonly<PartnersInputV1> | null {
+  if (!validQueryAllInput(query, input, decodePartnersInput)) return null;
   const personId = input.source.personId;
   const positionKeys = input.source.positionKeys.map(String);
   const candidatePositionKey =

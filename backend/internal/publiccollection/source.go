@@ -176,6 +176,8 @@ func mapSubjectType(value string) (collection.SubjectType, bool) {
 
 func mapCollectionStatus(value string) (collection.CollectionType, bool) {
 	switch value {
+	case "wish":
+		return collection.CollectionTypeWish, true
 	case "completed":
 		return collection.CollectionTypeDone, true
 	case "in_progress":
@@ -191,6 +193,8 @@ func mapCollectionStatus(value string) (collection.CollectionType, bool) {
 
 func mapReturnedStatus(value collection.CollectionType) (string, bool) {
 	switch value {
+	case collection.CollectionTypeWish:
+		return "wish", true
 	case collection.CollectionTypeDone:
 		return "completed", true
 	case collection.CollectionTypeDoing:

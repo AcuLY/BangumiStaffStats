@@ -70,3 +70,22 @@ Detailed series cards SHALL display API metaTags through the existing subject-ca
 #### Scenario: Representative metadata is empty
 - **WHEN** the representative has no meta tags
 - **THEN** an empty array SHALL remain empty through projection and display
+
+### Requirement: Person entry target owns one consumable initial selection
+After the entry's ranking query succeeds, the frontend SHALL open its validated person ID through the existing coordinated detail resource even if absent from the first ranking page or the whole ranking is empty. It SHALL reveal the desktop inspector or mobile drawer. This initial target SHALL take precedence over default first-person selection and saved recovery only once. Later user selection, edits, cancellation and stale-response guards SHALL keep their existing ownership.
+
+#### Scenario: Target is not on the first page
+- **WHEN** the entry query succeeds but the person is not in the returned ranking page
+- **THEN** the explicit person ID SHALL still be requested and opened without frontend searching or recomputing a ranking
+
+### Requirement: Verified no participation is a local detail empty state
+Only `PERSON_NOT_IN_QUERY_RESULT` for the active target and successful active query SHALL render “该人物没有参与当前查询条件下的收藏作品” in the existing detail region, retaining the target ID and selected type context. It SHALL not invent profile/rating/work data, globally replace the ranking, or disable query editing. Entity-not-found, private/invalid UID, catalog failure, network error and canceled requests SHALL retain their actual error/retry behavior.
+
+#### Scenario: Empty target then other person
+- **WHEN** a valid target has no qualifying works, including only NSFW works or an empty public collection
+- **THEN** only the target detail SHALL display the scoped empty state
+- **AND** selecting another ranking person SHALL show that person's details without the consumed entry taking control again
+
+#### Scenario: Detail fails or a response arrives late
+- **WHEN** a detail request fails for a different reason or arrives after a newer selection
+- **THEN** it SHALL not be converted into this empty state or overwrite the latest selection

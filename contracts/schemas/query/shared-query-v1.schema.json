@@ -45,6 +45,7 @@
     "CollectionStatusV1": {
       "type": "string",
       "enum": [
+        "wish",
         "completed",
         "in_progress",
         "on_hold",
@@ -237,8 +238,29 @@
           "type": "object",
           "properties": {
             "positionKeys": {
-              "type": "array",
-              "minItems": 1
+              "type": "array"
+            },
+            "positionScope": {
+              "type": "string",
+              "const": "all"
+            }
+          },
+          "if": {
+            "required": [
+              "positionScope"
+            ],
+            "properties": {
+              "positionScope": {
+                "const": "all"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "positionKeys": {
+                "type": "array",
+                "minItems": 1
+              }
             }
           }
         }
@@ -253,8 +275,29 @@
           "type": "object",
           "properties": {
             "positionKeys": {
-              "type": "array",
-              "minItems": 1
+              "type": "array"
+            },
+            "positionScope": {
+              "type": "string",
+              "const": "all"
+            }
+          },
+          "if": {
+            "required": [
+              "positionScope"
+            ],
+            "properties": {
+              "positionScope": {
+                "const": "all"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "positionKeys": {
+                "type": "array",
+                "minItems": 1
+              }
             }
           }
         }
@@ -306,6 +349,28 @@
         },
         "filters": {
           "$ref": "#/$defs/PersonalFiltersInputV1"
+        },
+        "positionScope": {
+          "type": "string",
+          "const": "all"
+        }
+      },
+      "if": {
+        "required": [
+          "positionScope"
+        ],
+        "properties": {
+          "positionScope": {
+            "const": "all"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "positionKeys": {
+            "type": "array",
+            "maxItems": 0
+          }
         }
       }
     },
@@ -340,6 +405,28 @@
         },
         "filters": {
           "$ref": "#/$defs/CommonFiltersInputV1"
+        },
+        "positionScope": {
+          "type": "string",
+          "const": "all"
+        }
+      },
+      "if": {
+        "required": [
+          "positionScope"
+        ],
+        "properties": {
+          "positionScope": {
+            "const": "all"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "positionKeys": {
+            "type": "array",
+            "maxItems": 0
+          }
         }
       }
     },

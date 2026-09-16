@@ -104,7 +104,7 @@ func validatePositions(
 	result query.Result,
 	currentKey string,
 ) ([]PositionCount, []query.PositionResult, error) {
-	if len(result.EffectiveQuery.PositionKeys) == 0 ||
+	if (len(result.EffectiveQuery.PositionKeys) == 0 && result.EffectiveQuery.PositionScope != "all") ||
 		len(result.PositionResults) != len(result.EffectiveQuery.PositionKeys) {
 		return nil, nil, fieldError("/query/positionKeys")
 	}
@@ -131,7 +131,7 @@ func validatePositions(
 			selected = append(selected, position)
 		}
 	}
-	if len(selected) == 0 {
+	if len(selected) == 0 && !(result.EffectiveQuery.PositionScope == "all" && currentKey == "" && len(result.EffectiveQuery.PositionKeys) == 0) {
 		return nil, nil, fieldError("/input/positionKey")
 	}
 	return counts, selected, nil

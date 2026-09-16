@@ -214,15 +214,16 @@ const visibleAdvancedOptionGroups = computed(() =>
     .filter((group) => group.length),
 );
 const collectionOptions = computed(() => {
-  const labels: Record<SubjectType, [string, string]> = {
-    anime: ['看过', '在看'],
-    book: ['读过', '在读'],
-    game: ['玩过', '在玩'],
-    music: ['听过', '在听'],
-    real: ['看过', '在看'],
+  const labels: Record<SubjectType, [string, string, string]> = {
+    anime: ['想看', '看过', '在看'],
+    book: ['想读', '读过', '在读'],
+    game: ['想玩', '玩过', '在玩'],
+    music: ['想听', '听过', '在听'],
+    real: ['想看', '看过', '在看'],
   };
-  const [completed, inProgress] = labels[props.draft.subjectType];
+  const [wish, completed, inProgress] = labels[props.draft.subjectType];
   return [
+    { label: wish, value: 'wish' },
     { label: completed, value: 'completed' },
     { label: inProgress, value: 'in_progress' },
     { label: '搁置', value: 'on_hold' },
@@ -253,7 +254,7 @@ const visibleGroups = computed(() =>
 const positionStageTitle = '职位';
 const positionStageHelp = computed(() =>
   props.mode === 'ranking'
-    ? '仅统计同时具备全部已选职位的人物；参与作品按已选职位合并并去重'
+    ? '选择“不限”统计当前条目类型的任意参与作品，同一人物的同一作品只计一次；选择具体职位时，仅统计同时具备全部已选职位的人物；参与作品按已选职位合并并去重'
     : '选择“全部”可从所有可用职位中选择人物；选择具体职位用于确定初始候选人物；实际参与身份在“已选人物”中管理',
 );
 const submitLabel = computed(() =>
@@ -482,6 +483,19 @@ function updateSubjectType(value: SubjectType): void {
         position.subjectType === props.draft.subjectType,
     ),
   );
+}
+
+function updateAllSelected(selected: boolean): void {
+  if (props.disabled) return;
+  if (props.mode === 'co-star') {
+    if (!selected) delete props.draft.positionScope;
+    emit('update:coStarPositionScope', selected ? 'all' : 'query');
+  } else if (selected) {
+    props.draft.positionScope = 'all';
+    props.draft.positionKeys = [];
+  } else {
+    delete props.draft.positionScope;
+  }
 }
 
 async function focusFirstInvalidField(): Promise<void> {
@@ -764,7 +778,7 @@ defineExpose({ focusFirstInvalidField });
             >
               <legend>收藏类型</legend>
               <div class="query-collection-control">
-                <n-checkbox-group v-model:value="draft.collectionStatuses">
+                <n-checkbox-group v-model:value="draft.collectionStatuses" :disabled="disabled">
                   <n-space :size="12" wrap>
                     <n-checkbox
                       v-for="option in collectionOptions"
@@ -772,6 +786,7 @@ defineExpose({ focusFirstInvalidField });
                       :size="controlSize"
                       :value="option.value"
                       :label="option.label"
+                      :aria-disabled="Boolean(disabled)"
                     />
                   </n-space>
                 </n-checkbox-group>
@@ -1098,9 +1113,10 @@ defineExpose({ focusFirstInvalidField });
             <position-selector
               ref="positionInput"
               v-model="draft.positionKeys"
-              :allow-all="mode === 'co-star'"
-              :all-selected="mode === 'co-star' && coStarPositionScope === 'all'"
-              @update:all-selected="emit('update:coStarPositionScope', $event ? 'all' : 'query')"
+              allow-all
+              :all-label="mode === 'ranking' ? '不限' : '全部'"
+              :all-selected="draft.positionScope === 'all' || (mode === 'co-star' && coStarPositionScope === 'all')"
+              @update:all-selected="updateAllSelected"
               :control-size="controlSize"
               :disabled="disabled"
               :error="error('positionKeys')"

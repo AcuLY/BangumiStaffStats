@@ -254,7 +254,7 @@ func TestFetchRejectsInputBeforeClientCall(t *testing.T) {
 		},
 		{
 			name: "unknown status", ctx: context.Background(), uid: "alice", subjectType: "anime",
-			statuses: []string{"wish"}, wantKind: runtimecache.FailureOther,
+			statuses: []string{"unknown"}, wantKind: runtimecache.FailureOther,
 		},
 	}
 

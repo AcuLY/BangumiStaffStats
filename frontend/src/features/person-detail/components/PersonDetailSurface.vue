@@ -19,6 +19,7 @@ import type {
 import PersonInspector from './PersonInspector.vue';
 
 interface PersonDetailResource {
+  readonly noParticipation?: Readonly<{ personId: number; subjectTypeLabel: string }> | null;
   readonly acceptedQuery: Readonly<{
     scope?: 'personal' | 'global';
     mergeSeries?: boolean;

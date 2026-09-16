@@ -78,6 +78,9 @@ func Evaluate(ctx context.Context, request EvaluationRequest) (*Evaluation, erro
 	if err != nil {
 		return nil, err
 	}
+	if request.Result.EffectiveQuery.PositionScope == "all" {
+		castApplicable = request.Result.EffectiveQuery.SubjectType == "anime" || request.Result.EffectiveQuery.SubjectType == "game"
+	}
 	var personal map[int64]query.CollectionEntry
 	switch request.Result.EffectiveQuery.Scope {
 	case "global":

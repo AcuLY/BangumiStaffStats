@@ -106,12 +106,14 @@ function containsLoneSurrogate(value: unknown): boolean {
 function validIdentity(
   positionKeys: readonly unknown[],
   queryKeys: ReadonlySet<unknown>,
-  positionScope?: 'query' | 'all',
+  operationScope?: 'query' | 'all',
+  queryPositionScope?: 'all',
 ): boolean {
+  // Recovery preserves intent; the coordinator revalidates current facts.
   return (
     positionKeys.length > 0 &&
     new Set(positionKeys).size === positionKeys.length &&
-    positionKeys.every((key) => positionScope === 'all' || queryKeys.has(key))
+    positionKeys.every((key) => queryPositionScope === 'all' || operationScope === 'all' || queryKeys.has(key))
   );
 }
 
@@ -155,7 +157,7 @@ function assertRecoverySemantics(payload: RecoveryPayload): void {
   const candidatePeople = new Set<number>();
   let candidateIdentityCount = 0;
   for (const participant of workspace.candidates.input.participants ?? []) {
-    if (candidatePeople.has(participant.personId) || !validIdentity(participant.positionKeys, queryKeys, workspace.candidates.input.positionScope)) {
+    if (candidatePeople.has(participant.personId) || !validIdentity(participant.positionKeys, queryKeys, workspace.candidates.input.positionScope, payload.query.positionScope)) {
       throw new Error('Candidate participant identity is invalid');
     }
     candidatePeople.add(participant.personId);
@@ -164,7 +166,7 @@ function assertRecoverySemantics(payload: RecoveryPayload): void {
   if (candidatePeople.size > 10 || candidateIdentityCount > 20) {
     throw new Error('Candidate participant identity limit is exceeded');
   }
-  if (workspace.candidates.input.positionScope !== 'all' && workspace.candidates.input.positionKey !== null && !queryKeys.has(workspace.candidates.input.positionKey)) {
+  if (payload.query.positionScope !== 'all' && workspace.candidates.input.positionScope !== 'all' && workspace.candidates.input.positionKey !== null && !queryKeys.has(workspace.candidates.input.positionKey)) {
     throw new Error('Candidate position is outside the applied query');
   }
   if (
@@ -180,8 +182,9 @@ function assertRecoverySemantics(payload: RecoveryPayload): void {
         workspace.partners.input.source.positionKeys,
         queryKeys,
         workspace.partners.input.positionScope,
+        payload.query.positionScope,
       ) ||
-      (workspace.partners.input.positionScope !== 'all' && workspace.partners.input.candidatePositionKey !== undefined &&
+      (payload.query.positionScope !== 'all' && workspace.partners.input.positionScope !== 'all' && workspace.partners.input.candidatePositionKey !== undefined &&
         !queryKeys.has(workspace.partners.input.candidatePositionKey))
     ) {
       throw new Error('Partner identity is outside the applied query');
@@ -200,7 +203,7 @@ function assertRecoverySemantics(payload: RecoveryPayload): void {
     for (const participant of workspace.coStar.input.participants) {
       if (
         people.has(participant.personId) ||
-        !validIdentity(participant.positionKeys, queryKeys, workspace.coStar.input.positionScope)
+        !validIdentity(participant.positionKeys, queryKeys, workspace.coStar.input.positionScope, payload.query.positionScope)
       ) {
         throw new Error('Co-star identity is invalid');
       }

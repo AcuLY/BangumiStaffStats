@@ -58,7 +58,7 @@ cast `all` SHALL use all exact eligible roles. It SHALL not infer cross-subject 
 positions 101–106 as cast.
 
 Each position SHALL yield its complete candidate people and de-duplicated raw
-Subjects. Ranking people SHALL satisfy every query position, and each person's
+Subjects. For concrete-position queries ranking people SHALL satisfy every query position, and each person's
 works SHALL be the Subject-ID union of those identities. Participant helpers
 SHALL union one person's requested identities and intersect different people
 only at raw Subject level. Defined positions with no credit are valid empty
@@ -72,6 +72,21 @@ contributions use stable total order independent of SQL/map order.
 #### Scenario: Candidate scope exceeds actual participation
 - **WHEN** 449 eligible subjects contain matching requested-position credit for only 442 subjects
 - **THEN** the participating Subject set SHALL contain 442, not the pre-credit candidate count
+
+For `positionScope: "all"`, ranking SHALL union actual current-type staff participation and exact eligible cast participation before per-person Subject-ID de-duplication. Retained raw staff credit SHALL NOT vanish solely because a selector hides its position. Display-only staff-set aliases and individual cast-role selectors SHALL NOT inflate identities, counts or averages; canonical exact staff and cast-all evidence SHALL remain attributable. Empty or absent credits SHALL NOT create people. Sorting, details, locating, candidate/partner/co-star operations and existing anime-series rules SHALL consume this same authoritative result without frontend aggregation. Specific-position AND eligibility SHALL remain unchanged. Explicit operation identity selections SHALL not accidentally expand just because their shared query is unrestricted.
+
+#### Scenario: Overlapping credits under unrestricted selection
+- **WHEN** the same person has several staff jobs and several cast roles in one eligible Subject, plus participation in another Subject
+- **THEN** their work count SHALL be two and every actual credit SHALL remain traceable
+- **AND** a person with only one of those jobs SHALL still appear; an unrelated type or default-excluded NSFW Subject SHALL not appear
+
+#### Scenario: Cross-mode identities remain exact
+- **WHEN** an unrestricted result is opened in detail or used for co-star, or a concrete cast-role identity is explicitly chosen
+- **THEN** same-person works SHALL union, different people SHALL intersect original Subjects, and explicit role identities SHALL remain exact without turning all identities into an AND query
+
+#### Scenario: Raw retained staff evidence lacks a visible selector
+- **WHEN** an eligible Subject has a retained raw staff credit for an unresolved or hidden position
+- **THEN** unrestricted count and details SHALL retain the real participation without inventing a label or replacing it with an unrelated position
 
 ### Requirement: Evaluation SHALL be read-only, cancelable, and pre-projection
 

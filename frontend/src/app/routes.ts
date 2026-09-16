@@ -1,6 +1,7 @@
 import { ref, readonly, type Ref } from 'vue';
 
 import type { AppliedQuery, QueryMode } from '../features/query/model';
+import { parsePersonEntry, type PersonEntry } from './personEntry';
 import {
   toLogicalAppPath,
   toPublicAppPath,
@@ -22,6 +23,7 @@ function pathFor(mode: QueryMode): AppPath {
 }
 
 export interface RouteOwner {
+  readonly personEntry: PersonEntry;
   dispose(): void;
   readonly mode: Readonly<Ref<QueryMode>>;
   navigate(mode: QueryMode): void;
@@ -32,6 +34,11 @@ export interface RouteOwner {
 export function createRouteOwner(target: Window = window): RouteOwner {
   const initial = new URL(target.location.href);
   const initialLogicalPath = toLogicalAppPath(initial.pathname);
+  const personEntry = parsePersonEntry(initialLogicalPath, initial.search);
+  if (personEntry.kind !== 'none') {
+    initial.search = '';
+    target.history.replaceState({}, '', localHistoryHref(initial));
+  }
   if (
     initialLogicalPath === '/' ||
     initialLogicalPath === '/index.html'
@@ -77,6 +84,7 @@ export function createRouteOwner(target: Window = window): RouteOwner {
   }
 
   return {
+    personEntry,
     dispose() {
       target.removeEventListener('popstate', onPopState);
     },

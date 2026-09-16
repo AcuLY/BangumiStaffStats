@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createQueryCoordinator,
+  operationPositionAllowed,
   type OperationRequest,
   type OperationResponse,
   type QueryDrivers,
@@ -2024,5 +2025,210 @@ describe('independent operation position scope', () => {
     const coordinator = createQueryCoordinator(store, { candidates: { execute }, rankings: { execute: execute as never } });
     expect(await coordinator.execute({ catalog, mode: 'co-star', candidateInput: { positionKey: null, positionScope: 'all' } })).toBe(false);
     expect(store.applied).toBeNull();
+  });
+});
+
+describe('query-wide all operation identity admission', () => {
+  const hidden = 'staff:anime:101';
+  const unresolved = 'staff:book:999991'; // Unknown text is not subject-type authority.
+  const view = { search: '', sort: 'count', order: 'desc', page: 1, pageSize: 10 } as const;
+  const capabilities = ['candidates', 'coStar', 'partners', 'personDetail'] as const;
+
+  function catalogWithHiddenStaff() {
+    const catalog = catalogFixture();
+    const position = catalog.positionsByKey.get(hidden)!;
+    (catalog.positionsByKey as Map<string, typeof position>).set(hidden, {
+      ...position, selectable: false, capabilities: [],
+    });
+    return catalog;
+  }
+
+  function harness(queryAll = true) {
+    const store = readyStore();
+    if (queryAll) {
+      store.draft.positionScope = 'all';
+      store.draft.positionKeys = [];
+    } else {
+      delete store.draft.positionScope;
+    }
+    const catalog = catalogWithHiddenStaff();
+    const execute = vi.fn(async (request: OperationRequest<unknown, unknown>) => ({
+      payload: { id: request.transactionId }, requestId: request.transactionId,
+      transactionId: request.transactionId,
+    }));
+    const candidateExecute = vi.fn(async (request: CandidateRequest) => {
+      const keys = request.input.positionKey === null ? [hidden, unresolved] : [request.input.positionKey];
+      return {
+        payload: {
+          items: [{ person: { id: 1, name: 'Retained staff' }, positionKeys: keys }],
+          positionCounts: keys.map((positionKey) => ({ positionKey, count: 1 })),
+        },
+        requestId: request.transactionId, transactionId: request.transactionId,
+      };
+    });
+    const coordinator = createQueryCoordinator(store, {
+      candidates: { execute: candidateExecute }, rankings: { execute },
+      coStar: { execute }, partners: { execute },
+    }, undefined, { getCatalog: () => catalog });
+    return { store, catalog, execute, candidateExecute, coordinator };
+  }
+
+  it.each(capabilities)('separates metadata permission from selector eligibility for %s', (capability) => {
+    const catalog = catalogWithHiddenStaff();
+    const base = catalog.positionsByKey.get('staff:anime:2')!;
+    const query = { scope: 'global', subjectType: 'anime', positionScope: 'all', positionKeys: [] } as const;
+    const cases = [
+      { name: 'visible staff', kind: 'staff', selectable: true, capabilities: [capability], allowed: true },
+      { name: 'hidden staff', kind: 'staff', selectable: false, capabilities: [capability], allowed: true },
+      { name: 'staff without capability', kind: 'staff', selectable: true, capabilities: [], allowed: true },
+      { name: 'anime cast all', kind: 'cast', roleScope: 'all', selectable: false, capabilities: [], allowed: true },
+      { name: 'game cast all', kind: 'cast', roleScope: 'all', subjectType: 'game', selectable: false, capabilities: [], allowed: true },
+      { name: 'non-anime/game cast all', kind: 'cast', roleScope: 'all', subjectType: 'real', selectable: false, capabilities: [], allowed: false },
+      ...(['main', 'supporting', 'guest', 'minor', 'narrator', 'voice-library'] as const).flatMap((roleScope) => [
+        { name: `capable ${roleScope}`, kind: 'cast', roleScope, selectable: true, capabilities: [capability], allowed: true },
+        { name: `incapable ${roleScope}`, kind: 'cast', roleScope, selectable: true, capabilities: [], allowed: false },
+        { name: `hidden ${roleScope}`, kind: 'cast', roleScope, selectable: false, capabilities: [capability], allowed: false },
+      ] as const),
+      { name: 'capable staff set', kind: 'staffSet', selectable: true, capabilities: [capability], allowed: true },
+      { name: 'incapable staff set', kind: 'staffSet', selectable: true, capabilities: [], allowed: false },
+      { name: 'hidden staff set', kind: 'staffSet', selectable: false, capabilities: [capability], allowed: false },
+    ] as const;
+    for (const entry of cases) {
+      // Deliberately keep the key fixed: only decoded metadata may supply meaning.
+      const { name, allowed, ...metadata } = entry;
+      (catalog.positionsByKey as Map<string, typeof base>).set(base.key, { ...base, ...metadata });
+      const currentQuery = { ...query, subjectType: 'subjectType' in entry ? entry.subjectType : query.subjectType };
+      for (const scope of [undefined, 'query', 'all'] as const) {
+        expect(operationPositionAllowed(currentQuery as never, scope, base.key, catalog, capability), name).toBe(allowed);
+        expect(operationPositionAllowed({ ...currentQuery, subjectType: 'book' } as never, scope, base.key, catalog, capability), name).toBe(false);
+      }
+    }
+  });
+
+  it('admits only schema-valid unknown keys, with independent scope and unchanged legacy catalog-null policy', () => {
+    const catalog = catalogWithHiddenStaff();
+    const query = { scope: 'global', subjectType: 'anime', positionScope: 'all', positionKeys: [] } as const;
+    const invalidKeys: unknown[] = ['', 'opaque', 'staff:anime:0', ' staff:anime:2', 'staff:anime:2 ',
+      'staff:anime:２', 'staff:anime:😀', `staff:anime:${'1'.repeat(96)}`, 2, null, undefined,
+      { toString: () => 'staff:anime:2' }];
+    for (const scope of [undefined, 'query', 'all'] as const) {
+      for (const availableCatalog of [catalog, null]) {
+        for (const key of [hidden, unresolved, 'staff:game:999992', 'staffset:music:unresolved']) {
+          expect(operationPositionAllowed(query as never, scope, key, availableCatalog, 'personDetail')).toBe(true);
+        }
+        for (const key of invalidKeys) {
+          expect(operationPositionAllowed(query as never, scope, key as never, availableCatalog, 'candidates')).toBe(false);
+        }
+      }
+      const legacy = { scope: 'global', subjectType: 'anime', positionKeys: ['staff:anime:2'] } as const;
+      expect(operationPositionAllowed(legacy as never, scope, hidden, catalog, 'candidates')).toBe(false);
+      expect(operationPositionAllowed(legacy as never, scope, unresolved, catalog, 'candidates')).toBe(false);
+      expect(operationPositionAllowed(legacy as never, scope, unresolved, null, 'candidates')).toBe(false);
+      expect(operationPositionAllowed(legacy as never, scope, 'staff:anime:2', null, 'candidates')).toBe(true);
+    }
+    for (const scope of [null, '', 'ALL', 'invalid']) {
+      expect(operationPositionAllowed(query as never, scope as never, unresolved, catalog, 'candidates')).toBe(false);
+    }
+    expect(operationPositionAllowed({ ...query, positionKeys: ['staff:anime:2'] } as never, 'all', unresolved, catalog, 'candidates')).toBe(false);
+  });
+
+  it.each([undefined, 'query', 'all'] as const)('executes the first retained response and exact downstream inputs with scope %s', async (positionScope) => {
+    const h = harness();
+    const scope = positionScope === undefined ? {} : { positionScope };
+    expect(await h.coordinator.execute({ catalog: h.catalog, mode: 'co-star', candidateInput: { positionKey: null, ...scope } })).toBe(true);
+    expect(h.coordinator.candidates.payload?.items[0]!.positionKeys).toEqual([hidden, unresolved]);
+    const applied = h.store.applied;
+    const draft = JSON.stringify(h.store.draft);
+    const revision = h.store.revision;
+    const catalogKeys = [...h.catalog.positionsByKey.keys()];
+    const participants = [{ personId: 1, positionKeys: [hidden, unresolved] }, { personId: 2, positionKeys: [unresolved] }];
+    const candidateInput = { positionKey: unresolved, participants, ...scope };
+    expect(await h.coordinator.executeCandidateView(candidateInput, view)).toBe(true);
+    expect(h.candidateExecute.mock.calls.at(-1)![0].input).toEqual(candidateInput);
+    expect(await h.coordinator.executeCoStar({ participants, ...scope } as never)).toBe(true);
+    expect(h.coordinator.coStar.acceptedInput).toEqual({ participants, ...scope });
+    const partnersInput = { source: participants[0], candidatePositionKey: unresolved, ...scope };
+    expect(await h.coordinator.executePartners(partnersInput as never)).toBe(true);
+    expect(h.coordinator.partners.acceptedInput).toEqual(partnersInput);
+    expect(h.store.applied).toBe(applied);
+    expect(h.store.applied?.positionKeys).toEqual([]);
+    expect(JSON.stringify(h.store.draft)).toBe(draft);
+    expect(h.store.revision).toBe(revision);
+    expect([...h.catalog.positionsByKey.keys()]).toEqual(catalogKeys);
+    expect(h.catalog.positionsByKey.has(unresolved)).toBe(false);
+    // Metadata arriving later must still reject an exact previously deferred identity.
+    const base = h.catalog.positionsByKey.get(hidden)!;
+    (h.catalog.positionsByKey as Map<string, typeof base>).set(unresolved, {
+      ...base, key: unresolved, subjectType: 'book', selectable: true, capabilities,
+    });
+    const candidateCalls = h.candidateExecute.mock.calls.length;
+    const operationCalls = h.execute.mock.calls.length;
+    expect(await h.coordinator.executeCandidateView(candidateInput, view)).toBe(false);
+    expect(await h.coordinator.executeCoStar({ participants, ...scope } as never)).toBe(false);
+    expect(await h.coordinator.executePartners(partnersInput as never)).toBe(false);
+    expect(h.candidateExecute).toHaveBeenCalledTimes(candidateCalls);
+    expect(h.execute).toHaveBeenCalledTimes(operationCalls);
+    expect(h.store.applied).toBe(applied);
+    expect(JSON.stringify(h.store.draft)).toBe(draft);
+    expect(h.store.revision).toBe(revision);
+  });
+
+  it('rejects real candidate responses with known wrong-type metadata and legacy unsupported identities', async () => {
+    for (const queryAll of [true, false]) {
+      const h = harness(queryAll);
+      if (queryAll) {
+        const entry = h.catalog.positionsByKey.get(hidden)!;
+        (h.catalog.positionsByKey as Map<string, typeof entry>).set(hidden, { ...entry, subjectType: 'book' });
+      }
+      expect(await h.coordinator.execute({ catalog: h.catalog, mode: 'co-star', candidateInput: { positionKey: null, positionScope: 'all' } })).toBe(false);
+      expect(h.candidateExecute).toHaveBeenCalledOnce();
+      expect(h.store.applied).toBeNull();
+    }
+  });
+
+  it('validates actual raw inputs before coercion and retains closed shapes, uniqueness and total identity fences', async () => {
+    const h = harness();
+    // An empty response establishes readiness independently of the identity-admission regression.
+    h.candidateExecute.mockImplementationOnce(async (request) => ({
+      payload: { items: [], positionCounts: [] }, requestId: request.transactionId, transactionId: request.transactionId,
+    }));
+    expect(await h.coordinator.execute({ catalog: h.catalog, mode: 'co-star' })).toBe(true);
+    const participant = { personId: 1, positionKeys: ['staff:anime:2'] };
+    const other = { personId: 2, positionKeys: ['staff:anime:2'] };
+    const badPeople = [
+      { ...participant, extra: true }, { ...participant, personId: '1' },
+      { ...participant, personId: Number.MAX_SAFE_INTEGER + 1 },
+      { ...participant, positionKeys: [] }, { ...participant, positionKeys: ['staff:anime:2', 'staff:anime:2'] },
+      ...['', 'staff:anime:２', `staff:anime:${'1'.repeat(96)}`, 2, { toString: () => 'staff:anime:2' }].map((key) => ({ ...participant, positionKeys: [key] })),
+    ];
+    for (const source of badPeople) {
+      await expect(h.coordinator.executeCandidateView({ positionKey: null, participants: [source], positionScope: 'all' } as never, view)).resolves.toBe(false);
+      await expect(h.coordinator.executeCoStar({ participants: [source, other], positionScope: 'all' } as never)).resolves.toBe(false);
+      await expect(h.coordinator.executePartners({ source, positionScope: 'all' } as never)).resolves.toBe(false);
+    }
+    for (const extra of [{ unexpected: true }, { positionScope: 'invalid' }, { positionScope: null }]) {
+      await expect(h.coordinator.executeCandidateView({ positionKey: null, ...extra } as never, view)).resolves.toBe(false);
+      await expect(h.coordinator.executeCoStar({ participants: [participant, other], ...extra } as never)).resolves.toBe(false);
+      await expect(h.coordinator.executePartners({ source: participant, ...extra } as never)).resolves.toBe(false);
+    }
+    for (const key of [undefined, '', 2, { toString: () => 'staff:anime:2' }]) {
+      await expect(h.coordinator.executeCandidateView({ positionKey: key, positionScope: 'all' } as never, view)).resolves.toBe(false);
+      if (key !== undefined) await expect(h.coordinator.executePartners({ source: participant, candidatePositionKey: key, positionScope: 'all' } as never)).resolves.toBe(false);
+    }
+    for (const participants of [[participant, { ...other, personId: 1 }],
+      Array.from({ length: 11 }, (_, index) => ({ ...participant, personId: index + 1 })),
+      [{ personId: 1, positionKeys: Array.from({ length: 20 }, (_, index) => `staff:anime:${900000 + index}`) }, other]]) {
+      await expect(h.coordinator.executeCandidateView({ positionKey: null, participants, positionScope: 'all' }, view)).resolves.toBe(false);
+      await expect(h.coordinator.executeCoStar({ participants, positionScope: 'all' } as never)).resolves.toBe(false);
+    }
+    expect(h.execute).not.toHaveBeenCalled();
+    expect(h.candidateExecute).toHaveBeenCalledOnce();
+    const people = Array.from({ length: 10 }, (_, index) => ({ personId: index + 1,
+      positionKeys: [`staff:anime:${900000 + index}`, `staff:anime:${900100 + index}`] }));
+    expect(await h.coordinator.executeCandidateView({ positionKey: null, participants: people }, view)).toBe(true);
+    expect(await h.coordinator.executeCoStar({ participants: people } as never)).toBe(true);
+    const source = { personId: 1, positionKeys: people.flatMap((person) => person.positionKeys) };
+    expect(await h.coordinator.executePartners({ source } as never)).toBe(true);
+    expect(await h.coordinator.executePartners({ source: { ...source, positionKeys: [...source.positionKeys, unresolved] } } as never)).toBe(false);
   });
 });

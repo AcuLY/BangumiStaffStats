@@ -8,67 +8,67 @@
       "id": "dr-backend-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-BACKEND-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-candidate-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-CANDIDATE-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-distribution-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-DISTRIBUTION-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-preference-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-PREFERENCE-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-rating-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-RATING-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-rating-002",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-RATING-002",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-rating-count-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-RATING-COUNT-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-series-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-SERIES-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-series-002",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-SERIES-002",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-sort-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-SORT-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "dr-timeline-001",
       "kind": "ACCEPTED_DECISION",
       "reference": "tmp-formal-development/decisions/prototype-data-logic-audit.md#DR-DATA-TIMELINE-001",
-      "sha256": "7b038a90d4b3f93c8afd63b280b088ef5a5688435e859509e2517b572f55036a"
+      "sha256": "1a58d53a9ccfd31f32ca8bc08041e85fd73b8ec374adc49aef4a0c2a3c7b6f1a"
     },
     {
       "id": "oracle-644b7748",
@@ -80,13 +80,13 @@
       "id": "product-statistics",
       "kind": "PRODUCT_RULE",
       "reference": "PRODUCT.md",
-      "sha256": "89d0637c06ccda42f576a69f7c7766558540c5647b9bb8e5ac71b8e57647bc6c"
+      "sha256": "9561a4debc158da4dc332c36cafdb7082f02df496af471be679f1536fe9a94c1"
     },
     {
       "id": "query-result-handoff",
       "kind": "ACCEPTED_HANDOFF",
       "reference": "contracts/goldens/query-domain/manifest.json",
-      "sha256": "e09b81613f93280818796c4c98cc5cc03fdc0922a28cced8f0612b74606fecbd"
+      "sha256": "9c4067848e2249365e89dc52be6c88ad3e9bfd0891bcdf3d6714cf41daf51dbd"
     },
     {
       "id": "query-score-types",

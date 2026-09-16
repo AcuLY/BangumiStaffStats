@@ -393,6 +393,46 @@ describe('PositionSelector compact reveal and breakpoint ownership', () => {
     wrapper.unmount();
   });
 
+  it.each([true, false])('reuses native All keyboard, pointer, Escape and breakpoint focus for 不限 (compact=%s)', async compact => {
+    const media = installMedia({ compact });
+    const wrapper = mountSelector();
+    await wrapper.setProps({ allowAll: true, allLabel: '不限', allSelected: true });
+    try {
+      const toggle = wrapper.get<HTMLButtonElement>('.position-selector__toggle');
+      expect(toggle.text()).toBe('不限');
+      expect(toggle.attributes('aria-label')).toBe('第 1 个职位，当前为不限');
+      toggle.element.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      await nextTick();
+      await nextTick();
+      expect(document.activeElement).toBe(toggle.element);
+      expect(wrapper.getComponent(NPopover).props()).toMatchObject({ placement: 'bottom-start', to: 'body', raw: true });
+      expect(wrapper.get('#query-position-catalog-browser').classes().includes('is-compact')).toBe(compact);
+      await wrapper.get('[aria-label="搜索职位"]').trigger('keydown', { key: 'Escape' });
+      await nextTick();
+      expect(document.activeElement).toBe(toggle.element);
+      expect(toggle.attributes('aria-expanded')).toBe('false');
+      await toggle.trigger('keydown', { key: 'ArrowDown' });
+      await nextTick();
+      const all = wrapper.get<HTMLButtonElement>('[data-position-all]');
+      expect(all.text()).toBe('不限');
+      expect(document.activeElement).toBe(all.element);
+      await all.trigger('click');
+      await nextTick();
+      expect(document.activeElement).toBe(toggle.element);
+      expect(wrapper.emitted('update:allSelected')?.at(-1)).toEqual([true]);
+      await toggle.trigger('keydown', { key: 'ArrowDown' });
+      await nextTick();
+      media.setCompact(!compact);
+      await nextTick();
+      await nextTick();
+      expect(document.activeElement).toBe(toggle.element);
+      expect(wrapper.find('#query-position-catalog-browser').exists()).toBe(false);
+      await wrapper.setProps({ disabled: true });
+      await toggle.trigger('keydown', { key: 'ArrowDown' });
+      expect(wrapper.find('#query-position-catalog-browser').exists()).toBe(false);
+    } finally { wrapper.unmount(); }
+  });
+
   it('moves compact keyboard activation to the first catalog category', async () => {
     installMedia({ compact: true });
     const scrollIntoView = vi.fn();

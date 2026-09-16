@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "cases/errors.json",
-      "sha256": "ee6dfa4aab6a99f448798465fe628c74dad1d9798cc79ba88552cfc7da0a7402",
+      "sha256": "ff072e7ffad9fdfe874b6638830ddcbe499522850440caf9efed13347b8c2601",
       "caseId": "catalog-error-matrix",
       "kind": "error-cases",
       "outcome": "closed-error-envelopes"
@@ -39,14 +39,14 @@
     },
     {
       "path": "package-lock.json",
-      "sha256": "4f2b5c85f49f1e437f089c517bee1bb93528568d6f5005889c86ccd285cfd7ca",
+      "sha256": "d40177fbab412e2f89a555cefb176c551b27fabf338ee9da5cbc4a6a4374d1e3",
       "caseId": "catalog-tool-lock",
       "kind": "tool-authority",
       "outcome": "exact-install"
     },
     {
       "path": "package.json",
-      "sha256": "96a8fad55f29d2c51dbb74b157aa78a4555d572da3f13ba340fa6cce1cf7d178",
+      "sha256": "9b82b3a332097a3932d54d6e0e5b70703d351eb2de231bc4f064c387f78550c8",
       "caseId": "catalog-tool-manifest",
       "kind": "tool-authority",
       "outcome": "exact-commands"

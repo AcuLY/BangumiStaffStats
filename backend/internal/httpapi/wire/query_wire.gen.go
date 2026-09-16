@@ -201,6 +201,7 @@ const (
 	CollectionStatusV1Dropped    CollectionStatusV1 = "dropped"
 	CollectionStatusV1InProgress CollectionStatusV1 = "in_progress"
 	CollectionStatusV1OnHold     CollectionStatusV1 = "on_hold"
+	CollectionStatusV1Wish       CollectionStatusV1 = "wish"
 )
 
 // Valid indicates whether the value is a known member of the CollectionStatusV1 enum.
@@ -213,6 +214,23 @@ func (e CollectionStatusV1) Valid() bool {
 	case CollectionStatusV1InProgress:
 		return true
 	case CollectionStatusV1OnHold:
+		return true
+	case CollectionStatusV1Wish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectiveGlobalQueryFieldsV1PositionScope.
+const (
+	EffectiveGlobalQueryFieldsV1PositionScopeAll EffectiveGlobalQueryFieldsV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectiveGlobalQueryFieldsV1PositionScope enum.
+func (e EffectiveGlobalQueryFieldsV1PositionScope) Valid() bool {
+	switch e {
+	case EffectiveGlobalQueryFieldsV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -240,6 +258,21 @@ func (e EffectiveGlobalQueryFieldsV1SubjectType) Valid() bool {
 	case EffectiveGlobalQueryFieldsV1SubjectTypeMusic:
 		return true
 	case EffectiveGlobalQueryFieldsV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectiveGlobalQueryV1PositionScope.
+const (
+	EffectiveGlobalQueryV1PositionScopeAll EffectiveGlobalQueryV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectiveGlobalQueryV1PositionScope enum.
+func (e EffectiveGlobalQueryV1PositionScope) Valid() bool {
+	switch e {
+	case EffectiveGlobalQueryV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -279,6 +312,7 @@ const (
 	EffectivePersonalQueryFieldsV1CollectionStatusesDropped    EffectivePersonalQueryFieldsV1CollectionStatuses = "dropped"
 	EffectivePersonalQueryFieldsV1CollectionStatusesInProgress EffectivePersonalQueryFieldsV1CollectionStatuses = "in_progress"
 	EffectivePersonalQueryFieldsV1CollectionStatusesOnHold     EffectivePersonalQueryFieldsV1CollectionStatuses = "on_hold"
+	EffectivePersonalQueryFieldsV1CollectionStatusesWish       EffectivePersonalQueryFieldsV1CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the EffectivePersonalQueryFieldsV1CollectionStatuses enum.
@@ -291,6 +325,23 @@ func (e EffectivePersonalQueryFieldsV1CollectionStatuses) Valid() bool {
 	case EffectivePersonalQueryFieldsV1CollectionStatusesInProgress:
 		return true
 	case EffectivePersonalQueryFieldsV1CollectionStatusesOnHold:
+		return true
+	case EffectivePersonalQueryFieldsV1CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectivePersonalQueryFieldsV1PositionScope.
+const (
+	EffectivePersonalQueryFieldsV1PositionScopeAll EffectivePersonalQueryFieldsV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectivePersonalQueryFieldsV1PositionScope enum.
+func (e EffectivePersonalQueryFieldsV1PositionScope) Valid() bool {
+	switch e {
+	case EffectivePersonalQueryFieldsV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -330,6 +381,7 @@ const (
 	EffectivePersonalQueryV1CollectionStatusesDropped    EffectivePersonalQueryV1CollectionStatuses = "dropped"
 	EffectivePersonalQueryV1CollectionStatusesInProgress EffectivePersonalQueryV1CollectionStatuses = "in_progress"
 	EffectivePersonalQueryV1CollectionStatusesOnHold     EffectivePersonalQueryV1CollectionStatuses = "on_hold"
+	EffectivePersonalQueryV1CollectionStatusesWish       EffectivePersonalQueryV1CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the EffectivePersonalQueryV1CollectionStatuses enum.
@@ -342,6 +394,23 @@ func (e EffectivePersonalQueryV1CollectionStatuses) Valid() bool {
 	case EffectivePersonalQueryV1CollectionStatusesInProgress:
 		return true
 	case EffectivePersonalQueryV1CollectionStatusesOnHold:
+		return true
+	case EffectivePersonalQueryV1CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectivePersonalQueryV1PositionScope.
+const (
+	EffectivePersonalQueryV1PositionScopeAll EffectivePersonalQueryV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectivePersonalQueryV1PositionScope enum.
+func (e EffectivePersonalQueryV1PositionScope) Valid() bool {
+	switch e {
+	case EffectivePersonalQueryV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -381,6 +450,7 @@ const (
 	EffectiveQueryV10CollectionStatusesDropped    EffectiveQueryV10CollectionStatuses = "dropped"
 	EffectiveQueryV10CollectionStatusesInProgress EffectiveQueryV10CollectionStatuses = "in_progress"
 	EffectiveQueryV10CollectionStatusesOnHold     EffectiveQueryV10CollectionStatuses = "on_hold"
+	EffectiveQueryV10CollectionStatusesWish       EffectiveQueryV10CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the EffectiveQueryV10CollectionStatuses enum.
@@ -393,6 +463,23 @@ func (e EffectiveQueryV10CollectionStatuses) Valid() bool {
 	case EffectiveQueryV10CollectionStatusesInProgress:
 		return true
 	case EffectiveQueryV10CollectionStatusesOnHold:
+		return true
+	case EffectiveQueryV10CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectiveQueryV10PositionScope.
+const (
+	EffectiveQueryV10PositionScopeAll EffectiveQueryV10PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectiveQueryV10PositionScope enum.
+func (e EffectiveQueryV10PositionScope) Valid() bool {
+	switch e {
+	case EffectiveQueryV10PositionScopeAll:
 		return true
 	default:
 		return false
@@ -420,6 +507,21 @@ func (e EffectiveQueryV10SubjectType) Valid() bool {
 	case EffectiveQueryV10SubjectTypeMusic:
 		return true
 	case EffectiveQueryV10SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectiveQueryV11PositionScope.
+const (
+	EffectiveQueryV11PositionScopeAll EffectiveQueryV11PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectiveQueryV11PositionScope enum.
+func (e EffectiveQueryV11PositionScope) Valid() bool {
+	switch e {
+	case EffectiveQueryV11PositionScopeAll:
 		return true
 	default:
 		return false
@@ -894,6 +996,21 @@ func (e FieldErrorCodeV1) Valid() bool {
 	}
 }
 
+// Defines values for GlobalProjectionFieldsV1PositionScope.
+const (
+	GlobalProjectionFieldsV1PositionScopeAll GlobalProjectionFieldsV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the GlobalProjectionFieldsV1PositionScope enum.
+func (e GlobalProjectionFieldsV1PositionScope) Valid() bool {
+	switch e {
+	case GlobalProjectionFieldsV1PositionScopeAll:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GlobalProjectionFieldsV1SubjectType.
 const (
 	GlobalProjectionFieldsV1SubjectTypeAnime GlobalProjectionFieldsV1SubjectType = "anime"
@@ -915,6 +1032,21 @@ func (e GlobalProjectionFieldsV1SubjectType) Valid() bool {
 	case GlobalProjectionFieldsV1SubjectTypeMusic:
 		return true
 	case GlobalProjectionFieldsV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GlobalProjectionV1PositionScope.
+const (
+	GlobalProjectionV1PositionScopeAll GlobalProjectionV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the GlobalProjectionV1PositionScope enum.
+func (e GlobalProjectionV1PositionScope) Valid() bool {
+	switch e {
+	case GlobalProjectionV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -948,6 +1080,21 @@ func (e GlobalProjectionV1SubjectType) Valid() bool {
 	}
 }
 
+// Defines values for GlobalSharedQueryFieldsV1PositionScope.
+const (
+	GlobalSharedQueryFieldsV1PositionScopeAll GlobalSharedQueryFieldsV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the GlobalSharedQueryFieldsV1PositionScope enum.
+func (e GlobalSharedQueryFieldsV1PositionScope) Valid() bool {
+	switch e {
+	case GlobalSharedQueryFieldsV1PositionScopeAll:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GlobalSharedQueryFieldsV1SubjectType.
 const (
 	GlobalSharedQueryFieldsV1SubjectTypeAnime GlobalSharedQueryFieldsV1SubjectType = "anime"
@@ -969,6 +1116,21 @@ func (e GlobalSharedQueryFieldsV1SubjectType) Valid() bool {
 	case GlobalSharedQueryFieldsV1SubjectTypeMusic:
 		return true
 	case GlobalSharedQueryFieldsV1SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GlobalSharedQueryV1PositionScope.
+const (
+	GlobalSharedQueryV1PositionScopeAll GlobalSharedQueryV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the GlobalSharedQueryV1PositionScope enum.
+func (e GlobalSharedQueryV1PositionScope) Valid() bool {
+	switch e {
+	case GlobalSharedQueryV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1218,6 +1380,7 @@ const (
 	PersonalProjectionFieldsV1CollectionStatusesDropped    PersonalProjectionFieldsV1CollectionStatuses = "dropped"
 	PersonalProjectionFieldsV1CollectionStatusesInProgress PersonalProjectionFieldsV1CollectionStatuses = "in_progress"
 	PersonalProjectionFieldsV1CollectionStatusesOnHold     PersonalProjectionFieldsV1CollectionStatuses = "on_hold"
+	PersonalProjectionFieldsV1CollectionStatusesWish       PersonalProjectionFieldsV1CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PersonalProjectionFieldsV1CollectionStatuses enum.
@@ -1230,6 +1393,23 @@ func (e PersonalProjectionFieldsV1CollectionStatuses) Valid() bool {
 	case PersonalProjectionFieldsV1CollectionStatusesInProgress:
 		return true
 	case PersonalProjectionFieldsV1CollectionStatusesOnHold:
+		return true
+	case PersonalProjectionFieldsV1CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalProjectionFieldsV1PositionScope.
+const (
+	PersonalProjectionFieldsV1PositionScopeAll PersonalProjectionFieldsV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PersonalProjectionFieldsV1PositionScope enum.
+func (e PersonalProjectionFieldsV1PositionScope) Valid() bool {
+	switch e {
+	case PersonalProjectionFieldsV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1269,6 +1449,7 @@ const (
 	PersonalProjectionV1CollectionStatusesDropped    PersonalProjectionV1CollectionStatuses = "dropped"
 	PersonalProjectionV1CollectionStatusesInProgress PersonalProjectionV1CollectionStatuses = "in_progress"
 	PersonalProjectionV1CollectionStatusesOnHold     PersonalProjectionV1CollectionStatuses = "on_hold"
+	PersonalProjectionV1CollectionStatusesWish       PersonalProjectionV1CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PersonalProjectionV1CollectionStatuses enum.
@@ -1281,6 +1462,23 @@ func (e PersonalProjectionV1CollectionStatuses) Valid() bool {
 	case PersonalProjectionV1CollectionStatusesInProgress:
 		return true
 	case PersonalProjectionV1CollectionStatusesOnHold:
+		return true
+	case PersonalProjectionV1CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalProjectionV1PositionScope.
+const (
+	PersonalProjectionV1PositionScopeAll PersonalProjectionV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PersonalProjectionV1PositionScope enum.
+func (e PersonalProjectionV1PositionScope) Valid() bool {
+	switch e {
+	case PersonalProjectionV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1320,6 +1518,7 @@ const (
 	PersonalSharedQueryFieldsV1CollectionStatusesDropped    PersonalSharedQueryFieldsV1CollectionStatuses = "dropped"
 	PersonalSharedQueryFieldsV1CollectionStatusesInProgress PersonalSharedQueryFieldsV1CollectionStatuses = "in_progress"
 	PersonalSharedQueryFieldsV1CollectionStatusesOnHold     PersonalSharedQueryFieldsV1CollectionStatuses = "on_hold"
+	PersonalSharedQueryFieldsV1CollectionStatusesWish       PersonalSharedQueryFieldsV1CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PersonalSharedQueryFieldsV1CollectionStatuses enum.
@@ -1332,6 +1531,23 @@ func (e PersonalSharedQueryFieldsV1CollectionStatuses) Valid() bool {
 	case PersonalSharedQueryFieldsV1CollectionStatusesInProgress:
 		return true
 	case PersonalSharedQueryFieldsV1CollectionStatusesOnHold:
+		return true
+	case PersonalSharedQueryFieldsV1CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalSharedQueryFieldsV1PositionScope.
+const (
+	PersonalSharedQueryFieldsV1PositionScopeAll PersonalSharedQueryFieldsV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PersonalSharedQueryFieldsV1PositionScope enum.
+func (e PersonalSharedQueryFieldsV1PositionScope) Valid() bool {
+	switch e {
+	case PersonalSharedQueryFieldsV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1371,6 +1587,7 @@ const (
 	PersonalSharedQueryV1CollectionStatusesDropped    PersonalSharedQueryV1CollectionStatuses = "dropped"
 	PersonalSharedQueryV1CollectionStatusesInProgress PersonalSharedQueryV1CollectionStatuses = "in_progress"
 	PersonalSharedQueryV1CollectionStatusesOnHold     PersonalSharedQueryV1CollectionStatuses = "on_hold"
+	PersonalSharedQueryV1CollectionStatusesWish       PersonalSharedQueryV1CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the PersonalSharedQueryV1CollectionStatuses enum.
@@ -1383,6 +1600,23 @@ func (e PersonalSharedQueryV1CollectionStatuses) Valid() bool {
 	case PersonalSharedQueryV1CollectionStatusesInProgress:
 		return true
 	case PersonalSharedQueryV1CollectionStatusesOnHold:
+		return true
+	case PersonalSharedQueryV1CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalSharedQueryV1PositionScope.
+const (
+	PersonalSharedQueryV1PositionScopeAll PersonalSharedQueryV1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the PersonalSharedQueryV1PositionScope enum.
+func (e PersonalSharedQueryV1PositionScope) Valid() bool {
+	switch e {
+	case PersonalSharedQueryV1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1422,6 +1656,7 @@ const (
 	QueryDigestProjectionV10CollectionStatusesDropped    QueryDigestProjectionV10CollectionStatuses = "dropped"
 	QueryDigestProjectionV10CollectionStatusesInProgress QueryDigestProjectionV10CollectionStatuses = "in_progress"
 	QueryDigestProjectionV10CollectionStatusesOnHold     QueryDigestProjectionV10CollectionStatuses = "on_hold"
+	QueryDigestProjectionV10CollectionStatusesWish       QueryDigestProjectionV10CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the QueryDigestProjectionV10CollectionStatuses enum.
@@ -1434,6 +1669,23 @@ func (e QueryDigestProjectionV10CollectionStatuses) Valid() bool {
 	case QueryDigestProjectionV10CollectionStatusesInProgress:
 		return true
 	case QueryDigestProjectionV10CollectionStatusesOnHold:
+		return true
+	case QueryDigestProjectionV10CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryDigestProjectionV10PositionScope.
+const (
+	QueryDigestProjectionV10PositionScopeAll QueryDigestProjectionV10PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the QueryDigestProjectionV10PositionScope enum.
+func (e QueryDigestProjectionV10PositionScope) Valid() bool {
+	switch e {
+	case QueryDigestProjectionV10PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1461,6 +1713,21 @@ func (e QueryDigestProjectionV10SubjectType) Valid() bool {
 	case QueryDigestProjectionV10SubjectTypeMusic:
 		return true
 	case QueryDigestProjectionV10SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryDigestProjectionV11PositionScope.
+const (
+	QueryDigestProjectionV11PositionScopeAll QueryDigestProjectionV11PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the QueryDigestProjectionV11PositionScope enum.
+func (e QueryDigestProjectionV11PositionScope) Valid() bool {
+	switch e {
+	case QueryDigestProjectionV11PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1563,6 +1830,7 @@ const (
 	SharedQueryV10CollectionStatusesDropped    SharedQueryV10CollectionStatuses = "dropped"
 	SharedQueryV10CollectionStatusesInProgress SharedQueryV10CollectionStatuses = "in_progress"
 	SharedQueryV10CollectionStatusesOnHold     SharedQueryV10CollectionStatuses = "on_hold"
+	SharedQueryV10CollectionStatusesWish       SharedQueryV10CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the SharedQueryV10CollectionStatuses enum.
@@ -1575,6 +1843,23 @@ func (e SharedQueryV10CollectionStatuses) Valid() bool {
 	case SharedQueryV10CollectionStatusesInProgress:
 		return true
 	case SharedQueryV10CollectionStatusesOnHold:
+		return true
+	case SharedQueryV10CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SharedQueryV10PositionScope.
+const (
+	SharedQueryV10PositionScopeAll SharedQueryV10PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the SharedQueryV10PositionScope enum.
+func (e SharedQueryV10PositionScope) Valid() bool {
+	switch e {
+	case SharedQueryV10PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1602,6 +1887,21 @@ func (e SharedQueryV10SubjectType) Valid() bool {
 	case SharedQueryV10SubjectTypeMusic:
 		return true
 	case SharedQueryV10SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SharedQueryV11PositionScope.
+const (
+	SharedQueryV11PositionScopeAll SharedQueryV11PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the SharedQueryV11PositionScope enum.
+func (e SharedQueryV11PositionScope) Valid() bool {
+	switch e {
+	case SharedQueryV11PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1713,6 +2013,7 @@ const (
 	EffectiveQueryV1Schema0CollectionStatusesDropped    EffectiveQueryV1Schema0CollectionStatuses = "dropped"
 	EffectiveQueryV1Schema0CollectionStatusesInProgress EffectiveQueryV1Schema0CollectionStatuses = "in_progress"
 	EffectiveQueryV1Schema0CollectionStatusesOnHold     EffectiveQueryV1Schema0CollectionStatuses = "on_hold"
+	EffectiveQueryV1Schema0CollectionStatusesWish       EffectiveQueryV1Schema0CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the EffectiveQueryV1Schema0CollectionStatuses enum.
@@ -1725,6 +2026,23 @@ func (e EffectiveQueryV1Schema0CollectionStatuses) Valid() bool {
 	case EffectiveQueryV1Schema0CollectionStatusesInProgress:
 		return true
 	case EffectiveQueryV1Schema0CollectionStatusesOnHold:
+		return true
+	case EffectiveQueryV1Schema0CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectiveQueryV1Schema0PositionScope.
+const (
+	EffectiveQueryV1Schema0PositionScopeAll EffectiveQueryV1Schema0PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectiveQueryV1Schema0PositionScope enum.
+func (e EffectiveQueryV1Schema0PositionScope) Valid() bool {
+	switch e {
+	case EffectiveQueryV1Schema0PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1752,6 +2070,21 @@ func (e EffectiveQueryV1Schema0SubjectType) Valid() bool {
 	case EffectiveQueryV1Schema0SubjectTypeMusic:
 		return true
 	case EffectiveQueryV1Schema0SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectiveQueryV1Schema1PositionScope.
+const (
+	EffectiveQueryV1Schema1PositionScopeAll EffectiveQueryV1Schema1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the EffectiveQueryV1Schema1PositionScope enum.
+func (e EffectiveQueryV1Schema1PositionScope) Valid() bool {
+	switch e {
+	case EffectiveQueryV1Schema1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1938,6 +2271,7 @@ const (
 	QueryDigestProjectionV1Schema0CollectionStatusesDropped    QueryDigestProjectionV1Schema0CollectionStatuses = "dropped"
 	QueryDigestProjectionV1Schema0CollectionStatusesInProgress QueryDigestProjectionV1Schema0CollectionStatuses = "in_progress"
 	QueryDigestProjectionV1Schema0CollectionStatusesOnHold     QueryDigestProjectionV1Schema0CollectionStatuses = "on_hold"
+	QueryDigestProjectionV1Schema0CollectionStatusesWish       QueryDigestProjectionV1Schema0CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the QueryDigestProjectionV1Schema0CollectionStatuses enum.
@@ -1950,6 +2284,23 @@ func (e QueryDigestProjectionV1Schema0CollectionStatuses) Valid() bool {
 	case QueryDigestProjectionV1Schema0CollectionStatusesInProgress:
 		return true
 	case QueryDigestProjectionV1Schema0CollectionStatusesOnHold:
+		return true
+	case QueryDigestProjectionV1Schema0CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryDigestProjectionV1Schema0PositionScope.
+const (
+	QueryDigestProjectionV1Schema0PositionScopeAll QueryDigestProjectionV1Schema0PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the QueryDigestProjectionV1Schema0PositionScope enum.
+func (e QueryDigestProjectionV1Schema0PositionScope) Valid() bool {
+	switch e {
+	case QueryDigestProjectionV1Schema0PositionScopeAll:
 		return true
 	default:
 		return false
@@ -1977,6 +2328,21 @@ func (e QueryDigestProjectionV1Schema0SubjectType) Valid() bool {
 	case QueryDigestProjectionV1Schema0SubjectTypeMusic:
 		return true
 	case QueryDigestProjectionV1Schema0SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueryDigestProjectionV1Schema1PositionScope.
+const (
+	QueryDigestProjectionV1Schema1PositionScopeAll QueryDigestProjectionV1Schema1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the QueryDigestProjectionV1Schema1PositionScope enum.
+func (e QueryDigestProjectionV1Schema1PositionScope) Valid() bool {
+	switch e {
+	case QueryDigestProjectionV1Schema1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -2016,6 +2382,7 @@ const (
 	SharedQueryV1Schema0CollectionStatusesDropped    SharedQueryV1Schema0CollectionStatuses = "dropped"
 	SharedQueryV1Schema0CollectionStatusesInProgress SharedQueryV1Schema0CollectionStatuses = "in_progress"
 	SharedQueryV1Schema0CollectionStatusesOnHold     SharedQueryV1Schema0CollectionStatuses = "on_hold"
+	SharedQueryV1Schema0CollectionStatusesWish       SharedQueryV1Schema0CollectionStatuses = "wish"
 )
 
 // Valid indicates whether the value is a known member of the SharedQueryV1Schema0CollectionStatuses enum.
@@ -2028,6 +2395,23 @@ func (e SharedQueryV1Schema0CollectionStatuses) Valid() bool {
 	case SharedQueryV1Schema0CollectionStatusesInProgress:
 		return true
 	case SharedQueryV1Schema0CollectionStatusesOnHold:
+		return true
+	case SharedQueryV1Schema0CollectionStatusesWish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SharedQueryV1Schema0PositionScope.
+const (
+	SharedQueryV1Schema0PositionScopeAll SharedQueryV1Schema0PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the SharedQueryV1Schema0PositionScope enum.
+func (e SharedQueryV1Schema0PositionScope) Valid() bool {
+	switch e {
+	case SharedQueryV1Schema0PositionScopeAll:
 		return true
 	default:
 		return false
@@ -2055,6 +2439,21 @@ func (e SharedQueryV1Schema0SubjectType) Valid() bool {
 	case SharedQueryV1Schema0SubjectTypeMusic:
 		return true
 	case SharedQueryV1Schema0SubjectTypeReal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SharedQueryV1Schema1PositionScope.
+const (
+	SharedQueryV1Schema1PositionScopeAll SharedQueryV1Schema1PositionScope = "all"
+)
+
+// Valid indicates whether the value is a known member of the SharedQueryV1Schema1PositionScope enum.
+func (e SharedQueryV1Schema1PositionScope) Valid() bool {
+	switch e {
+	case SharedQueryV1Schema1PositionScopeAll:
 		return true
 	default:
 		return false
@@ -3564,12 +3963,16 @@ type EffectiveGlobalQueryFieldsV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                    `json:"includeNSFW"`
-	MergeSeries  bool                                    `json:"mergeSeries"`
-	PositionKeys []string                                `json:"positionKeys"`
-	Scope        interface{}                             `json:"scope"`
-	SubjectType  EffectiveGlobalQueryFieldsV1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                       `json:"includeNSFW"`
+	MergeSeries   bool                                       `json:"mergeSeries"`
+	PositionKeys  []string                                   `json:"positionKeys"`
+	PositionScope *EffectiveGlobalQueryFieldsV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                `json:"scope"`
+	SubjectType   EffectiveGlobalQueryFieldsV1SubjectType    `json:"subjectType"`
 }
+
+// EffectiveGlobalQueryFieldsV1PositionScope defines model for EffectiveGlobalQueryFieldsV1.PositionScope.
+type EffectiveGlobalQueryFieldsV1PositionScope string
 
 // EffectiveGlobalQueryFieldsV1SubjectType defines model for EffectiveGlobalQueryFieldsV1.SubjectType.
 type EffectiveGlobalQueryFieldsV1SubjectType string
@@ -3598,12 +4001,16 @@ type EffectiveGlobalQueryV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                              `json:"includeNSFW"`
-	MergeSeries  bool                              `json:"mergeSeries"`
-	PositionKeys []interface{}                     `json:"positionKeys"`
-	Scope        interface{}                       `json:"scope"`
-	SubjectType  EffectiveGlobalQueryV1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                 `json:"includeNSFW"`
+	MergeSeries   bool                                 `json:"mergeSeries"`
+	PositionKeys  []interface{}                        `json:"positionKeys"`
+	PositionScope *EffectiveGlobalQueryV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                          `json:"scope"`
+	SubjectType   EffectiveGlobalQueryV1SubjectType    `json:"subjectType"`
 }
+
+// EffectiveGlobalQueryV1PositionScope defines model for EffectiveGlobalQueryV1.PositionScope.
+type EffectiveGlobalQueryV1PositionScope string
 
 // EffectiveGlobalQueryV1SubjectType defines model for EffectiveGlobalQueryV1.SubjectType.
 type EffectiveGlobalQueryV1SubjectType string
@@ -3681,16 +4088,20 @@ type EffectivePersonalQueryFieldsV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                      `json:"includeNSFW"`
-	MergeSeries  bool                                      `json:"mergeSeries"`
-	PositionKeys []string                                  `json:"positionKeys"`
-	Scope        interface{}                               `json:"scope"`
-	SubjectType  EffectivePersonalQueryFieldsV1SubjectType `json:"subjectType"`
-	Uid          string                                    `json:"uid"`
+	IncludeNSFW   bool                                         `json:"includeNSFW"`
+	MergeSeries   bool                                         `json:"mergeSeries"`
+	PositionKeys  []string                                     `json:"positionKeys"`
+	PositionScope *EffectivePersonalQueryFieldsV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                  `json:"scope"`
+	SubjectType   EffectivePersonalQueryFieldsV1SubjectType    `json:"subjectType"`
+	Uid           string                                       `json:"uid"`
 }
 
 // EffectivePersonalQueryFieldsV1CollectionStatuses defines model for EffectivePersonalQueryFieldsV1.CollectionStatuses.
 type EffectivePersonalQueryFieldsV1CollectionStatuses string
+
+// EffectivePersonalQueryFieldsV1PositionScope defines model for EffectivePersonalQueryFieldsV1.PositionScope.
+type EffectivePersonalQueryFieldsV1PositionScope string
 
 // EffectivePersonalQueryFieldsV1SubjectType defines model for EffectivePersonalQueryFieldsV1.SubjectType.
 type EffectivePersonalQueryFieldsV1SubjectType string
@@ -3732,16 +4143,20 @@ type EffectivePersonalQueryV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                `json:"includeNSFW"`
-	MergeSeries  bool                                `json:"mergeSeries"`
-	PositionKeys []interface{}                       `json:"positionKeys"`
-	Scope        interface{}                         `json:"scope"`
-	SubjectType  EffectivePersonalQueryV1SubjectType `json:"subjectType"`
-	Uid          string                              `json:"uid"`
+	IncludeNSFW   bool                                   `json:"includeNSFW"`
+	MergeSeries   bool                                   `json:"mergeSeries"`
+	PositionKeys  []interface{}                          `json:"positionKeys"`
+	PositionScope *EffectivePersonalQueryV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                            `json:"scope"`
+	SubjectType   EffectivePersonalQueryV1SubjectType    `json:"subjectType"`
+	Uid           string                                 `json:"uid"`
 }
 
 // EffectivePersonalQueryV1CollectionStatuses defines model for EffectivePersonalQueryV1.CollectionStatuses.
 type EffectivePersonalQueryV1CollectionStatuses string
+
+// EffectivePersonalQueryV1PositionScope defines model for EffectivePersonalQueryV1.PositionScope.
+type EffectivePersonalQueryV1PositionScope string
 
 // EffectivePersonalQueryV1SubjectType defines model for EffectivePersonalQueryV1.SubjectType.
 type EffectivePersonalQueryV1SubjectType string
@@ -3788,16 +4203,20 @@ type EffectiveQueryV10 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                         `json:"includeNSFW"`
-	MergeSeries  bool                         `json:"mergeSeries"`
-	PositionKeys []interface{}                `json:"positionKeys"`
-	Scope        interface{}                  `json:"scope"`
-	SubjectType  EffectiveQueryV10SubjectType `json:"subjectType"`
-	Uid          string                       `json:"uid"`
+	IncludeNSFW   bool                            `json:"includeNSFW"`
+	MergeSeries   bool                            `json:"mergeSeries"`
+	PositionKeys  []interface{}                   `json:"positionKeys"`
+	PositionScope *EffectiveQueryV10PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                     `json:"scope"`
+	SubjectType   EffectiveQueryV10SubjectType    `json:"subjectType"`
+	Uid           string                          `json:"uid"`
 }
 
 // EffectiveQueryV10CollectionStatuses defines model for EffectiveQueryV1.0.CollectionStatuses.
 type EffectiveQueryV10CollectionStatuses string
+
+// EffectiveQueryV10PositionScope defines model for EffectiveQueryV1.0.PositionScope.
+type EffectiveQueryV10PositionScope string
 
 // EffectiveQueryV10SubjectType defines model for EffectiveQueryV1.0.SubjectType.
 type EffectiveQueryV10SubjectType string
@@ -3826,12 +4245,16 @@ type EffectiveQueryV11 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                         `json:"includeNSFW"`
-	MergeSeries  bool                         `json:"mergeSeries"`
-	PositionKeys []interface{}                `json:"positionKeys"`
-	Scope        interface{}                  `json:"scope"`
-	SubjectType  EffectiveQueryV11SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                            `json:"includeNSFW"`
+	MergeSeries   bool                            `json:"mergeSeries"`
+	PositionKeys  []interface{}                   `json:"positionKeys"`
+	PositionScope *EffectiveQueryV11PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                     `json:"scope"`
+	SubjectType   EffectiveQueryV11SubjectType    `json:"subjectType"`
 }
+
+// EffectiveQueryV11PositionScope defines model for EffectiveQueryV1.1.PositionScope.
+type EffectiveQueryV11PositionScope string
 
 // EffectiveQueryV11SubjectType defines model for EffectiveQueryV1.1.SubjectType.
 type EffectiveQueryV11SubjectType string
@@ -3909,12 +4332,16 @@ type GlobalProjectionFieldsV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                `json:"includeNSFW"`
-	MergeSeries  bool                                `json:"mergeSeries"`
-	PositionKeys []string                            `json:"positionKeys"`
-	Scope        interface{}                         `json:"scope"`
-	SubjectType  GlobalProjectionFieldsV1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                   `json:"includeNSFW"`
+	MergeSeries   bool                                   `json:"mergeSeries"`
+	PositionKeys  []string                               `json:"positionKeys"`
+	PositionScope *GlobalProjectionFieldsV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                            `json:"scope"`
+	SubjectType   GlobalProjectionFieldsV1SubjectType    `json:"subjectType"`
 }
+
+// GlobalProjectionFieldsV1PositionScope defines model for GlobalProjectionFieldsV1.PositionScope.
+type GlobalProjectionFieldsV1PositionScope string
 
 // GlobalProjectionFieldsV1SubjectType defines model for GlobalProjectionFieldsV1.SubjectType.
 type GlobalProjectionFieldsV1SubjectType string
@@ -3943,12 +4370,16 @@ type GlobalProjectionV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                          `json:"includeNSFW"`
-	MergeSeries  bool                          `json:"mergeSeries"`
-	PositionKeys []interface{}                 `json:"positionKeys"`
-	Scope        interface{}                   `json:"scope"`
-	SubjectType  GlobalProjectionV1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                             `json:"includeNSFW"`
+	MergeSeries   bool                             `json:"mergeSeries"`
+	PositionKeys  []interface{}                    `json:"positionKeys"`
+	PositionScope *GlobalProjectionV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                      `json:"scope"`
+	SubjectType   GlobalProjectionV1SubjectType    `json:"subjectType"`
 }
+
+// GlobalProjectionV1PositionScope defines model for GlobalProjectionV1.PositionScope.
+type GlobalProjectionV1PositionScope string
 
 // GlobalProjectionV1SubjectType defines model for GlobalProjectionV1.SubjectType.
 type GlobalProjectionV1SubjectType string
@@ -3977,12 +4408,16 @@ type GlobalSharedQueryFieldsV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                `json:"mergeSeries,omitempty"`
-	PositionKeys []string                             `json:"positionKeys"`
-	Scope        interface{}                          `json:"scope"`
-	SubjectType  GlobalSharedQueryFieldsV1SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                                   `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                   `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                `json:"positionKeys"`
+	PositionScope *GlobalSharedQueryFieldsV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                             `json:"scope"`
+	SubjectType   GlobalSharedQueryFieldsV1SubjectType    `json:"subjectType"`
 }
+
+// GlobalSharedQueryFieldsV1PositionScope defines model for GlobalSharedQueryFieldsV1.PositionScope.
+type GlobalSharedQueryFieldsV1PositionScope string
 
 // GlobalSharedQueryFieldsV1SubjectType defines model for GlobalSharedQueryFieldsV1.SubjectType.
 type GlobalSharedQueryFieldsV1SubjectType string
@@ -4011,12 +4446,16 @@ type GlobalSharedQueryV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                          `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                          `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}                  `json:"positionKeys"`
-	Scope        interface{}                    `json:"scope"`
-	SubjectType  GlobalSharedQueryV1SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                             `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                             `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                     `json:"positionKeys"`
+	PositionScope *GlobalSharedQueryV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                       `json:"scope"`
+	SubjectType   GlobalSharedQueryV1SubjectType    `json:"subjectType"`
 }
+
+// GlobalSharedQueryV1PositionScope defines model for GlobalSharedQueryV1.PositionScope.
+type GlobalSharedQueryV1PositionScope string
 
 // GlobalSharedQueryV1SubjectType defines model for GlobalSharedQueryV1.SubjectType.
 type GlobalSharedQueryV1SubjectType string
@@ -4203,15 +4642,19 @@ type PersonalProjectionFieldsV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                  `json:"includeNSFW"`
-	MergeSeries  bool                                  `json:"mergeSeries"`
-	PositionKeys []string                              `json:"positionKeys"`
-	Scope        interface{}                           `json:"scope"`
-	SubjectType  PersonalProjectionFieldsV1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                     `json:"includeNSFW"`
+	MergeSeries   bool                                     `json:"mergeSeries"`
+	PositionKeys  []string                                 `json:"positionKeys"`
+	PositionScope *PersonalProjectionFieldsV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                              `json:"scope"`
+	SubjectType   PersonalProjectionFieldsV1SubjectType    `json:"subjectType"`
 }
 
 // PersonalProjectionFieldsV1CollectionStatuses defines model for PersonalProjectionFieldsV1.CollectionStatuses.
 type PersonalProjectionFieldsV1CollectionStatuses string
+
+// PersonalProjectionFieldsV1PositionScope defines model for PersonalProjectionFieldsV1.PositionScope.
+type PersonalProjectionFieldsV1PositionScope string
 
 // PersonalProjectionFieldsV1SubjectType defines model for PersonalProjectionFieldsV1.SubjectType.
 type PersonalProjectionFieldsV1SubjectType string
@@ -4253,15 +4696,19 @@ type PersonalProjectionV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                            `json:"includeNSFW"`
-	MergeSeries  bool                            `json:"mergeSeries"`
-	PositionKeys []interface{}                   `json:"positionKeys"`
-	Scope        interface{}                     `json:"scope"`
-	SubjectType  PersonalProjectionV1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                               `json:"includeNSFW"`
+	MergeSeries   bool                               `json:"mergeSeries"`
+	PositionKeys  []interface{}                      `json:"positionKeys"`
+	PositionScope *PersonalProjectionV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                        `json:"scope"`
+	SubjectType   PersonalProjectionV1SubjectType    `json:"subjectType"`
 }
 
 // PersonalProjectionV1CollectionStatuses defines model for PersonalProjectionV1.CollectionStatuses.
 type PersonalProjectionV1CollectionStatuses string
+
+// PersonalProjectionV1PositionScope defines model for PersonalProjectionV1.PositionScope.
+type PersonalProjectionV1PositionScope string
 
 // PersonalProjectionV1SubjectType defines model for PersonalProjectionV1.SubjectType.
 type PersonalProjectionV1SubjectType string
@@ -4303,16 +4750,20 @@ type PersonalSharedQueryFieldsV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                                  `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                                  `json:"mergeSeries,omitempty"`
-	PositionKeys []string                               `json:"positionKeys"`
-	Scope        interface{}                            `json:"scope"`
-	SubjectType  PersonalSharedQueryFieldsV1SubjectType `json:"subjectType"`
-	Uid          string                                 `json:"uid"`
+	IncludeNSFW   *bool                                     `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                                     `json:"mergeSeries,omitempty"`
+	PositionKeys  []string                                  `json:"positionKeys"`
+	PositionScope *PersonalSharedQueryFieldsV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                               `json:"scope"`
+	SubjectType   PersonalSharedQueryFieldsV1SubjectType    `json:"subjectType"`
+	Uid           string                                    `json:"uid"`
 }
 
 // PersonalSharedQueryFieldsV1CollectionStatuses defines model for PersonalSharedQueryFieldsV1.CollectionStatuses.
 type PersonalSharedQueryFieldsV1CollectionStatuses string
+
+// PersonalSharedQueryFieldsV1PositionScope defines model for PersonalSharedQueryFieldsV1.PositionScope.
+type PersonalSharedQueryFieldsV1PositionScope string
 
 // PersonalSharedQueryFieldsV1SubjectType defines model for PersonalSharedQueryFieldsV1.SubjectType.
 type PersonalSharedQueryFieldsV1SubjectType string
@@ -4354,16 +4805,20 @@ type PersonalSharedQueryV1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                            `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                            `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}                    `json:"positionKeys"`
-	Scope        interface{}                      `json:"scope"`
-	SubjectType  PersonalSharedQueryV1SubjectType `json:"subjectType"`
-	Uid          string                           `json:"uid"`
+	IncludeNSFW   *bool                               `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                               `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                       `json:"positionKeys"`
+	PositionScope *PersonalSharedQueryV1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                         `json:"scope"`
+	SubjectType   PersonalSharedQueryV1SubjectType    `json:"subjectType"`
+	Uid           string                              `json:"uid"`
 }
 
 // PersonalSharedQueryV1CollectionStatuses defines model for PersonalSharedQueryV1.CollectionStatuses.
 type PersonalSharedQueryV1CollectionStatuses string
+
+// PersonalSharedQueryV1PositionScope defines model for PersonalSharedQueryV1.PositionScope.
+type PersonalSharedQueryV1PositionScope string
 
 // PersonalSharedQueryV1SubjectType defines model for PersonalSharedQueryV1.SubjectType.
 type PersonalSharedQueryV1SubjectType string
@@ -4413,15 +4868,19 @@ type QueryDigestProjectionV10 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                `json:"includeNSFW"`
-	MergeSeries  bool                                `json:"mergeSeries"`
-	PositionKeys []interface{}                       `json:"positionKeys"`
-	Scope        interface{}                         `json:"scope"`
-	SubjectType  QueryDigestProjectionV10SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                   `json:"includeNSFW"`
+	MergeSeries   bool                                   `json:"mergeSeries"`
+	PositionKeys  []interface{}                          `json:"positionKeys"`
+	PositionScope *QueryDigestProjectionV10PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                            `json:"scope"`
+	SubjectType   QueryDigestProjectionV10SubjectType    `json:"subjectType"`
 }
 
 // QueryDigestProjectionV10CollectionStatuses defines model for QueryDigestProjectionV1.0.CollectionStatuses.
 type QueryDigestProjectionV10CollectionStatuses string
+
+// QueryDigestProjectionV10PositionScope defines model for QueryDigestProjectionV1.0.PositionScope.
+type QueryDigestProjectionV10PositionScope string
 
 // QueryDigestProjectionV10SubjectType defines model for QueryDigestProjectionV1.0.SubjectType.
 type QueryDigestProjectionV10SubjectType string
@@ -4450,12 +4909,16 @@ type QueryDigestProjectionV11 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                `json:"includeNSFW"`
-	MergeSeries  bool                                `json:"mergeSeries"`
-	PositionKeys []interface{}                       `json:"positionKeys"`
-	Scope        interface{}                         `json:"scope"`
-	SubjectType  QueryDigestProjectionV11SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                   `json:"includeNSFW"`
+	MergeSeries   bool                                   `json:"mergeSeries"`
+	PositionKeys  []interface{}                          `json:"positionKeys"`
+	PositionScope *QueryDigestProjectionV11PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                            `json:"scope"`
+	SubjectType   QueryDigestProjectionV11SubjectType    `json:"subjectType"`
 }
+
+// QueryDigestProjectionV11PositionScope defines model for QueryDigestProjectionV1.1.PositionScope.
+type QueryDigestProjectionV11PositionScope string
 
 // QueryDigestProjectionV11SubjectType defines model for QueryDigestProjectionV1.1.SubjectType.
 type QueryDigestProjectionV11SubjectType string
@@ -4542,16 +5005,20 @@ type SharedQueryV10 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                     `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                     `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}             `json:"positionKeys"`
-	Scope        interface{}               `json:"scope"`
-	SubjectType  SharedQueryV10SubjectType `json:"subjectType"`
-	Uid          string                    `json:"uid"`
+	IncludeNSFW   *bool                        `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                        `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                `json:"positionKeys"`
+	PositionScope *SharedQueryV10PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                  `json:"scope"`
+	SubjectType   SharedQueryV10SubjectType    `json:"subjectType"`
+	Uid           string                       `json:"uid"`
 }
 
 // SharedQueryV10CollectionStatuses defines model for SharedQueryV1.0.CollectionStatuses.
 type SharedQueryV10CollectionStatuses string
+
+// SharedQueryV10PositionScope defines model for SharedQueryV1.0.PositionScope.
+type SharedQueryV10PositionScope string
 
 // SharedQueryV10SubjectType defines model for SharedQueryV1.0.SubjectType.
 type SharedQueryV10SubjectType string
@@ -4580,12 +5047,16 @@ type SharedQueryV11 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                     `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                     `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}             `json:"positionKeys"`
-	Scope        interface{}               `json:"scope"`
-	SubjectType  SharedQueryV11SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                        `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                        `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                `json:"positionKeys"`
+	PositionScope *SharedQueryV11PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                  `json:"scope"`
+	SubjectType   SharedQueryV11SubjectType    `json:"subjectType"`
 }
+
+// SharedQueryV11PositionScope defines model for SharedQueryV1.1.PositionScope.
+type SharedQueryV11PositionScope string
 
 // SharedQueryV11SubjectType defines model for SharedQueryV1.1.SubjectType.
 type SharedQueryV11SubjectType string
@@ -4673,16 +5144,20 @@ type EffectiveQueryV1Schema0 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                               `json:"includeNSFW"`
-	MergeSeries  bool                               `json:"mergeSeries"`
-	PositionKeys []interface{}                      `json:"positionKeys"`
-	Scope        interface{}                        `json:"scope"`
-	SubjectType  EffectiveQueryV1Schema0SubjectType `json:"subjectType"`
-	Uid          string                             `json:"uid"`
+	IncludeNSFW   bool                                  `json:"includeNSFW"`
+	MergeSeries   bool                                  `json:"mergeSeries"`
+	PositionKeys  []interface{}                         `json:"positionKeys"`
+	PositionScope *EffectiveQueryV1Schema0PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                           `json:"scope"`
+	SubjectType   EffectiveQueryV1Schema0SubjectType    `json:"subjectType"`
+	Uid           string                                `json:"uid"`
 }
 
 // EffectiveQueryV1Schema0CollectionStatuses defines model for EffectiveQueryV1Schema.0.CollectionStatuses.
 type EffectiveQueryV1Schema0CollectionStatuses string
+
+// EffectiveQueryV1Schema0PositionScope defines model for EffectiveQueryV1Schema.0.PositionScope.
+type EffectiveQueryV1Schema0PositionScope string
 
 // EffectiveQueryV1Schema0SubjectType defines model for EffectiveQueryV1Schema.0.SubjectType.
 type EffectiveQueryV1Schema0SubjectType string
@@ -4711,12 +5186,16 @@ type EffectiveQueryV1Schema1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                               `json:"includeNSFW"`
-	MergeSeries  bool                               `json:"mergeSeries"`
-	PositionKeys []interface{}                      `json:"positionKeys"`
-	Scope        interface{}                        `json:"scope"`
-	SubjectType  EffectiveQueryV1Schema1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                  `json:"includeNSFW"`
+	MergeSeries   bool                                  `json:"mergeSeries"`
+	PositionKeys  []interface{}                         `json:"positionKeys"`
+	PositionScope *EffectiveQueryV1Schema1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                           `json:"scope"`
+	SubjectType   EffectiveQueryV1Schema1SubjectType    `json:"subjectType"`
 }
+
+// EffectiveQueryV1Schema1PositionScope defines model for EffectiveQueryV1Schema.1.PositionScope.
+type EffectiveQueryV1Schema1PositionScope string
 
 // EffectiveQueryV1Schema1SubjectType defines model for EffectiveQueryV1Schema.1.SubjectType.
 type EffectiveQueryV1Schema1SubjectType string
@@ -4783,15 +5262,19 @@ type QueryDigestProjectionV1Schema0 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                      `json:"includeNSFW"`
-	MergeSeries  bool                                      `json:"mergeSeries"`
-	PositionKeys []interface{}                             `json:"positionKeys"`
-	Scope        interface{}                               `json:"scope"`
-	SubjectType  QueryDigestProjectionV1Schema0SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                         `json:"includeNSFW"`
+	MergeSeries   bool                                         `json:"mergeSeries"`
+	PositionKeys  []interface{}                                `json:"positionKeys"`
+	PositionScope *QueryDigestProjectionV1Schema0PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                  `json:"scope"`
+	SubjectType   QueryDigestProjectionV1Schema0SubjectType    `json:"subjectType"`
 }
 
 // QueryDigestProjectionV1Schema0CollectionStatuses defines model for QueryDigestProjectionV1Schema.0.CollectionStatuses.
 type QueryDigestProjectionV1Schema0CollectionStatuses string
+
+// QueryDigestProjectionV1Schema0PositionScope defines model for QueryDigestProjectionV1Schema.0.PositionScope.
+type QueryDigestProjectionV1Schema0PositionScope string
 
 // QueryDigestProjectionV1Schema0SubjectType defines model for QueryDigestProjectionV1Schema.0.SubjectType.
 type QueryDigestProjectionV1Schema0SubjectType string
@@ -4820,12 +5303,16 @@ type QueryDigestProjectionV1Schema1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  bool                                      `json:"includeNSFW"`
-	MergeSeries  bool                                      `json:"mergeSeries"`
-	PositionKeys []interface{}                             `json:"positionKeys"`
-	Scope        interface{}                               `json:"scope"`
-	SubjectType  QueryDigestProjectionV1Schema1SubjectType `json:"subjectType"`
+	IncludeNSFW   bool                                         `json:"includeNSFW"`
+	MergeSeries   bool                                         `json:"mergeSeries"`
+	PositionKeys  []interface{}                                `json:"positionKeys"`
+	PositionScope *QueryDigestProjectionV1Schema1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                                  `json:"scope"`
+	SubjectType   QueryDigestProjectionV1Schema1SubjectType    `json:"subjectType"`
 }
+
+// QueryDigestProjectionV1Schema1PositionScope defines model for QueryDigestProjectionV1Schema.1.PositionScope.
+type QueryDigestProjectionV1Schema1PositionScope string
 
 // QueryDigestProjectionV1Schema1SubjectType defines model for QueryDigestProjectionV1Schema.1.SubjectType.
 type QueryDigestProjectionV1Schema1SubjectType string
@@ -4872,16 +5359,20 @@ type SharedQueryV1Schema0 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                           `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                           `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}                   `json:"positionKeys"`
-	Scope        interface{}                     `json:"scope"`
-	SubjectType  SharedQueryV1Schema0SubjectType `json:"subjectType"`
-	Uid          string                          `json:"uid"`
+	IncludeNSFW   *bool                              `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                              `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                      `json:"positionKeys"`
+	PositionScope *SharedQueryV1Schema0PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                        `json:"scope"`
+	SubjectType   SharedQueryV1Schema0SubjectType    `json:"subjectType"`
+	Uid           string                             `json:"uid"`
 }
 
 // SharedQueryV1Schema0CollectionStatuses defines model for SharedQueryV1Schema.0.CollectionStatuses.
 type SharedQueryV1Schema0CollectionStatuses string
+
+// SharedQueryV1Schema0PositionScope defines model for SharedQueryV1Schema.0.PositionScope.
+type SharedQueryV1Schema0PositionScope string
 
 // SharedQueryV1Schema0SubjectType defines model for SharedQueryV1Schema.0.SubjectType.
 type SharedQueryV1Schema0SubjectType string
@@ -4910,12 +5401,16 @@ type SharedQueryV1Schema1 struct {
 			} `json:"include,omitempty"`
 		} `json:"tags,omitempty"`
 	} `json:"filters,omitempty"`
-	IncludeNSFW  *bool                           `json:"includeNSFW,omitempty"`
-	MergeSeries  *bool                           `json:"mergeSeries,omitempty"`
-	PositionKeys []interface{}                   `json:"positionKeys"`
-	Scope        interface{}                     `json:"scope"`
-	SubjectType  SharedQueryV1Schema1SubjectType `json:"subjectType"`
+	IncludeNSFW   *bool                              `json:"includeNSFW,omitempty"`
+	MergeSeries   *bool                              `json:"mergeSeries,omitempty"`
+	PositionKeys  []interface{}                      `json:"positionKeys"`
+	PositionScope *SharedQueryV1Schema1PositionScope `json:"positionScope,omitempty"`
+	Scope         interface{}                        `json:"scope"`
+	SubjectType   SharedQueryV1Schema1SubjectType    `json:"subjectType"`
 }
+
+// SharedQueryV1Schema1PositionScope defines model for SharedQueryV1Schema.1.PositionScope.
+type SharedQueryV1Schema1PositionScope string
 
 // SharedQueryV1Schema1SubjectType defines model for SharedQueryV1Schema.1.SubjectType.
 type SharedQueryV1Schema1SubjectType string

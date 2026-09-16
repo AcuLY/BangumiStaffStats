@@ -25,7 +25,7 @@ internal anonymous adapter, with no module replacement.
 
 ### Requirement: The adapter SHALL map the complete public DTO exactly
 
-The adapter SHALL support the five admitted subject types and four requested
+The adapter SHALL support the five admitted subject types and five requested
 collection states and SHALL retain every collection field required by the
 internal snapshot. The fixed external client SHALL normalize an omitted or
 JSON-null optional upstream comment to the same empty string before mapping;
@@ -57,6 +57,13 @@ whose top-level subject_type remains the returned SubjectType.
 - **WHEN** the real client receives a collection record with subject_type 2 and a complete same-ID nested subject with type 6
 - **THEN** the adapter SHALL return the complete anime collection item with its original subject ID and collection fields
 - **AND** downstream statistical inclusion SHALL remain governed by the existing Archive/query authority
+
+The shared `wish` state SHALL map in both directions to the existing client intention state (numeric Bangumi collection type 1). It SHALL participate in snapshot selection, validation, normalization and cache keys just like the other states. No dependency upgrade or credential transmission is required.
+
+#### Scenario: Intention state across media types
+- **WHEN** a public collection request includes `wish` for book, anime, music, game or real
+- **THEN** the corresponding intention records SHALL remain available and unscored records SHALL count as works, not zero-valued ratings
+- **AND** duplicate-state requests SHALL normalize deterministically without changing private/upstream-error classifications
 
 ### Requirement: Upstream failures SHALL retain stable classifications
 

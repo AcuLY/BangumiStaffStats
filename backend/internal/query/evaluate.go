@@ -88,8 +88,15 @@ func evaluate(
 	if err != nil {
 		return nil, err
 	}
-	positionResults := make([]PositionResult, 0, len(effective.PositionKeys))
-	for _, key := range effective.PositionKeys {
+	keys := effective.PositionKeys
+	if effective.PositionScope == "all" {
+		keys, err = engine.unrestrictedPositions(ctx, effective.SubjectType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	positionResults := make([]PositionResult, 0, len(keys))
+	for _, key := range keys {
 		if err := contextCause(ctx); err != nil {
 			return nil, err
 		}
@@ -100,12 +107,17 @@ func evaluate(
 		positionResults = append(positionResults, positionResult)
 	}
 
-	rankingPeople, err := rankingPeople(ctx, positionResults)
+	var people []PersonSubjects
+	if effective.PositionScope == "all" || normalized.Projection.PositionScope == "all" {
+		people, err = unionRankingPeople(ctx, positionResults)
+	} else {
+		people, err = rankingPeople(ctx, positionResults)
+	}
 	if err != nil {
 		return nil, err
 	}
 	participating := make([]int64, 0)
-	for _, person := range rankingPeople {
+	for _, person := range people {
 		participating = append(participating, person.SubjectIDs...)
 	}
 	participating, err = sortedUniqueInt64(ctx, participating)
@@ -137,7 +149,7 @@ func evaluate(
 		CollectionAccessCount:   collectionAccessCount,
 		EligibleSubjectIDs:      eligible,
 		PositionResults:         positionResults,
-		RankingPeople:           rankingPeople,
+		RankingPeople:           people,
 		ParticipatingSubjectIDs: participating,
 		ParticipantSets:         participantSets,
 	}, nil
@@ -928,7 +940,7 @@ func sortedUniqueInt64(ctx context.Context, values []int64) ([]int64, error) {
 
 func cloneEffectiveQuery(value EffectiveQuery) EffectiveQuery {
 	value.CollectionStatuses = append([]string(nil), value.CollectionStatuses...)
-	value.PositionKeys = append([]string(nil), value.PositionKeys...)
+	value.PositionKeys = append([]string{}, value.PositionKeys...)
 	value.Filters = cloneFilters(value.Filters)
 	return value
 }

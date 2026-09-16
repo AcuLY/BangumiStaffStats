@@ -25,6 +25,7 @@ const (
 )
 
 var collectionStatusOrder = []string{
+	"wish",
 	"completed",
 	"in_progress",
 	"on_hold",
