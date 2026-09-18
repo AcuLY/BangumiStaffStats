@@ -12,8 +12,8 @@ Deliver the reviewed feature through the existing reproducible build and deploym
 |---|---|
 | Status | User-authorized, specified; no activation yet |
 | Owner | Primary only |
-| Writable paths | Exact new release/bundle and four state env/symlink paths in proposal; this change and later its own accepted spec; dedicated workspace toolchains/qa/evidence |
-| Read-only protected inputs | Nginx, live Compose/config/scripts, all Archive data and previous releases, legacy/other services, other repos/credentials |
+| Writable paths | Exact new release/bundle and four state env/symlink paths in proposal; installed common.sh default-only 30→75 update with workspace backup/rollback; this change and later its own accepted spec; dedicated workspace toolchains/qa/evidence |
+| Read-only protected inputs | Nginx, live Compose/config/scripts except the sole authorized common.sh readiness-default substitution, all Archive data and previous releases, legacy/other services, other repos/credentials |
 | Deletion complement | Only owned temporary QA processes, builder and rejected candidate identified by normal deploy cleanup |
 | Mutable refs | Current local branch, scoped feature remote ref and reviewed PR/master integration from proposal; no force updates |
 | Consumes | Green reviewed feature, repository-pinned tools, closed Backend/Frontend bundle |
@@ -33,6 +33,8 @@ Deliver the reviewed feature through the existing reproducible build and deploym
 4. Exact Node24.18.0/npm11.16.0 are in dedicated workspace toolchains, Go1.26.5 via normal automatic toolchain cache. Never replace Hermes Node. If local BuildKit is needed, use isolated Docker configuration under workspace toolchains with Buildx0.34.1 and `bgmss-entry-builder`, pinned BuildKit0.27.1 image from repository policy. Do not switch system/default builder or install global plugins. No application dependency upgrades.
 5. QA may run only on free loopback 18081/15174 under workspace `qa/`. A real-data QA API must disable ArchiveUpdater via existing app.RunWithOptions and read immutable production archive; never run normal cmd/api against production data as a second updater. Alternatively use a dedicated archive copy/fixture. Existing production and unrelated ports remain occupied by their owners.
 6. Reuse existing GitHub authentication through approved tooling; never print/copy credentials. If a remote temporary staging root is needed, record and verify its exact absent path first; no writes to the user's original mypc working tree. Develop in the current local branch under repository agreement, publish a scoped feature ref/PR rather than force-updating master.
+
+7. Before exact-bundle rehearsal, back up `/srv/bgmss-v2/operations/lib/common.sh` into uniquely owned workspace evidence, verify the preimage and that reviewed replacement differs only in `BGMSS_READY_ATTEMPTS:-30` → `BGMSS_READY_ATTEMPTS:-75`, preserve file metadata, install that replacement, and read back exact bytes/hash and syntax. Record a backup-based rollback; stop on any other difference. This user-authorized helper update does not restart any service, alter explicit overrides, probe timing, resource caps or the 20-second query budget. The later rehearsal still requires installed operations bytes to match the final accepted commit. Do not update other installed operations files or relax that predicate.
 
 ## Risks / Trade-offs
 

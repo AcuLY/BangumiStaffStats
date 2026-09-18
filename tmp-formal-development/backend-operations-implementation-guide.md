@@ -163,9 +163,9 @@ Archive 周更、应用部署、schema 升级和手工数据回滚共用同一�
 
 1. Go scheduler 启动时异步检查 freshness，此后每周日 04:15 UTC+8 运行。
 2. builder 在当前 Store 继续服务时下载、解析并构建 staging SQLite。
-3. 候选 minimal-open/readiness 成功后取得短维护写锁，等待现有请求和 bounded executor 空闲。
-4. 原子替换 Store 和 `current.json`；失败时在开放请求前恢复旧 Store/pointer。
-5. 成功后关闭旧 Store、开放请求并删除全部非当前版本。
+3. 候选 minimal-open 成功后进入短维护窗口；停止新业务准入，等待现有 HTTP 与包括 executor 调度前阶段的 detached 工作结束，存活检查和 metrics 继续响应。
+4. 清理旧 Store 的派生缓存（不删除旧数据），串行预热候选系列索引和五类 FactSet；成功后原子替换 Store 和 `current.json`。失败时清理候选缓存，恢复旧 Store/pointer 并重新预热，恢复完成前不开放查询。
+5. 成功后关闭旧 Store、开放请求并删除全部非当前版本；回滚失败保持未就绪，不关闭仍被当前 State 引用的 Store。
 
 ### 5.2 清理与恢复
 
@@ -188,12 +188,13 @@ Archive 周更、应用部署、schema 升级和手工数据回滚共用同一�
 | api cache logical cost | 256 MiB |
 | 不同 key 重计算 | 2 执行中 + 8 排队 |
 | SQLite read connections | 4 |
-| 单次业务请求硬超时 | 30 秒 |
+| 结果 worker / 外层请求 / HTTP 写超时 | 20 秒 / 120 秒 / 125 秒（保持现有实现） |
 | Prometheus hard limit | 先以 512 MiB 压测 |
 | updater CPU | 约 1 核，低 CPU/I/O 优先级 |
 | updater 内存 | 由完整 Archive 基准固定 |
 | 周更目标/硬截止 | 4 小时 / 6 小时 |
-| 激活 ready 窗口 | 60 秒 |
+| 单次预热 / 恢复预热 | 各独立最多 120 秒；不复用查询预算 |
+| 应用启动 ready 等待 | 默认 75 次，每次 curl 最多 2 秒、间隔 2 秒；检查 dataVersion，不把轮询次数称为精确 wall-clock 截止 |
 
 服务目标：
 
@@ -273,7 +274,7 @@ v1 可以先使用 Prometheus 自带查询页面和 journalctl；需要固定 da
 ### 7.4 健康语义
 
 - `/livez` 只证明进程可响应。
-- `/readyz` 必须表示开发实施稿的 consumer 启动门已完整校验 current、manifest、SQLite digest/schema/dataVersion，并能执行轻量只读查询；运维脚本不复制或弱化这些校验。
+- `/readyz` 必须表示开发实施稿的只读直接打开、同进程公共数据预热与轻量只读 probe 已全部完成；未预热、维护或恢复失败时返回未就绪。manifest、digest、schema 等 producer 校验不在 consumer 中重复执行，运维脚本不伪造或弱化 readiness。
 - Bangumi 暂时不可用、Prometheus 不可用或本次周更失败但旧 snapshot 可用时，ready 仍成功。
 - snapshot 未加载、schema 不兼容、SQLite 无法读取时，ready 失败。
 - pprof 默认关闭；启用时只绑定管理监听并有明确关闭步骤。

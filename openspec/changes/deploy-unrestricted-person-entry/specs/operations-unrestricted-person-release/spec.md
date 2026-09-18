@@ -4,8 +4,8 @@
 |---|---|
 | Status | User-authorized release after green feature; no deployment implied |
 | Owner | Primary operations owner |
-| Writable paths | Only scoped release/bundle/state env/symlinks and workspace tools/qa/evidence listed exactly in proposal/design; this capability and own change/archive |
-| Read-only protected inputs | Live Nginx/Compose/config/scripts, Archive data, legacy/other services, prior releases and credentials |
+| Writable paths | Only scoped release/bundle/state env/symlinks, the installed common.sh default-only readiness update with backup/rollback, and workspace tools/qa/evidence listed exactly in proposal/design; this capability and own change/archive |
+| Read-only protected inputs | Live Nginx/Compose/config/scripts except the sole authorized common.sh readiness-default update, Archive data, legacy/other services, prior releases and credentials |
 | Deletion complement | Owned disposable QA/builder or failed candidate only; no data/old-release deletion |
 | Mutable refs | Local phase commits, feature remote ref and reviewed PR/master merge only |
 | Consumes | Reviewed feature, exact tools, verified closed linux/amd64 bundle |
@@ -46,6 +46,18 @@ After activation, the owner SHALL verify live/ready/catalog/metrics/Prometheus v
 #### Scenario: Release is accepted
 - **WHEN** the accepted candidate is active and all scoped public and operational readbacks pass
 - **THEN** report the real deployment revision, public application URL and actual checks, without claiming unperformed tests.
+
+### Requirement: Narrow installed readiness-helper update
+
+The operations owner MAY update `/srv/bgmss-v2/operations/lib/common.sh` only by the user-authorized default readiness-attempt substitution from 30 to 75. The owner SHALL first verify the exact preimage and preserve a byte/metadata-identical workspace backup, then read back the installed reviewed bytes/hash and shell syntax and verify unrelated protected state and running services are unchanged. Every other helper byte, explicit override, probe bound, polling interval, resource cap and 20-second user query budget SHALL remain unchanged. The update SHALL NOT restart a service or replace any other installed script/configuration. Exact accepted-commit operations identity SHALL still be required by the later rehearsal.
+
+#### Scenario: Helper preimage differs beyond the permitted default
+- **WHEN** the installed helper or proposed replacement has a difference beyond the single authorized default-attempt substitution
+- **THEN** stop without applying the update or bypassing the identity check.
+
+#### Scenario: Helper update fails verification
+- **WHEN** installed bytes, syntax or protected-state readback fail after the update
+- **THEN** restore the verified backup without restarting services and read back the restored preimage before reporting rollback.
 
 ### Requirement: Temporary resource isolation
 

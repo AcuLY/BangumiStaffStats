@@ -84,19 +84,20 @@ The infrastructure routes SHALL remain exact `GET /livez`, `GET /readyz`, and
 Health responses SHALL be parameter-free `application/json` and `no-store`.
 `/livez` SHALL return 200 from process state without Archive access as exactly
 `{"data":{"status":"live"},"meta":{"requestId":"..."}}`. `/readyz` SHALL return
-200 only after direct snapshot open/publication and an injected one-second
-fixed read succeed, as exactly
+200 only after direct snapshot open, full same-process public-data preparation,
+prepared admission and an injected one-second fixed read succeed, as exactly
 `{"data":{"status":"ready"},"meta":{"requestId":"...","dataVersion":"..."}}`;
-nil, closed, mismatched, canceled, failing, or startup-open-failed state SHALL
+nil, unprepared, maintenance-blocked, closed, mismatched, canceled, failing,
+or startup-open-failed state SHALL
 return the generated 503 `NOT_READY` envelope without a dataVersion.
 `/metrics` behavior belongs to `backend-observability`. The separately owned
 image route SHALL remain independent of Archive publication. The catalog route
-SHALL depend on the same published Store but SHALL not change readiness,
+SHALL depend on the same prepared Store but SHALL not change readiness,
 initiate loading, select another snapshot, or perform Archive admission.
 
 #### Scenario: Direct-open publication changes
 
-- **WHEN** direct-open state is absent, successfully published, its fixed probe
+- **WHEN** prepared state is absent, successfully admitted, its fixed probe
   fails, or shutdown clears it
 - **THEN** liveness SHALL stay 200 while readiness transitions
   `503 -> 200 -> 503` without reading manifest files, scanning Archive,
@@ -109,9 +110,14 @@ initiate loading, select another snapshot, or perform Archive admission.
   failure
 - **THEN** `/livez`, `/readyz`, `/metrics`, the Archive-independent image route,
   and catalog route SHALL begin serving; readiness and catalog SHALL remain 503
-  for that process lifetime
-- **AND** no retry, fallback, reload, successful Archive-dependent business
-  response, Store selection, or admission SHALL occur
+  until a separately admitted builder successfully prepares and activates a candidate
+- **AND** no cold Archive-dependent business response or implicit fallback SHALL occur;
+  the separately admitted builder recovery SHALL obey the same preparation and
+  activation gate without restarting the listener
+
+#### Scenario: Maintenance preparation is in progress
+- **WHEN** activation is draining or preparing a generation
+- **THEN** health and metrics SHALL not wait behind the full maintenance lock, and readiness/catalog/business SHALL use the same closed prepared admission without changing their public envelopes
 
 ### Requirement: Runtime scope SHALL remain infrastructure-only
 

@@ -519,3 +519,14 @@ NOT imply that a production vhost has been modified or deployed.
 #### Scenario: A valid query takes longer than the old proxy wait
 - **WHEN** an operator later deploys this reviewed template and an otherwise valid API response takes longer than 35 seconds but less than the backend request budget
 - **THEN** the proxy SHALL not interrupt it because of the old 35-second upstream read timeout
+
+### Requirement: Deployment readiness polling SHALL accommodate bounded public preparation
+Repository host commands SHALL default to 75 readiness attempts rather than 30, keeping each curl bounded to two seconds and the existing two-second interval. Existing explicit attempt overrides and expected-dataVersion checks SHALL remain. This polling budget SHALL NOT be described as an exact 150-second wall-clock deadline or change any request/worker timeout, resource cap, route or live host by itself.
+
+#### Scenario: A prepared API becomes ready after the old attempt count
+- **WHEN** the exact accepted candidate becomes correctly ready on an attempt after 30 and before 75
+- **THEN** default polling SHALL accept its matching ready envelope rather than rolling back solely due to the old attempt count
+
+#### Scenario: Readiness stays false or version mismatches
+- **WHEN** bounded polling never observes the expected ready envelope and dataVersion
+- **THEN** deployment SHALL fail with existing rollback semantics, not bypass readiness or declare success from liveness

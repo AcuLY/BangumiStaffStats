@@ -199,13 +199,18 @@ dataVersion 必须覆盖 Archive、common、schema、domain/cast 规则和 canon
 
 ### 3.5 Go consumer 直接打开
 
-API 每次启动只选择一个不可变 snapshot，并在打开和固定 readiness probe 成功前保持 `ready=false`：
+API 每次启动只选择一个不可变 snapshot；直接打开不等于业务就绪。在同进程公共数据预热和固定 readiness probe 全部成功前保持 `ready=false`：
 
 1. 有界只读解析一次 `current.json`，取得一个安全 `dataVersion`；
 2. 在调用方批准的 `os.Root` 内定位 `versions/<dataVersion>/bangumi.sqlite`，拒绝逃逸、符号链接、错误对象类型和 SQLite sidecar；
 3. 通过 root-bound VFS 以 `immutable=1`、`mode=ro`、`query_only=1`、no-create 和有界连接池直接打开 SQLite；
 4. 从 `archive_meta` 读取唯一非空 dataVersion 作为 store identity；
-5. 原子发布只读 store，并由一秒固定 query probe 决定 readiness。
+5. 原子保存已打开的只读 Store，但 app 的 prepared 状态仍关闭；HTTP 存活检查和监控可响应；
+6. 在独立有界初始化 context 内串行复用系列索引和五类 FactSet 的普通读取，不查询用户收藏、不计算 operation 结果；全部成功后由一秒固定 query probe 和同一个 prepared Store 视图决定 readiness、catalog 与业务准入。
+
+预热阶段不增加 producer admission。启动预热失败或超时保持未就绪并有界退出；初始 open 失败的既有 degraded builder 恢复路径保留。启动任务须在服务失败或关闭时取消并加入，不与候选预热并行。数据激活先关闭业务准入并排空 HTTP 及包括 executor 调度前阶段在内的 detached 工作，再释放旧 Store 的系列/FactSet 缓存；旧 Store/文件保留供事务回滚。候选预热后才提交；失败则清理候选缓存并重新预热旧 Store，恢复成功后才重新准入。存活检查和 metrics 不等待整个维护窗口，健康探针不能把未预热的 Store 重新标绿。
+
+启动/候选预热每次最多 120 秒，恢复预热有独立最多 120 秒的预算；实际 loader 必须响应取消，进程关闭不启动新恢复工作。既有 20 秒结果计算、90 秒收藏总加载、120 秒请求及 125 秒写超时不变。app 可以单向依赖 query 调用公共数据预热/退役，不把 domain 依赖倒置到 archive。
 
 Backend 不读取或校验 `manifest.json`，不计算 SQLite digest，不执行 compatibility、integrity、foreign-key、schema/object、table-count、sentinel 或 catalog/domain admission，也不提供开关、后台任务或替代命令恢复这些路径。上述验证仅由 Go producer 在 inactive version 原子发布前完成。初始直接打开任一必要步骤失败时关闭新句柄、输出稳定 app error code 并保持 not ready，且不静默回退到另一个版本；后台 builder 只在新候选已完成且可读时，通过短维护窗口替换 Store 和 `current.json`。
 

@@ -195,3 +195,14 @@ drift, or cache promotion.
 - **WHEN** a facade type does not match the operation's canonical runtime binding, or a second binding conflicts in type, clone, or cost policy
 - **THEN** construction SHALL fail before cache access even if no correct facade has yet been constructed
 - **AND** the canonical facade SHALL remain constructible with unchanged cache contents, LRU order, and statistics
+
+### Requirement: Detached Store users SHALL remain visible through completion
+The process runtime SHALL expose a lifecycle drain condition covering every detached Store user from before asynchronous scheduling through actual completion and publication. HTTP waiter cancellation SHALL NOT make outstanding shared work disappear. Coalescing SHALL NOT leak drain registrations or report idle while work can still access an old Store. Collection and result budgets, cache semantics and executor capacity SHALL remain unchanged. Maintenance SHALL close external admission before observing this condition.
+
+#### Scenario: A waiter leaves before a callback starts
+- **WHEN** the final HTTP waiter cancels after scheduling shared work but before its callback enters the executor
+- **THEN** the runtime SHALL remain non-idle until the registered work finishes; old Store retirement SHALL wait
+
+#### Scenario: Same-key work is coalesced
+- **WHEN** multiple callers share a callback and some or all callers cancel
+- **THEN** drain SHALL remain non-idle until real completion and SHALL become idle afterwards without leaked registrations or duplicate computation
