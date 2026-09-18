@@ -2,6 +2,7 @@ package runtimecache
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -14,6 +15,7 @@ type sharedValue[V any] struct {
 // DetachedGroup coalesces same-key work while giving the shared function a
 // timeout independent from every waiter.
 type DetachedGroup[K comparable, V any] struct {
+	pending atomic.Int64
 	group   singleflight.Group
 	timeout time.Duration
 	key     func(K) string
@@ -45,6 +47,10 @@ func (group *DetachedGroup[K, V]) Do(
 		return zero, err
 	}
 
+	// Register synchronously, before DoChan can schedule its callback. Each
+	// caller owns one completion receipt, not one worker: canceled waiters leave
+	// their receipt with a joiner until singleflight has published completion.
+	group.pending.Add(1)
 	result := group.group.DoChan(group.key(key), func() (any, error) {
 		workerContext, cancel := context.WithTimeout(context.Background(), group.timeout)
 		defer cancel()
@@ -60,8 +66,10 @@ func (group *DetachedGroup[K, V]) Do(
 
 	select {
 	case <-ctx.Done():
+		go func() { <-result; group.pending.Add(-1) }()
 		return zero, contextOutcome(ctx)
 	case completed := <-result:
+		group.pending.Add(-1)
 		if completed.Err != nil {
 			return zero, completed.Err
 		}

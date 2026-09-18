@@ -390,6 +390,10 @@ func newResultStore[V any](
 	}, nil
 }
 
+func (store *ResultStore[V]) detachedIdle() bool {
+	return store.loads.pending.Load() == 0
+}
+
 // Get returns an ownership-safe core.
 func (store *ResultStore[V]) Get(key ResultKey) (V, bool) {
 	var zero V
@@ -586,6 +590,23 @@ func NewQueryRuntime(
 		results:        results,
 		resultBindings: resultBindings,
 	}, nil
+}
+
+// Idle reports whether lifecycle drain has completed after HTTP admission closes.
+func (runtime *QueryRuntime) Idle() bool {
+	if runtime == nil {
+		return true
+	}
+	if runtime.collection.loads.pending.Load() != 0 {
+		return false
+	}
+	for _, binding := range runtime.resultBindings {
+		if !binding.store.(interface{ detachedIdle() bool }).detachedIdle() {
+			return false
+		}
+	}
+	stats := runtime.executor.Stats()
+	return stats.Running == 0 && stats.Queued == 0
 }
 
 // CollectionCache returns the single collection/negative-cache owner.

@@ -20,7 +20,6 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/publiccollection"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/ranking"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
-	"github.com/AcuLY/BangumiStaffStats/backend/internal/statistics"
 )
 
 const readinessQuery = "SELECT data_version FROM archive_meta WHERE singleton = 1"
@@ -117,6 +116,7 @@ type collectionProvider interface {
 }
 
 type runDependencies struct {
+	warm        func(context.Context, *archive.Store) error
 	archive     archiveRuntime
 	collections collectionProvider
 	runtime     *httpapi.RuntimeObservability
@@ -142,187 +142,122 @@ func runListener(
 
 	loadErr := dependencies.archive.OpenCurrent(ctx, archiveRoot)
 	if loadErr != nil {
-		eventErr := dependencies.runtime.EmitArchiveLoadFailed(archiveEventCode(loadErr))
-		if eventErr != nil {
-			closeErr := dependencies.archive.Close()
-			return errors.Join(
-				wrapError("emit Archive load failure", eventErr),
-				wrapError("close archive", closeErr),
-			)
+		if eventErr := dependencies.runtime.EmitArchiveLoadFailed(archiveEventCode(loadErr)); eventErr != nil {
+			return errors.Join(wrapError("emit Archive load failure", eventErr), wrapError("close archive", dependencies.archive.Close()))
 		}
 		if ctx.Err() != nil {
-			closeErr := dependencies.archive.Close()
-			return cancellationResult(
-				ctx.Err(),
-				wrapError("close archive", closeErr),
-			)
+			return cancellationResult(ctx.Err(), wrapError("close archive", dependencies.archive.Close()))
 		}
-		_ = dependencies.runtime.SetReadiness(false, "")
-		return serveRuntime(
-			ctx,
-			listener,
-			dependencies,
-			readinessProbe(dependencies.archive),
-		)
+		return serveRuntime(ctx, listener, dependencies, nil)
 	}
-
 	store, ready := dependencies.archive.Current()
 	if !ready || store == nil {
-		eventErr := dependencies.runtime.EmitArchiveLoadFailed("INTERNAL_ERROR")
-		if eventErr != nil {
-			closeErr := dependencies.archive.Close()
-			return errors.Join(
-				wrapError("emit Archive load failure", eventErr),
-				wrapError("close archive", closeErr),
-			)
+		if err := dependencies.runtime.EmitArchiveLoadFailed("INTERNAL_ERROR"); err != nil {
+			return errors.Join(wrapError("emit Archive load failure", err), wrapError("close archive", dependencies.archive.Close()))
 		}
-		_ = dependencies.runtime.SetReadiness(false, "")
-		return serveRuntime(
-			ctx,
-			listener,
-			dependencies,
-			readinessProbe(dependencies.archive),
-		)
+		store = nil
 	}
-
-	probe := readinessProbe(dependencies.archive)
-	probeContext, cancel := context.WithTimeout(ctx, time.Second)
-	dataVersion, probeErr := probe(probeContext)
-	cancel()
-	if ctx.Err() != nil {
-		closeErr := dependencies.archive.Close()
-		return cancellationResult(ctx.Err(), wrapError("close archive", closeErr))
-	}
-	if probeErr != nil {
-		_ = dependencies.runtime.SetReadiness(false, "")
-		return serveRuntime(ctx, listener, dependencies, probe)
-	}
-	if err := dependencies.runtime.SetReadiness(true, dataVersion); err != nil {
-		eventErr := dependencies.runtime.EmitArchiveLoadFailed("INTERNAL_ERROR")
-		if eventErr != nil {
-			closeErr := dependencies.archive.Close()
-			return errors.Join(
-				wrapError("emit Archive load failure", eventErr),
-				wrapError("close archive", closeErr),
-			)
-		}
-		_ = dependencies.runtime.SetReadiness(false, "")
-		return serveRuntime(ctx, listener, dependencies, probe)
-	}
-	go func() {
-		_, _ = statistics.LoadSeriesIndex(ctx, store)
-	}()
-	return serveRuntime(ctx, listener, dependencies, probe)
+	return serveRuntime(ctx, listener, dependencies, store)
 }
 
-func serveRuntime(
-	ctx context.Context,
-	listener net.Listener,
-	dependencies runDependencies,
-	probe httpapi.ReadinessProbe,
-) error {
-	services, err := newQueryServices(
-		dependencies.archive,
-		dependencies.collections,
-	)
+func serveRuntime(ctx context.Context, listener net.Listener, dependencies runDependencies, startup *archive.Store) error {
+	process, stop := context.WithCancel(ctx)
+	defer stop()
+	view := &preparedArchive{archiveRuntime: dependencies.archive}
+	_ = dependencies.runtime.SetReadiness(false, "")
+	closeArchive := func() error {
+		current, _ := dependencies.archive.Current()
+		retireArchive(current)
+		return dependencies.archive.Close()
+	}
+	services, err := newQueryServices(view, dependencies.collections)
 	if err != nil {
-		dependencies.runtime.SetLive(false)
-		_ = dependencies.runtime.SetReadiness(false, "")
-		closeErr := dependencies.archive.Close()
-		return errors.Join(err, wrapError("close archive", closeErr))
+		return errors.Join(err, wrapError("close archive", closeArchive()))
 	}
-	if err := dependencies.runtime.SetRuntimeStatsProvider(
-		queryRuntimeStatsProvider(services.runtime),
-	); err != nil {
-		dependencies.runtime.SetLive(false)
-		_ = dependencies.runtime.SetReadiness(false, "")
-		closeErr := dependencies.archive.Close()
-		return errors.Join(
-			fmt.Errorf("configure query runtime stats: %w", err),
-			wrapError("close archive", closeErr),
-		)
+	if err := dependencies.runtime.SetRuntimeStatsProvider(queryRuntimeStatsProvider(services.runtime)); err != nil {
+		return errors.Join(fmt.Errorf("configure query runtime stats: %w", err), wrapError("close archive", closeArchive()))
 	}
-	handler := dependencies.runtime.HandlerWithCoStarDependencies(
-		probe,
-		currentCatalogStore(dependencies.archive),
-		services.rankings,
-		services.candidates,
-		services.personDetail,
-		services.partners,
-		services.coStar,
-	)
-	gate := new(maintenanceGate)
-	handler = gate.Wrap(handler)
+	gate := &maintenanceGate{view: view, process: process, warm: dependencies.warm, runtime: dependencies.runtime}
+	handler := dependencies.runtime.HandlerWithAdmission(readinessProbe(view), currentCatalogStore(view), services.rankings, services.candidates, services.personDetail, services.partners, services.coStar, gate.wrapRoutes)
 	server := dependencies.server(handler)
 	if server == nil {
-		dependencies.runtime.SetLive(false)
-		_ = dependencies.runtime.SetReadiness(false, "")
-		closeErr := dependencies.archive.Close()
-		return errors.Join(
-			errors.New("serve api: nil server"),
-			wrapError("close archive", closeErr),
-		)
+		return errors.Join(errors.New("serve api: nil server"), wrapError("close archive", closeArchive()))
+	}
+	var state replaceableArchive
+	if dependencies.updater != nil {
+		var ok bool
+		state, ok = dependencies.archive.(replaceableArchive)
+		if !ok {
+			return errors.Join(errors.New("serve api: archive runtime cannot replace Store"), wrapError("close archive", closeArchive()))
+		}
 	}
 	dependencies.runtime.SetLive(true)
-	schedulerContext, stopScheduler := context.WithCancel(ctx)
-	schedulerDone := make(chan struct{})
-	if dependencies.updater != nil {
-		state, ok := dependencies.archive.(replaceableArchive)
-		if !ok {
-			stopScheduler()
-			close(schedulerDone)
-			dependencies.runtime.SetLive(false)
-			_ = dependencies.runtime.SetReadiness(false, "")
-			closeErr := dependencies.archive.Close()
-			return errors.Join(
-				errors.New("serve api: archive runtime cannot replace Store"),
-				wrapError("close archive", closeErr),
-			)
+	serveDone := make(chan error, 1)
+	go func() { serveDone <- server.Serve(process, listener) }()
+	// This goroutine owns startup preparation followed by the scheduler. Joining
+	// it on every exit prevents startup/update overlap and close-while-loading.
+	lifecycleDone := make(chan error, 1)
+	go func() {
+		if startup != nil {
+			if err := prepareArchive(process, startup, dependencies.warm); err != nil {
+				lifecycleDone <- fmt.Errorf("prepare startup Archive: %w", err)
+				return
+			}
+			if process.Err() != nil {
+				lifecycleDone <- process.Err()
+				return
+			}
+			gate.publishStartup(startup)
 		}
-		scheduler := &archiveScheduler{
-			runner:  dependencies.updater,
-			runtime: dependencies.runtime,
+		if dependencies.updater != nil && process.Err() == nil {
+			scheduler := &archiveScheduler{runner: dependencies.updater, runtime: dependencies.runtime}
+			scheduler.Run(process, func(update context.Context, request ArchiveActivation) error {
+				return activateCandidate(update, gate, state, services.runtime.Idle, dependencies.runtime, request)
+			})
+		} else {
+			<-process.Done()
 		}
-		idle := func() bool {
-			stats := services.runtime.Stats().Executor
-			return stats.Running == 0 && stats.Queued == 0
-		}
-		go func() {
-			defer close(schedulerDone)
-			scheduler.Run(
-				schedulerContext,
-				func(
-					activationContext context.Context,
-					request ArchiveActivation,
-				) error {
-					return activateCandidate(
-						activationContext,
-						gate,
-						state,
-						idle,
-						dependencies.runtime,
-						request,
-					)
-				},
-			)
-		}()
-	} else {
-		close(schedulerDone)
+		lifecycleDone <- nil
+	}()
+	shutdown := func() {
+		gate.terminate() // irreversible admission closure before cancellation or joins
+		stop()
+		gate.pause() // now cancellation-cooperative ready probes can finish
 	}
-	serveErr := server.Serve(ctx, listener)
-	stopScheduler()
-	<-schedulerDone
+	var serveErr, lifecycleErr error
+	select {
+	case serveErr = <-serveDone:
+		shutdown()
+		lifecycleErr = <-lifecycleDone
+	case lifecycleErr = <-lifecycleDone:
+		shutdown()
+		serveErr = <-serveDone
+	case <-ctx.Done():
+		shutdown()
+		serveErr = <-serveDone
+		lifecycleErr = <-lifecycleDone
+	}
+	// A listener failure may return from Serve while admitted handlers remain.
+	// Close admission and join them before checking detached work: a handler
+	// still parsing its body may not have registered that work yet.
+	gate.pause()
+	view.publish(nil)
 	dependencies.runtime.SetLive(false)
 	_ = dependencies.runtime.SetReadiness(false, "")
-	closeErr := dependencies.archive.Close()
-
-	if serveErr != nil {
-		serveErr = fmt.Errorf("serve api: %w", serveErr)
+	for {
+		gate.mu.Lock()
+		active := gate.active
+		gate.mu.Unlock()
+		if active == 0 && services.runtime.Idle() {
+			break
+		}
+		time.Sleep(maintenancePollInterval)
 	}
-	if closeErr != nil {
-		closeErr = fmt.Errorf("close archive: %w", closeErr)
+	closeErr := closeArchive()
+	if process.Err() != nil && (errors.Is(lifecycleErr, context.Canceled)) {
+		lifecycleErr = nil
 	}
-	return errors.Join(serveErr, closeErr)
+	return errors.Join(wrapError("serve api", serveErr), lifecycleErr, wrapError("close archive", closeErr))
 }
 
 type queryServices struct {

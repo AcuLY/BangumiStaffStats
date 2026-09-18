@@ -246,6 +246,8 @@ internal/app/run.go
 internal/app/run_test.go
 internal/app/scheduler.go
 internal/app/scheduler_test.go
+internal/app/warmup.go
+internal/app/warmup_test.go
 internal/architecture/dependencies_test.go
 internal/archive/direct_test.go
 internal/archive/errors.go
@@ -325,6 +327,7 @@ internal/httpapi/catalog_handler.go
 internal/httpapi/catalog_handler_test.go
 internal/httpapi/co_star_handler.go
 internal/httpapi/co_star_handler_test.go
+internal/httpapi/detached_deadline_test.go
 internal/httpapi/handler.go
 internal/httpapi/handler_test.go
 internal/httpapi/image_handler_test.go
@@ -432,6 +435,7 @@ internal/runtimecache/collection_test.go
 internal/runtimecache/concurrency_test.go
 internal/runtimecache/detached.go
 internal/runtimecache/doc.go
+internal/runtimecache/drain_test.go
 internal/runtimecache/errors.go
 internal/runtimecache/executor.go
 internal/runtimecache/lru.go

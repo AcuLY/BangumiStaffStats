@@ -11,6 +11,59 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 )
 
+func TestRetireFactSetsExactStoreAndRewarm(t *testing.T) {
+	a, b := new(archive.Store), new(archive.Store)
+	types := []string{"anime", "book", "music", "game", "real"}
+	calls := 0
+	loader := func(context.Context, *archive.Store, string) (FactSet, error) {
+		calls++
+		return cacheTestFactSet(int64(calls)), nil
+	}
+	for _, store := range []*archive.Store{a, b} {
+		for _, typ := range types {
+			if _, err := loadCachedFactSet(context.Background(), store, typ, loader); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	RetireFactSets(a)
+	RetireFactSets(a)
+	for _, typ := range types {
+		if _, found := factSets.Load(factSetCacheKey{a, typ}); found {
+			t.Errorf("retired %s retained", typ)
+		}
+		if _, found := factSets.Load(factSetCacheKey{b, typ}); !found {
+			t.Errorf("other Store %s removed", typ)
+		}
+		if _, err := loadCachedFactSet(context.Background(), a, typ, loader); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loadCachedFactSet(context.Background(), a, typ, loader); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if calls != 15 {
+		t.Errorf("loads = %d, want 15 (rewarm then reuse)", calls)
+	}
+	RetireFactSets(a)
+	RetireFactSets(b)
+	// A partially failed generation must not survive lifecycle retirement.
+	for _, typ := range types {
+		_, _ = loadCachedFactSet(context.Background(), a, typ, func(context.Context, *archive.Store, string) (FactSet, error) {
+			if typ == "game" {
+				return cacheTestFactSet(9), errors.New("partial")
+			}
+			return cacheTestFactSet(8), nil
+		})
+	}
+	RetireFactSets(a)
+	for _, typ := range types {
+		if _, found := factSets.Load(factSetCacheKey{a, typ}); found {
+			t.Errorf("partial generation %s retained", typ)
+		}
+	}
+}
+
 func TestLoadCachedFactSetCoalescesAndReusesCompleteValue(t *testing.T) {
 	store := new(archive.Store)
 	key := factSetCacheKey{store: store, subjectType: "anime"}

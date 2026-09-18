@@ -167,9 +167,9 @@ func (handler *routeHandler) writeRankings(
 	}
 	result, err := handler.rankings.Execute(request.Context(), decoded)
 	if err != nil {
-		if context.Cause(request.Context()) != nil ||
-			errors.Is(err, context.Canceled) ||
-			errors.Is(err, context.DeadlineExceeded) {
+		// Only request cancellation belongs to the HTTP lifecycle. A detached
+		// worker deadline must still pass through the typed error response.
+		if context.Cause(request.Context()) != nil {
 			return
 		}
 		response := rankingsErrorResponse(err)

@@ -7,7 +7,25 @@ scheduler/builder. Runtime opening does not read `manifest.json`, hash or
 recount SQLite, run integrity/foreign-key/schema checks, or perform Archive
 admission; the Go builder completes those producer checks before inactive
 publication. A successful initial open publishes the contained root-bound,
-read-only/query-only Store. A non-cancellation open failure emits one bounded
+read-only/query-only Store internally, but app admission remains closed until
+same-process public preparation completes: one series index, then fact sets for
+anime, book, music, game and real, serially within one 120-second attempt. No
+UID, collection fetch or user-result computation is part of preparation. The
+common prepared view gates readiness, catalog and all five query services;
+liveness and metrics stay responsive. Preparation is canceled and joined before
+Store close if serving fails or the process stops. A post-open preparation
+failure stays not-ready and exits boundedly, rather than serving cold queries.
+
+Data activation uses a short query-maintenance interval: close new admission,
+drain HTTP plus detached workers through their actual completion, retire old
+Store-keyed caches, then prepare and commit the candidate. Old data/Store remain
+available for rollback. A failed candidate/commit is restored and old data is
+re-prepared with an independent at-most-120-second process-bound recovery attempt
+before admission reopens. Failed restoration/recovery stays not-ready. Full old
+and new cache generations are not retained together. This changes initialization
+and activation only, not statistics, wire contracts or query/resource budgets.
+
+A non-cancellation open failure emits one bounded
 `archive_load_failed` event and begins degraded serving; the asynchronous
 freshness check can later build and activate a complete Store without
 restarting the process or listener.
@@ -32,7 +50,8 @@ POST /api/v1/co-star
 ```
 
 Every route rejects unapproved methods. `/readyz` performs one fixed one-second
-`archive_meta` identity read through the published Store. `/metrics` is
+`archive_meta` identity read through the prepared Store; an unprepared Store or
+active maintenance window cannot become ready from this probe alone. `/metrics` is
 standard-library, low-cardinality Prometheus text instrumentation; its
 production exposure, scrape configuration, retention, alerts, and SLOs remain
 deferred operations work. The reusable HTTP transport generates request IDs,
@@ -69,8 +88,8 @@ stores no image bytes and does not choose an image type for the frontend.
 `GET /api/v1/catalog` projects the currently published immutable Archive Store
 into the generated `CatalogSuccessEnvelopeV1`. It performs fresh fixed reads,
 returns the published `dataVersion`, rejects query parameters and request
-bodies, and exposes no mutation or refresh operation. Before Archive
-publication it returns the catalog-specific `NOT_READY` envelope.
+bodies, and exposes no mutation or refresh operation. Before prepared admission, or during maintenance/recovery, it returns the
+catalog-specific `NOT_READY` envelope.
 
 The module pins Go 1.26.5 and keeps downloaded toolchains, module/build caches,
 temporary files, and binaries below ignored backend-local directories.
@@ -101,7 +120,9 @@ caller-supplied UID-bound immutable collection snapshot and overlays only its
 status, score, update month, and tags.
 
 The package intentionally does not compute statistics, merge series, search,
-sort, paginate, cache, fetch a collection, or expose an HTTP endpoint itself.
+sort, paginate, cache operation results, fetch a collection, or expose an HTTP
+endpoint itself. Its immutable public FactSet cache remains Store-keyed and is
+prepared and retired by the app lifecycle.
 `mergeSeries` remains part of Effective Query and its digest for the later
 statistics layer, but does not change these raw Subject sets.
 

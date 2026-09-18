@@ -193,8 +193,21 @@ func (r *RuntimeObservability) HandlerWithCoStarDependencies(
 	partners partnersExecutor,
 	coStar coStarExecutor,
 ) http.Handler {
+	return r.HandlerWithAdmission(readiness, catalogs, rankings, candidates, personDetail, partners, coStar, nil)
+}
+
+// HandlerWithAdmission lets the app wrap the actual route lifetime, inside the
+// asynchronous response middleware. Both inputs are raw routes: the fallback
+// retains method/image/wire behavior but has no Archive or query dependencies.
+func (r *RuntimeObservability) HandlerWithAdmission(
+	readiness ReadinessProbe, catalogs CatalogStoreProvider,
+	rankings rankingsExecutor, candidates candidatesExecutor,
+	personDetail personDetailExecutor, partners partnersExecutor, coStar coStarExecutor,
+	wrap func(normal, unavailable http.Handler) http.Handler,
+) http.Handler {
 	if r == nil {
 		return newHandler(readiness, nil, middlewareOptions{
+			wrapRoutes:     wrap,
 			requestTimeout: DefaultRequestTimeout,
 			images:         imageproxy.NewClient(),
 			catalogs:       catalogs,
@@ -206,6 +219,7 @@ func (r *RuntimeObservability) HandlerWithCoStarDependencies(
 		})
 	}
 	return newHandler(readiness, r.metrics, middlewareOptions{
+		wrapRoutes:     wrap,
 		requestTimeout: DefaultRequestTimeout,
 		metrics:        r.metrics,
 		images:         r.images,
@@ -322,7 +336,7 @@ func newHandler(readiness ReadinessProbe, metrics *observability.Registry, optio
 	if options.images == nil {
 		options.images = imageproxy.NewClient()
 	}
-	return runtimeMiddleware(&routeHandler{
+	routes := &routeHandler{
 		readiness:    readiness,
 		metrics:      metrics,
 		images:       options.images,
@@ -334,7 +348,13 @@ func newHandler(readiness ReadinessProbe, metrics *observability.Registry, optio
 		personDetail: options.personDetail,
 		partners:     options.partners,
 		coStar:       options.coStar,
-	}, options)
+	}
+	var handler http.Handler = routes
+	if options.wrapRoutes != nil {
+		unavailable := &routeHandler{metrics: metrics, images: options.images, events: options.events}
+		handler = options.wrapRoutes(routes, unavailable)
+	}
+	return runtimeMiddleware(handler, options)
 }
 
 func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {

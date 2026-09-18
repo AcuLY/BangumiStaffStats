@@ -12,6 +12,50 @@ import (
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/archive"
 )
 
+func TestRetireSeriesIndexExactStoreAndRewarm(t *testing.T) {
+	a, b := openSeriesCacheTestStore(t), openSeriesCacheTestStore(t)
+	first, err := LoadSeriesIndex(context.Background(), a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := LoadSeriesIndex(context.Background(), b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	RetireSeriesIndex(a)
+	RetireSeriesIndex(a)
+	if _, found := seriesIndexes.Load(a); found {
+		t.Error("retired Store retained")
+	}
+	again, err := LoadSeriesIndex(context.Background(), a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again == first {
+		t.Error("retired Store was not reloaded")
+	}
+	hit, _ := LoadSeriesIndex(context.Background(), a)
+	if hit != again {
+		t.Error("rewarmed index not reused")
+	}
+	hit, _ = LoadSeriesIndex(context.Background(), b)
+	if hit != other {
+		t.Error("other Store evicted")
+	}
+	// Failed entries and a partial generation are removable without mutating readers.
+	failed := new(archive.Store)
+	if _, err := LoadSeriesIndex(context.Background(), failed); err == nil {
+		t.Fatal("closed store loaded")
+	}
+	RetireSeriesIndex(failed)
+	if _, found := seriesIndexes.Load(failed); found {
+		t.Error("failed load retained")
+	}
+	if first == nil || other == nil {
+		t.Fatal("retirement changed owned values")
+	}
+}
+
 func TestLoadSeriesIndexRejectsNilAndCancellation(t *testing.T) {
 	if _, err := LoadSeriesIndex(context.Background(), nil); errorCodeOrEmpty(err) != CodeInputInvalid {
 		t.Fatalf("nil Store error = %v", err)
