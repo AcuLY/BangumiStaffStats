@@ -21,7 +21,8 @@ Archive validation authority.
 
 - **WHEN** `current.json` selects a producer-published SQLite version
 - **THEN** Backend SHALL proceed directly through contained read-only open,
-  identity read, publication, and readiness probe
+  identity read and raw Store publication; app SHALL separately perform ordinary
+  public-data preparation before the readiness probe and business admission
 - **AND** no Archive admission phase or validation scan SHALL run
 
 #### Scenario: Admission is requested through an alternate path
@@ -107,11 +108,16 @@ reject new queries, wait for active rows, then release owned resources.
 
 ### Requirement: Publication and shutdown SHALL be atomic
 
-Readiness SHALL be represented by one atomic Store pointer and remain false
-until direct open, identity read, and the fixed readiness probe succeed.
-Publication SHALL be single-assignment from nil; a failed, canceled, or losing
-Store SHALL close exactly once and cannot replace a winner. Shutdown SHALL
-first clear readiness and then close the published pool exactly once.
+Raw Store ownership SHALL be represented by one atomic pointer. App prepared
+admission SHALL remain separate and false until direct open, identity read,
+public-data preparation and the fixed readiness probe succeed.
+Initial publication SHALL be single-assignment from nil; a failed, canceled,
+or losing initial Store SHALL close exactly once and cannot replace a winner.
+The separately admitted hot-replacement transaction SHALL retain rollback
+ownership and SHALL not close a candidate still referenced by State after a
+failed restore. Shutdown SHALL
+first close prepared admission, cancel/join preparation and drain Store users,
+retire exact-Store derived caches, and then close the published pool exactly once.
 
 #### Scenario: Direct open fails before publication
 

@@ -89,9 +89,31 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 		runtimeObservability,
 		collections,
 	)
+	// Pin the supported live-but-not-prepared startup phase instead of
+	// relying on the small fixture warming before the first ready request.
+	warmRelease := make(chan struct{})
+	dependencies.warm = func(ctx context.Context, store *archive.Store) error {
+		select {
+		case <-warmRelease:
+			return warmArchive(ctx, store)
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	archiveRoot := arrangeArchive(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	result := make(chan error, 1)
+	joined := false
+	t.Cleanup(func() {
+		cancel()
+		if !joined {
+			select {
+			case <-result:
+			case <-time.After(5 * time.Second):
+				t.Error("runListener did not stop during cleanup")
+			}
+		}
+	})
 	go func() {
 		result <- runListener(ctx, listener, archiveRoot, dependencies)
 	}()
@@ -103,6 +125,22 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 		t.Fatalf("live = %d %q", live.status, live.body)
 	}
 	ready := getResponse(t, client, listener, "/readyz")
+	if ready.status != http.StatusServiceUnavailable ||
+		!strings.Contains(ready.body, `"code":"NOT_READY"`) {
+		t.Fatalf("startup readiness = %d %q", ready.status, ready.body)
+	}
+	if calls := collections.snapshotCalls(); len(calls) != 0 {
+		t.Fatalf("startup preparation contacted collections: %#v", calls)
+	}
+	close(warmRelease)
+	deadline := time.Now().Add(5 * time.Second)
+	for ready.status == http.StatusServiceUnavailable && time.Now().Before(deadline) {
+		if !strings.Contains(ready.body, `"code":"NOT_READY"`) {
+			t.Fatalf("startup readiness = %d %q", ready.status, ready.body)
+		}
+		time.Sleep(time.Millisecond)
+		ready = getResponse(t, client, listener, "/readyz")
+	}
 	if ready.status != http.StatusOK ||
 		!strings.Contains(ready.body, `"status":"ready"`) ||
 		!strings.Contains(ready.body, `"dataVersion":"dv1-`) {
@@ -264,6 +302,7 @@ func TestRunListenerPublishesArchiveServesBusinessRoutesAndStops(t *testing.T) {
 	cancel()
 	select {
 	case err := <-result:
+		joined = true
 		if err != nil {
 			t.Fatalf("runListener returned error: %v", err)
 		}

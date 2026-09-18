@@ -2,7 +2,7 @@
 
 The user approved `add-unrestricted-person-entry` and explicitly requested “确认，改完直接按流程部署”. This change authorizes the existing single-host deployment workflow after the feature and its affected gates pass, with rollback and no unrelated service changes.
 
-The user's latest instruction is “完成验收，并推送部署”. Complete application acceptance, exact-path commit and reviewed PR/CI integration before activating the verified bundle through the existing deployment workflow. Script publication remains user-owned and does not block application acceptance.
+The user requested “完成验收，并推送部署” and subsequently explicitly allowed the sole installed readiness-helper update from 30 to 75 default polling attempts, with backup and rollback. Complete application acceptance, exact-path commit and reviewed PR/CI integration before activating the verified bundle through the existing deployment workflow. Script publication remains user-owned and does not block application acceptance.
 
 ## What Changes
 
@@ -18,7 +18,7 @@ The user's latest instruction is “完成验收，并推送部署”. Complete 
 
 ### Modified Capabilities
 
-None. Existing deployment and rollback mechanisms are consumed without redesign.
+Existing deployment and rollback mechanisms are consumed without redesign. The installed readiness helper may receive only the tested 30→75 default-attempt change. Every other byte, explicit override, probe bound, polling interval and user query budget remains unchanged.
 
 ## Impact
 
@@ -26,8 +26,8 @@ None. Existing deployment and rollback mechanisms are consumed without redesign.
 |---|---|
 | Status | Deployment user-authorized; apply blocked on strict-valid reviewed artifacts and verified feature |
 | Owner | Primary agent only for external state; feature workers have no production authority |
-| Writable paths | This change; later its accepted spec/archive. Host `/srv/bgmss-v2/incoming/` new revision bundle only, `/srv/bgmss-v2/releases/` new revision only, `state/current.env`, `state/previous.env`, `current-frontend`, `previous-frontend` via existing deploy/rollback scripts; dedicated workspace `toolchains/`, `qa/`, `evidence/` below `/root/.hermes/workspace/bangumi-staff-stats/` |
-| Read-only protected inputs | `/etc/nginx/nginx.conf`, existing Compose/config/operations files, `/srv/bgmss-v2/data/` including current.json, old releases, `/srv/bgmss/`, other services/repositories and credentials |
+| Writable paths | This change; later its accepted spec/archive. Host `/srv/bgmss-v2/incoming/` new revision bundle only, `/srv/bgmss-v2/releases/` new revision only, `state/current.env`, `state/previous.env`, `current-frontend`, `previous-frontend` via existing deploy/rollback scripts; `/srv/bgmss-v2/operations/lib/common.sh` solely for the approved 30→75 readiness-default substitution with backup/rollback; dedicated workspace `toolchains/`, `qa/`, `evidence/` below `/root/.hermes/workspace/bangumi-staff-stats/` |
+| Read-only protected inputs | `/etc/nginx/nginx.conf`, existing Compose/config/operations files except the explicitly authorized common.sh default-only update, `/srv/bgmss-v2/data/` including current.json, old releases, `/srv/bgmss/`, other services/repositories and credentials |
 | Deletion complement | No old releases/data/services; remove only uniquely owned temporary QA/builder processes or incomplete candidate files under script ownership |
 | Mutable refs | Local current master phase commits; new remote feature ref `feat/unrestricted-person-entry`, reviewed PR and master merge through the existing authenticated GitHub workflow; no force push, tags or branch deletion needed |
 | Consumes | Reviewed feature commit, green affected gates, exact toolchains and existing deployment scripts |

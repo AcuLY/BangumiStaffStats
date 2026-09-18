@@ -35,6 +35,7 @@ func RequestIDFromContext(ctx context.Context) (string, bool) {
 }
 
 type middlewareOptions struct {
+	wrapRoutes       func(normal, unavailable http.Handler) http.Handler
 	requestTimeout   time.Duration
 	requestID        func() string
 	metrics          *observability.Registry

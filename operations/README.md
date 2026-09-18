@@ -119,6 +119,29 @@ and reload, then probe root, legacy, redirects, assets and API content. Restore
 the exact config and prior application if acceptance fails. Never switch the
 Archive data pointer as part of this route rollback.
 
+## Preparation and data-switch maintenance
+
+The API serves liveness and metrics during public-data preparation, but readiness,
+catalog and Archive-dependent queries remain unavailable until its series index
+and all five subject-type fact sets are prepared in the serving process. This
+uses no real user collection or precomputed query result. Startup preparation
+has one 120-second budget, separate from unchanged business-query timeouts.
+
+During a data switch, the builder continues serving while building; activation
+then pauses new queries, drains existing HTTP and detached workers, and releases
+old derived caches before preparing the candidate. Old immutable data is retained
+until the transaction commits. Failure restores and re-prepares old data before
+queries resume; recovery has its own at-most-120-second budget. Failed recovery
+stays not-ready. Maintenance is not a promised fixed-duration window: draining
+and recovery can add time. Health and metrics remain responsive throughout.
+
+Host commands default to 75 readiness attempts (`BGMSS_READY_ATTEMPTS` remains
+an override). Each curl keeps its two-second limit and unsuccessful attempts
+keep the two-second interval; the existing expected-dataVersion check remains.
+This accommodates initialization without extending request/worker timeouts or
+changing memory limits, and is not an exact 150-second wall-clock deadline.
+Updating repository definitions does not update an installed host copy.
+
 ## Health and observability
 
 The repository Nginx template gives `/api/v1/` and `/v2/api/v1/` a 130-second upstream read
@@ -147,6 +170,7 @@ Focused repository checks while developing this topology are:
 
 ```sh
 bash operations/test/runtime.sh
+bash operations/test/warmup-readiness.sh
 node --test contracts/artifacts/test/*.test.mjs
 ```
 

@@ -27,6 +27,19 @@ type factSetLoader func(context.Context, *archive.Store, string) (FactSet, error
 
 var factSets sync.Map
 
+// RetireFactSets releases all derived fact entries for exactly store. The caller
+// must first stop admission and join every loader/reader of this Store. Values
+// already owned by readers are never mutated; this is lifecycle retirement, not
+// concurrent cache eviction. The Store remains open and can be warmed again.
+func RetireFactSets(store *archive.Store) {
+	factSets.Range(func(key, _ any) bool {
+		if key.(factSetCacheKey).store == store {
+			factSets.Delete(key)
+		}
+		return true
+	})
+}
+
 const (
 	selectSubjects = `SELECT subject_id, nsfw, air_date, air_date_precision, score
 FROM subject

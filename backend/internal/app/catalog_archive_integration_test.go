@@ -88,6 +88,14 @@ func TestCanonicalArchiveServesReadyAndCatalogWithoutFixtureRewrite(t *testing.T
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	readyResponse := getResponse(t, client, listener, "/readyz")
+	deadline := time.Now().Add(5 * time.Second)
+	for readyResponse.status == http.StatusServiceUnavailable && time.Now().Before(deadline) {
+		if !strings.Contains(readyResponse.body, `"code":"NOT_READY"`) {
+			t.Fatalf("startup readiness = %d %q", readyResponse.status, readyResponse.body)
+		}
+		time.Sleep(time.Millisecond)
+		readyResponse = getResponse(t, client, listener, "/readyz")
+	}
 	if readyResponse.status != http.StatusOK {
 		t.Fatalf("ready = %d %q", readyResponse.status, readyResponse.body)
 	}

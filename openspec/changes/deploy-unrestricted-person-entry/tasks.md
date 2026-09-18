@@ -4,8 +4,8 @@
 |---|---|
 | Status | User-authorized; operations preflight done; activation not started |
 | Owner | Primary operations owner |
-| Writable paths | This change/accepted spec; exact new release/bundle and state env/symlinks from proposal; dedicated workspace toolchains/qa/evidence |
-| Read-only protected inputs | Nginx/live Compose/config/scripts/data/old releases/legacy/other services/credentials |
+| Writable paths | This change/accepted spec; exact new release/bundle and state env/symlinks from proposal; installed common.sh default-only 30→75 update with backup/rollback; dedicated workspace toolchains/qa/evidence |
+| Read-only protected inputs | Nginx/live Compose/config/scripts (except approved common.sh default-only update)/data/old releases/legacy/other services/credentials |
 | Deletion complement | Owned temporary QA/builder and failed candidate only |
 | Mutable refs | Current local phase commits, scoped remote feature ref, reviewed PR/master merge |
 | Consumes | Strict reviewed feature and release specs, tested candidate and pinned tools |
@@ -23,6 +23,8 @@
 - [x] 1.2 Read deploy/check/rollback contract and identify live project/image/mounts/ports, env, frontend pointers, protected config hashes and free QA ports. Normal operations check, root and /old/ probes passed.
 - [x] 1.3 Prepare isolated pinned Node24.18.0/npm11.16.0 and Go1.26.5; official Node archive SHA256 verified. No system or Hermes tool replacement.
 - [x] 1.4 Primary reviewed scope, protected state, candidate gates and rollback ordering; `OPENSPEC_TELEMETRY=0 npm exec --yes --package=@fission-ai/openspec@1.6.0 -- openspec validate deploy-unrestricted-person-entry --strict` passed, and `git diff --check` was clean. Production remains unchanged.
+
+- [ ] 1.5 Apply the user-authorized common.sh default-only 30→75 update: verify exact preimage and single substitution, save byte/metadata-preserving backup, install/read back candidate and syntax, verify production identity/readiness and all other protected files unchanged; keep explicit backup-based rollback. No service restart or other host-script/config update.
 
 ## 2. Verify and assemble — primary
 

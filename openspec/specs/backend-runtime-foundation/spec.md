@@ -28,10 +28,12 @@ module/workspace/vendor tree.
 
 ### Requirement: Package dependencies SHALL follow the approved direction
 
-The foundation SHALL enforce `cmd/api -> app -> {archive,httpapi}`,
+The foundation SHALL enforce `cmd/api -> app -> {archive,httpapi,query}`,
 `httpapi -> {imageproxy,observability,wire}`,
 `imageproxy -> standard library`, `observability -> standard library`, and
-`query -> {archive,cache,collection}` for later admitted query work.
+`query -> {archive,cache,collection}` for later admitted query work. Later admitted service/cache dependencies remain
+authoritative in the production graph; this delta adds only app -> query for
+public-data preparation and exact-Store retirement, without reverse imports.
 `archive`, `imageproxy`, `query`, `cache`, `collection`, and `observability`
 MUST NOT import transport or application layers. Production imports outside
 the standard library SHALL remain limited to the generated wire runtime and

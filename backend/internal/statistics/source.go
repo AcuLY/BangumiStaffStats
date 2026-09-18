@@ -16,6 +16,13 @@ type seriesIndexCacheEntry struct {
 
 var seriesIndexes sync.Map
 
+// RetireSeriesIndex releases exactly store's derived index after the lifecycle
+// owner has stopped admission and joined its loaders/readers. It does not mutate
+// an index held by a reader or close the Store; a later load can rewarm it.
+func RetireSeriesIndex(store *archive.Store) {
+	seriesIndexes.Delete(store)
+}
+
 const (
 	selectSeriesSubjects = `SELECT subject_type, subject_id, air_date
 FROM subject

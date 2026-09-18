@@ -24,6 +24,8 @@ for script in \
   bash -n "$script"
 done
 
+bash "$operations_root/test/warmup-readiness.sh"
+
 test_root=$(mktemp -d "${TMPDIR:-/tmp}/bgmss-operations-runtime.XXXXXX")
 cleanup() {
   local resolved

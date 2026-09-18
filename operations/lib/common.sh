@@ -269,7 +269,7 @@ development_workflow_prefix_lines() {
 }
 
 wait_ready() {
-  local root=$1 expected_data=${2:-} attempts=${BGMSS_READY_ATTEMPTS:-30}
+  local root=$1 expected_data=${2:-} attempts=${BGMSS_READY_ATTEMPTS:-75}
   local port body attempt data_version
   port=$(env_value "$root/state/current.env" BGMSS_API_PORT)
   for ((attempt = 1; attempt <= attempts; attempt++)); do
