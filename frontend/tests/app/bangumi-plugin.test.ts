@@ -236,11 +236,52 @@ describe('Bangumi person userscript', () => {
     expect(window.document.querySelector('#bgmss-person-entry')).toBeNull();
   });
 
-  it('ships standards metadata limited to person pages without privileged grants', () => {
+  it('ships standards metadata for person and user pages without privileged grants', () => {
     expect(source()).toContain('// ==UserScript==');
     expect(source()).toContain('// @grant        none');
     // Bangumi's own .dropdown opens on hover; this entry must stay click-driven.
     expect(source()).toMatch(/li\.bgmss-person-entry:hover\s*>\s*ul/);
     expect(source()).not.toMatch(/@connect|document\.cookie|localStorage|GM_xmlhttpRequest/);
+  });
+});
+
+describe('Bangumi user profile userscript regression', () => {
+  function profile(url: string, services = true) {
+    const dom = new JSDOM(`<html><head></head><body><div id="dock"><a href="/user/viewer">Me</a></div>${services ? '<ul class="network_service"><li>Existing service</li></ul>' : ''}</body></html>`, { url, runScripts: 'outside-only' });
+    windows.push(dom);
+    dom.window.eval(source());
+    dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
+    return dom.window;
+  }
+
+  it.each(['bgm.tv', 'bangumi.tv', 'chii.in'])('restores the viewed profile service on %s', host => {
+    expect(source()).toContain(`// @match        https://${host}/user/*`);
+    const window = profile(`https://${host}/user/profile-owner?ignored=value`);
+    const item = window.document.querySelector('#bgmss-user-entry')!;
+    expect(item.parentElement!.matches('ul.network_service')).toBe(true);
+    expect(item.querySelector('.service')!.textContent).toBe('BangumiStaffStats');
+    const link = item.querySelector('a')!;
+    expect(link.textContent).toBe('Staff 数据统计');
+    expect(link.href).toBe('https://search.bgmss.fun/?user=profile-owner');
+    expect(link.target).toBe('_blank');
+    expect(window.document.querySelector('#bgmss-person-entry')).toBeNull();
+    window.eval(source());
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    expect(window.document.querySelectorAll('#bgmss-user-entry')).toHaveLength(1);
+    expect(window.document.querySelectorAll('.network_service > li')).toHaveLength(2);
+  });
+
+  it('works without login and encodes the profile ID as one parameter', () => {
+    const window = profile('https://bgm.tv/user/a%26person%3D999/');
+    window.document.querySelector('#dock')!.remove();
+    const url = new URL(window.document.querySelector<HTMLAnchorElement>('#bgmss-user-entry a')!.href);
+    expect([...url.searchParams]).toEqual([['user', 'a&person=999']]);
+  });
+
+  it('leaves other pages and missing service lists untouched', () => {
+    for (const path of ['/user/', '/user/name/blog', '/user/%ZZ', '/user/%00']) {
+      expect(profile(`https://bgm.tv${path}`).document.querySelector('#bgmss-user-entry')).toBeNull();
+    }
+    expect(profile('https://bgm.tv/user/name', false).document.querySelector('#bgmss-user-entry')).toBeNull();
   });
 });

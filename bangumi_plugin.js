@@ -1,11 +1,14 @@
 // ==UserScript==
 // @name         Bangumi Staff Stats · 人物收藏参与作品
 // @namespace    https://github.com/AcuLY/BangumiStaffStats
-// @version      1.1.0
-// @description  在人物页导航行查看当前登录用户收藏中的参与作品；一个入口展开动画、书籍、音乐、游戏和三次元。
+// @version      1.1.1
+// @description  在用户主页查看 Staff 数据统计；在人物页导航行查看当前登录用户收藏中的参与作品。
 // @match        https://bgm.tv/person/*
 // @match        https://bangumi.tv/person/*
 // @match        https://chii.in/person/*
+// @match        https://bgm.tv/user/*
+// @match        https://bangumi.tv/user/*
+// @match        https://chii.in/user/*
 // @run-at       document-end
 // @grant        none
 // @noframes
@@ -18,6 +21,39 @@
   // one right-aligned item grouped with 加入收藏 opens the work-type menu. No
   // separate injected block, no credentials, statistics or saved filters.
   const hosts = new Set(['bgm.tv', 'bangumi.tv', 'chii.in']);
+  if (location.protocol !== 'https:' || !hosts.has(location.hostname) || window.top !== window.self) return;
+
+  // Preserve the original profile service link: this is the viewed user's ID,
+  // independent of login. The ordinary user parameter only prefills the app.
+  const profile = /^\/user\/([^/]+)\/?$/.exec(location.pathname);
+  if (profile) {
+    let uid;
+    try { uid = decodeURIComponent(profile[1]); } catch { return; }
+    if (!uid || /\p{Cc}/u.test(uid) || [...uid].length > 256 || new Blob([uid]).size > 256) return;
+    function installProfile() {
+      const services = document.querySelector('ul.network_service');
+      if (!services || document.getElementById('bgmss-user-entry')) return;
+      const item = document.createElement('li');
+      item.id = 'bgmss-user-entry';
+      const badge = document.createElement('span');
+      badge.className = 'service';
+      badge.style.backgroundColor = '#FF4573';
+      badge.textContent = 'BangumiStaffStats';
+      const link = document.createElement('a');
+      const url = new URL('https://search.bgmss.fun/');
+      url.searchParams.set('user', uid);
+      link.href = url.href;
+      link.target = '_blank';
+      link.className = 'l';
+      link.rel = 'me noopener noreferrer';
+      link.textContent = 'Staff 数据统计';
+      item.append(badge, ' ', link);
+      services.append(item);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installProfile, { once: true });
+    else installProfile();
+    return;
+  }
   const person = /^\/person\/([1-9][0-9]*)\/?$/.exec(location.pathname)?.[1];
   if (location.protocol !== 'https:' || !hosts.has(location.hostname) ||
       !person || !Number.isSafeInteger(Number(person)) || window.top !== window.self) return;
