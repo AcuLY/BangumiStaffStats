@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -20,6 +21,16 @@ func progressMiddleware(next http.Handler) http.Handler {
 		if !wantsQueryProgress(r) {
 			next.ServeHTTP(w, r)
 			return
+		}
+		// Read the bounded JSON body before flushing any response. HTTP/1
+		// otherwise drains and closes it while the ordinary handler is reading.
+		// Keeping normal half-duplex semantics also preserves disconnect detection.
+		body, bodyErr := io.ReadAll(io.LimitReader(r.Body, MaxJSONBodyBytes+1))
+		_ = r.Body.Close()
+		if bodyErr != nil {
+			r.Body = io.NopCloser(progressBodyError{bodyErr})
+		} else {
+			r.Body = io.NopCloser(bytes.NewReader(body))
 		}
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
@@ -148,6 +159,10 @@ func progressMiddleware(next http.Handler) http.Handler {
 		}
 	})
 }
+
+type progressBodyError struct{ err error }
+
+func (r progressBodyError) Read([]byte) (int, error) { return 0, r.err }
 
 func wantsQueryProgress(r *http.Request) bool {
 	if r.Method != http.MethodPost {

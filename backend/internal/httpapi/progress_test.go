@@ -77,6 +77,46 @@ func TestProgressFlushesBeforeQueryCompletesAndPreservesError(t *testing.T) {
 	}
 }
 
+func TestProgressHTTP1PreservesBodyAfterFirstFrame(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(progressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"error":"body closed before handler read"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(body)
+	})))
+	defer server.Close()
+	payload := `{"query":{"scope":"global","subjectType":"anime"}}`
+	req, _ := http.NewRequest(http.MethodPost, server.URL+routeRankings, strings.NewReader(payload))
+	req.Header.Set("Accept", "text/event-stream")
+	client := &http.Client{Timeout: 2 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		close(release)
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	reader := bufio.NewReader(response.Body)
+	first, err := reader.ReadString('\n')
+	close(release)
+	if err != nil || first != "event: progress\n" {
+		t.Fatalf("first frame: %q, %v", first, err)
+	}
+	rest, err := io.ReadAll(reader)
+	if err != nil || !strings.Contains(string(rest), `"status":200`) || !strings.Contains(string(rest), `"body":`+payload) {
+		t.Fatalf("request body lost after early flush: %s, %v", rest, err)
+	}
+}
+
 func TestProgressDisconnectCancelsWaiterAndJSONRemainsDefault(t *testing.T) {
 	canceled := make(chan struct{})
 	server := httptest.NewServer(progressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
