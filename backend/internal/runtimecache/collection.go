@@ -303,6 +303,7 @@ func (cache *CollectionCache) Get(
 	if err := contextOutcome(ctx); err != nil {
 		return CollectionAccess{}, err
 	}
+	querytiming.Report(ctx, "collection", "正在检查用户收藏缓存")
 	startedAt := time.Now()
 	trace := querytiming.FromContext(ctx)
 	observe := func(
@@ -340,6 +341,7 @@ func (cache *CollectionCache) Get(
 				false,
 				0,
 			)
+			querytiming.Report(ctx, "collection_cache", "已读取收藏不可用的缓存结果")
 			return CollectionAccess{}, &CollectionFailure{kind: failure.Kind}
 		}
 		cache.negative.Delete(key)
@@ -355,12 +357,14 @@ func (cache *CollectionCache) Get(
 				false,
 				0,
 			)
+			querytiming.Report(ctx, "collection_cache", "已读取收藏缓存")
 			return accessFromValue(value, false), nil
 		}
 	}
 
 	loadStarted := time.Now()
 	result, err := cache.loads.Do(ctx, key, func(workerContext context.Context) (CollectionAccess, error) {
+		querytiming.Report(workerContext, "collection", "正在获取用户收藏")
 		snapshot, fetchErr := fetch(workerContext)
 		if fetchErr != nil {
 			return cache.collectionFailure(key, staleCandidate, fetchErr)
@@ -380,6 +384,7 @@ func (cache *CollectionCache) Get(
 	cacheOutcome := querytiming.CacheMiss
 	upstreamOutcome := querytiming.DependencySuccess
 	if result.Stale {
+		querytiming.Report(ctx, "collection_cache", "上游暂不可用，使用已有收藏缓存")
 		cacheOutcome = querytiming.CacheStale
 		upstreamOutcome = collectionFailureKindOutcome(
 			result.upstreamFailure,

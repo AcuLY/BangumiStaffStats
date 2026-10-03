@@ -122,6 +122,7 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 	}
 	dataVersion := store.Identity().DataVersion
 
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	authority, err := LoadAuthority(ctx, store)
 	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
@@ -308,6 +309,7 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 			dataVersion,
 		)
 	}
+	querytiming.Report(ctx, "projection", "正在排序并整理查询结果")
 	projectionStarted := time.Now()
 	defer func() {
 		querytiming.AddFromContext(
@@ -338,6 +340,7 @@ func computeCore(
 	personID int64,
 	entries []query.CollectionEntry,
 ) (Core, error) {
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	facts, err := query.LoadFactSet(
 		ctx,
@@ -365,6 +368,7 @@ func computeCoreWithFacts(
 	facts query.FactSet,
 ) (Core, error) {
 	var err error
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	var collectionSource query.CollectionSource
 	if normalized.Effective.Scope == "personal" {

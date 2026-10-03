@@ -354,7 +354,7 @@ func newHandler(readiness ReadinessProbe, metrics *observability.Registry, optio
 		unavailable := &routeHandler{metrics: metrics, images: options.images, events: options.events}
 		handler = options.wrapRoutes(routes, unavailable)
 	}
-	return runtimeMiddleware(handler, options)
+	return progressMiddleware(runtimeMiddleware(handler, options))
 }
 
 func (h *routeHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {

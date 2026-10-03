@@ -110,6 +110,7 @@ func (service *Service) Execute(
 		return Projection{}, notReady()
 	}
 
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	authority, err := loadCatalogAuthority(ctx, store)
 	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
@@ -257,6 +258,7 @@ func (service *Service) Execute(
 			identity.DataVersion,
 		)
 	}
+	querytiming.Report(ctx, "projection", "正在排序并整理查询结果")
 	projectionStarted := time.Now()
 	defer func() {
 		querytiming.AddFromContext(
@@ -299,6 +301,7 @@ func computeCore(
 	if store == nil {
 		return Core{}, errors.New("candidates: invalid Archive store")
 	}
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	facts, err := query.LoadFactSet(
 		ctx,
@@ -327,6 +330,7 @@ func computeCoreWithFacts(
 	participantGroups ...[]query.ParticipantPerson,
 ) (Core, error) {
 	var err error
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	var collectionSource query.CollectionSource
 	if normalized.Effective.Scope == "personal" {

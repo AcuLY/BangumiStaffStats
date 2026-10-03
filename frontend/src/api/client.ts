@@ -1,4 +1,5 @@
 import { ApiDecodeError, ApiTransportError } from './errors';
+import { isProgressQuery, readQueryStream, type QueryProgressObserver, type QueryProgressSubscription } from './queryProgress';
 import { toPublicApiReference } from '../shared/navigation/basePath';
 
 export type FetchImplementation = (
@@ -102,84 +103,109 @@ export function assertSafeApiReference(reference: string): string {
 
 export function createApiClient(
   fetchImplementation: FetchImplementation,
+  observeProgress?: QueryProgressObserver,
 ): ApiClient {
-  return {
-    async request<T>(options: ApiRequestOptions<T>): Promise<T> {
-      const reference = assertSafeApiReference(options.reference);
-      let response: Response;
+  async function request<T>(options: ApiRequestOptions<T>, subscription?: QueryProgressSubscription): Promise<T> {
+    const reference = assertSafeApiReference(options.reference);
+    let response: Response;
+    let headers = options.headers;
+    if (isProgressQuery(reference, options.method ?? 'GET')) {
+      headers = new Headers(headers);
+      headers.set('accept', 'text/event-stream');
+    }
 
+    try {
+      response = await fetchImplementation(toPublicApiReference(reference), {
+        body: options.body,
+        headers,
+        method: options.method ?? 'GET',
+        signal: options.signal,
+      });
+    } catch (error) {
+      throw new ApiTransportError(
+        'network-failure',
+        'The API request could not be completed',
+        { cause: error },
+      );
+    }
+
+    if (response.ok && response.headers.get('content-type')?.split(';')[0]?.trim() === 'text/event-stream') {
+      response = await readQueryStream(response, (progress) => {
+        if (!options.signal?.aborted) subscription?.update(progress);
+      }, options.signal);
+    }
+
+    if (!response.ok && !options.decodeError) {
+      throw new ApiTransportError(
+        'http-status',
+        `The API returned HTTP ${response.status}`,
+        { status: response.status },
+      );
+    }
+
+    let value: unknown;
+    try {
+      value = await response.json();
+    } catch (error) {
+      throw new ApiDecodeError(
+        'invalid-json',
+        'The API response is not valid JSON',
+        { cause: error },
+      );
+    }
+
+    if (!response.ok) {
+      let decodedError: Error;
       try {
-        response = await fetchImplementation(toPublicApiReference(reference), {
-          body: options.body,
-          headers: options.headers,
-          method: options.method ?? 'GET',
-          signal: options.signal,
-        });
-      } catch (error) {
-        throw new ApiTransportError(
-          'network-failure',
-          'The API request could not be completed',
-          { cause: error },
+        decodedError = options.decodeError!(
+          value,
+          response.status,
+          errorResponseMetadata(response),
         );
-      }
-
-      if (!response.ok && !options.decodeError) {
-        throw new ApiTransportError(
-          'http-status',
-          `The API returned HTTP ${response.status}`,
-          { status: response.status },
-        );
-      }
-
-      let value: unknown;
-      try {
-        value = await response.json();
-      } catch (error) {
-        throw new ApiDecodeError(
-          'invalid-json',
-          'The API response is not valid JSON',
-          { cause: error },
-        );
-      }
-
-      if (!response.ok) {
-        let decodedError: Error;
-        try {
-          decodedError = options.decodeError!(
-            value,
-            response.status,
-            errorResponseMetadata(response),
-          );
-        } catch (error) {
-          if (error instanceof ApiDecodeError) {
-            throw error;
-          }
-          throw new ApiDecodeError(
-            'schema-mismatch',
-            'The API error response does not match its wire contract',
-            { cause: error },
-          );
-        }
-        if (!(decodedError instanceof Error)) {
-          throw new ApiDecodeError(
-            'schema-mismatch',
-            'The API error decoder did not return an Error',
-          );
-        }
-        throw decodedError;
-      }
-
-      try {
-        return options.decode(value);
       } catch (error) {
         if (error instanceof ApiDecodeError) {
           throw error;
         }
         throw new ApiDecodeError(
           'schema-mismatch',
-          'The API response does not match its wire contract',
+          'The API error response does not match its wire contract',
           { cause: error },
         );
+      }
+      if (!(decodedError instanceof Error)) {
+        throw new ApiDecodeError(
+          'schema-mismatch',
+          'The API error decoder did not return an Error',
+        );
+      }
+      throw decodedError;
+    }
+
+    try {
+      return options.decode(value);
+    } catch (error) {
+      if (error instanceof ApiDecodeError) {
+        throw error;
+      }
+      throw new ApiDecodeError(
+        'schema-mismatch',
+        'The API response does not match its wire contract',
+        { cause: error },
+      );
+    }
+  }
+  return {
+    async request<T>(options: ApiRequestOptions<T>): Promise<T> {
+      assertSafeApiReference(options.reference);
+      const subscription = isProgressQuery(options.reference, options.method ?? 'GET')
+        && !options.signal?.aborted ? observeProgress?.(options.reference) : undefined;
+      const finish = () => subscription?.finish();
+      options.signal?.addEventListener('abort', finish, { once: true });
+      try {
+        return await request(options, subscription);
+      } finally {
+        options.signal?.removeEventListener('abort', finish);
+        finish();
       }
     },
   };

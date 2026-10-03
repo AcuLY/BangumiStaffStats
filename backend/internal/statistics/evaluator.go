@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/query"
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 // EvaluationRequest binds accepted query output and facts to one immutable
@@ -66,6 +67,7 @@ func Evaluate(ctx context.Context, request EvaluationRequest) (*Evaluation, erro
 		(request.Series == nil || request.Series.DataVersion() != request.DataVersion) {
 		return nil, outcome(CodeVersionMismatch)
 	}
+	querytiming.Report(ctx, "compute", "正在准备作品评分和系列资料")
 	subjects, err := indexSubjectFacts(ctx, request.Facts.Subjects)
 	if err != nil {
 		return nil, err
@@ -95,7 +97,10 @@ func Evaluate(ctx context.Context, request EvaluationRequest) (*Evaluation, erro
 	}
 	contributions := contributionsByPerson(request.Result.PositionResults)
 	people := make([]PersonEvaluation, 0, len(request.Result.RankingPeople))
-	for _, person := range request.Result.RankingPeople {
+	for index, person := range request.Result.RankingPeople {
+		if index%100 == 0 {
+			querytiming.ReportCount(ctx, "compute", "正在计算人物评分与偏好", index, len(request.Result.RankingPeople))
+		}
 		if err := contextError(ctx); err != nil {
 			return nil, err
 		}
@@ -132,10 +137,12 @@ func Evaluate(ctx context.Context, request EvaluationRequest) (*Evaluation, erro
 			Preference: preference,
 		})
 	}
+	querytiming.ReportCount(ctx, "compute", "人物评分与偏好计算完成", len(people), len(people))
 	sort.Slice(people, func(left, right int) bool { return people[left].PersonID < people[right].PersonID })
 
 	sets := make([]SetEvaluation, 0, len(request.Result.ParticipantSets))
-	for _, set := range request.Result.ParticipantSets {
+	for index, set := range request.Result.ParticipantSets {
+		querytiming.ReportCount(ctx, "compute", "正在计算共同参与作品的统计", index, len(request.Result.ParticipantSets))
 		if err := contextError(ctx); err != nil {
 			return nil, err
 		}
@@ -172,6 +179,7 @@ func Evaluate(ctx context.Context, request EvaluationRequest) (*Evaluation, erro
 			Preference: preference,
 		})
 	}
+	querytiming.Report(ctx, "aggregate", "正在汇总评分、作品数量与角色统计")
 	evidence := make([]PersonEvidence, len(people))
 	for index := range people {
 		hasCast := false

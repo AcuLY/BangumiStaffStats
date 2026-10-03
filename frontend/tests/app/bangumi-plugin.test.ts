@@ -106,6 +106,7 @@ describe('Bangumi person userscript', () => {
     const button = trigger(window);
     const item = entry(window)!;
     expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(window.document.getElementById('bgmss-person-entry-types')!.hidden).toBe(true);
     expect(item.classList.contains('bgmss-open')).toBe(false);
     // Hovering is not activation: only the entry itself opens the menu.
     item.dispatchEvent(new window.MouseEvent('mouseenter', { bubbles: false }));
@@ -113,6 +114,7 @@ describe('Bangumi person userscript', () => {
     expect(item.classList.contains('bgmss-open')).toBe(false);
     button.click();
     expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(window.document.getElementById('bgmss-person-entry-types')!.hidden).toBe(false);
     expect(item.classList.contains('bgmss-open')).toBe(true);
     button.click();
     expect(button.getAttribute('aria-expanded')).toBe('false');

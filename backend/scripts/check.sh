@@ -337,6 +337,8 @@ internal/httpapi/partners_handler.go
 internal/httpapi/partners_handler_test.go
 internal/httpapi/person_detail_handler.go
 internal/httpapi/person_detail_handler_test.go
+internal/httpapi/progress.go
+internal/httpapi/progress_test.go
 internal/httpapi/rankings_handler.go
 internal/httpapi/rankings_handler_test.go
 internal/httpapi/server.go
@@ -398,6 +400,8 @@ internal/persondetail/types.go
 internal/persondetail/unrestricted_test.go
 internal/persondetail/view.go
 internal/persondetail/view_test.go
+internal/publiccollection/progress.go
+internal/publiccollection/progress_test.go
 internal/publiccollection/source.go
 internal/publiccollection/source_test.go
 internal/publiccollection/transport_test.go
@@ -418,6 +422,7 @@ internal/query/unicode_assigned_15_1.go
 internal/query/unicode_assigned_15_1_test.go
 internal/query/unrestricted.go
 internal/query/unrestricted_test.go
+internal/querytiming/progress.go
 internal/querytiming/trace.go
 internal/querytiming/trace_test.go
 internal/ranking/clone.go
@@ -440,6 +445,7 @@ internal/runtimecache/errors.go
 internal/runtimecache/executor.go
 internal/runtimecache/lru.go
 internal/runtimecache/lru_test.go
+internal/runtimecache/progress_test.go
 internal/runtimecache/result.go
 internal/runtimecache/result_test.go
 internal/runtimecache/wish_test.go

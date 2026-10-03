@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   darkTheme,
+  dateZhCN,
+  zhCN,
   NConfigProvider,
   NGlobalStyle,
   type GlobalThemeOverrides,
@@ -21,6 +23,8 @@ const themeOverrides = computed<GlobalThemeOverrides>(() =>
 
 <template>
   <n-config-provider
+    :locale="zhCN"
+    :date-locale="dateZhCN"
     :theme="theme === 'dark' ? darkTheme : null"
     :theme-overrides="themeOverrides"
   >

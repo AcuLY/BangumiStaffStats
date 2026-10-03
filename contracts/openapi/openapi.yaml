@@ -213,7 +213,7 @@
       "post": {
         "operationId": "postRankingsV1",
         "summary": "Project one immutable query result into a rankings page",
-        "description": "Evaluates one personal or global shared query and projects a deterministic ranked page. Search, sort, order, and pagination are view-only.",
+        "description": "Evaluates one personal or global shared query and projects a deterministic ranked page. Search, sort, order, and pagination are view-only. Send Accept: text/event-stream to receive request-scoped progress events followed by one result event. Each result carries the original HTTP status, an allowlisted header map, and the unchanged JSON envelope. The streaming HTTP response is 200; result.status is authoritative. Disconnect cancels this waiter only; retry with a new POST (no replay ID).",
         "security": [],
         "requestBody": {
           "required": true,
@@ -241,6 +241,12 @@
                 "schema": {
                   "$ref": "#/components/schemas/RankingsSuccessEnvelopeV1"
                 }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "UTF-8 SSE frames: event: progress with QueryProgressV1 JSON; event: result with QueryStreamResultV1 JSON. Comments are heartbeats. See query-progress.md."
               }
             }
           },
@@ -284,7 +290,7 @@
       "post": {
         "operationId": "postCandidatesV1",
         "summary": "Project candidate lists for one ordered query position",
-        "description": "Evaluates every ordered query position independently, returns complete position counts, and projects one deterministic ranked candidate page. Search, sort, order, and pagination are view-only. Optional input.participants contains 0–10 distinct people and at most 20 identities; omission or [] preserves unconstrained candidates. Only candidate identities sharing a raw work with every selected participant survive, before series aggregation, ranking, search and pagination. Position counts reflect this membership filter; surviving candidate metrics retain their existing full filtered-query scope. Participant identity keys must be allowed by the operation position scope; duplicate people, duplicate identities and UI selection flags are rejected.",
+        "description": "Evaluates every ordered query position independently, returns complete position counts, and projects one deterministic ranked candidate page. Search, sort, order, and pagination are view-only. Optional input.participants contains 0–10 distinct people and at most 20 identities; omission or [] preserves unconstrained candidates. Only candidate identities sharing a raw work with every selected participant survive, before series aggregation, ranking, search and pagination. Position counts reflect this membership filter; surviving candidate metrics retain their existing full filtered-query scope. Participant identity keys must be allowed by the operation position scope; duplicate people, duplicate identities and UI selection flags are rejected. Send Accept: text/event-stream to receive request-scoped progress events followed by one result event. Each result carries the original HTTP status, an allowlisted header map, and the unchanged JSON envelope. The streaming HTTP response is 200; result.status is authoritative. Disconnect cancels this waiter only; retry with a new POST (no replay ID).",
         "security": [],
         "requestBody": {
           "required": true,
@@ -312,6 +318,12 @@
                 "schema": {
                   "$ref": "#/components/schemas/CandidatesSuccessEnvelopeV1"
                 }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "UTF-8 SSE frames: event: progress with QueryProgressV1 JSON; event: result with QueryStreamResultV1 JSON. Comments are heartbeats. See query-progress.md."
               }
             }
           },
@@ -355,7 +367,7 @@
       "post": {
         "operationId": "postPersonDetailV1",
         "summary": "Project one ranking-eligible person's complete detail evidence",
-        "description": "Builds one immutable person-detail core and projects a deterministic works or characters page. Search, sort, order, and pagination are view-only.",
+        "description": "Builds one immutable person-detail core and projects a deterministic works or characters page. Search, sort, order, and pagination are view-only. Send Accept: text/event-stream to receive request-scoped progress events followed by one result event. Each result carries the original HTTP status, an allowlisted header map, and the unchanged JSON envelope. The streaming HTTP response is 200; result.status is authoritative. Disconnect cancels this waiter only; retry with a new POST (no replay ID).",
         "security": [],
         "requestBody": {
           "required": true,
@@ -383,6 +395,12 @@
                 "schema": {
                   "$ref": "#/components/schemas/PersonDetailSuccessEnvelopeV1"
                 }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "UTF-8 SSE frames: event: progress with QueryProgressV1 JSON; event: result with QueryStreamResultV1 JSON. Comments are heartbeats. See query-progress.md."
               }
             }
           },
@@ -615,7 +633,7 @@
       "post": {
         "operationId": "postPartnersV1",
         "summary": "Project real shared-work partners for one source person",
-        "description": "Finds partners who share real raw Archive Subjects with the selected source identities, then projects deterministic fixed leaders and a view-only page.",
+        "description": "Finds partners who share real raw Archive Subjects with the selected source identities, then projects deterministic fixed leaders and a view-only page. Send Accept: text/event-stream to receive request-scoped progress events followed by one result event. Each result carries the original HTTP status, an allowlisted header map, and the unchanged JSON envelope. The streaming HTTP response is 200; result.status is authoritative. Disconnect cancels this waiter only; retry with a new POST (no replay ID).",
         "security": [],
         "requestBody": {
           "required": true,
@@ -643,6 +661,12 @@
                 "schema": {
                   "$ref": "#/components/schemas/PartnersSuccessEnvelopeV1"
                 }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "UTF-8 SSE frames: event: progress with QueryProgressV1 JSON; event: result with QueryStreamResultV1 JSON. Comments are heartbeats. See query-progress.md."
               }
             }
           },
@@ -686,7 +710,7 @@
       "post": {
         "operationId": "postCoStarV1",
         "summary": "Project one real pair or group co-star analysis",
-        "description": "Intersects each participant's selected identities at raw Archive Subject level, then returns server-authoritative evidence, an optional group matrix, and one view-only common-work page.",
+        "description": "Intersects each participant's selected identities at raw Archive Subject level, then returns server-authoritative evidence, an optional group matrix, and one view-only common-work page. Send Accept: text/event-stream to receive request-scoped progress events followed by one result event. Each result carries the original HTTP status, an allowlisted header map, and the unchanged JSON envelope. The streaming HTTP response is 200; result.status is authoritative. Disconnect cancels this waiter only; retry with a new POST (no replay ID).",
         "security": [],
         "requestBody": {
           "required": true,
@@ -714,6 +738,12 @@
                 "schema": {
                   "$ref": "#/components/schemas/CoStarSuccessEnvelopeV1"
                 }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "UTF-8 SSE frames: event: progress with QueryProgressV1 JSON; event: result with QueryStreamResultV1 JSON. Comments are heartbeats. See query-progress.md."
               }
             }
           },
@@ -1605,6 +1635,73 @@
           },
           "data": {
             "$ref": "#/components/schemas/CatalogDataV1"
+          }
+        }
+      },
+      "QueryProgressV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "message"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "collection",
+              "collection_page",
+              "collection_cache",
+              "collection_validate",
+              "cache",
+              "waiting",
+              "sqlite",
+              "filter",
+              "compute",
+              "aggregate",
+              "projection",
+              "complete"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "completed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "QueryStreamResultV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "headers",
+          "body"
+        ],
+        "properties": {
+          "status": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 599
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Only Content-Type, X-Request-ID, Retry-After, Server-Timing and Cache-Control may be forwarded."
+          },
+          "body": {
+            "description": "The existing success or error JSON envelope, unchanged.",
+            "type": "object"
           }
         }
       }

@@ -5,11 +5,13 @@ package publiccollection
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 	"github.com/AcuLY/BangumiStaffStats/backend/internal/runtimecache"
 	collection "github.com/AcuLY/bangumi-collection-go"
 )
@@ -42,6 +44,7 @@ type Source struct {
 func New() *Source {
 	return newAnonymousSource(
 		collection.WithRateLimit(5, 10),
+		collection.WithHTTPClient(&http.Client{Transport: progressTransport{base: http.DefaultTransport}}),
 		collection.WithRequestTimeout(10*time.Second),
 	)
 }
@@ -91,6 +94,7 @@ func (source *Source) Fetch(
 		return runtimecache.CollectionSnapshot{}, collectionFailure(runtimecache.FailureOther)
 	}
 
+	ctx = withCollectionProgress(ctx)
 	subjects, err := source.client.Fetch(
 		ctx,
 		normalizedUID,
@@ -104,6 +108,7 @@ func (source *Source) Fetch(
 		return runtimecache.CollectionSnapshot{}, err
 	}
 
+	querytiming.ReportCount(ctx, "collection_validate", "正在校验并整理收藏数据", 0, len(subjects))
 	items := make([]runtimecache.CollectionItem, 0, len(subjects))
 	seenSubjects := make(map[int]struct{}, len(subjects))
 	for _, subject := range subjects {
@@ -138,6 +143,7 @@ func (source *Source) Fetch(
 		return runtimecache.CollectionSnapshot{}, err
 	}
 
+	querytiming.ReportCount(ctx, "collection_validate", "收藏数据整理完成", len(items), len(items))
 	return runtimecache.CollectionSnapshot{Items: items}, nil
 }
 
