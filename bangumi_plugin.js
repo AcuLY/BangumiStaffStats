@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bangumi Staff Stats · 人物收藏参与作品
 // @namespace    https://github.com/AcuLY/BangumiStaffStats
-// @version      1.1.4
+// @version      1.1.5
 // @description  在用户主页查看 Staff 数据统计；在人物页导航行查看当前登录用户收藏中的参与作品。
 // @match        https://bgm.tv/person/*
 // @match        https://bangumi.tv/person/*
@@ -61,7 +61,7 @@
   const ENTRY_ID = 'bgmss-person-entry';
   const MENU_ID = 'bgmss-person-entry-types';
   const LAYER_ID = 'bgmss-person-entry-layer';
-  const VERSION = '1.1.4';
+  const VERSION = '1.1.5';
   const OWNER = 'bangumi-staff-stats/person-entry';
   const INSTANCE = Symbol.for(OWNER);
   const ENTRY_LABEL = '在 Bangumi Staff Stats 中查看';
@@ -160,12 +160,6 @@
     trigger.setAttribute('aria-expanded', 'false');
     trigger.setAttribute('aria-controls', MENU_ID);
     trigger.textContent = ENTRY_LABEL;
-    trigger.setAttribute('aria-label', `${ENTRY_LABEL}（脚本 ${VERSION}）`);
-    const version = document.createElement('small');
-    version.className = 'bgmss-entry-version';
-    version.textContent = `v${VERSION}`;
-    version.setAttribute('aria-hidden', 'true');
-    trigger.append(' ', version);
 
     const layer = document.createElement('div');
     layer.id = LAYER_ID;
@@ -329,7 +323,6 @@
 /* Menu rows and links own their colors; host list colors must not leak in.
    Only the native trigger stays in the tab row. The owned layer is independent
    of its overflow, transforms and backdrop compositing. */
-#bgmss-person-entry > a > .bgmss-entry-version { font-size: 10px; font-weight: normal; margin-left: 3px; -webkit-text-fill-color: currentColor; }
 #bgmss-person-entry-layer { all: initial; position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; isolation: isolate; }
 #bgmss-person-entry-layer, #bgmss-person-entry-layer * { box-sizing: border-box; opacity: 1 !important; visibility: visible !important; -webkit-text-fill-color: currentColor !important; text-shadow: none; }
 #bgmss-person-entry-layer[hidden], #bgmss-person-entry-layer [hidden] { display: none !important; }

@@ -73,8 +73,10 @@ describe('Bangumi person userscript', () => {
     expect(item!.tagName).toBe('LI');
     expect(item!.parentElement).toBe(tabs);
     expect(tabs.lastElementChild).toBe(item);
-    expect(trigger(window).textContent).toBe('在 Bangumi Staff Stats 中查看 v1.1.4');
-    expect(item!.dataset.bgmssVersion).toBe('1.1.4');
+    expect(trigger(window).textContent).toBe('在 Bangumi Staff Stats 中查看');
+    expect(trigger(window).hasAttribute('aria-label')).toBe(false);
+    expect(item!.querySelector('.bgmss-entry-version')).toBeNull();
+    expect(item!.dataset.bgmssVersion).toBe('1.1.5');
     // The removed block, its own action row and the standalone status row are gone.
     expect(window.document.querySelector('#headerSubject > #bgmss-person-entry')).toBeNull();
     expect(window.document.querySelector('.bgmss-entry-actions')).toBeNull();
@@ -281,14 +283,14 @@ describe('Bangumi person userscript', () => {
     expect(oldStyle.isConnected).toBe(false);
     expect(other.isConnected).toBe(true);
     expect(otherStyle.isConnected).toBe(true);
-    expect(entry(window)!.dataset.bgmssVersion).toBe('1.1.4');
+    expect(entry(window)!.dataset.bgmssVersion).toBe('1.1.5');
     trigger(window).click();
     window.document.dispatchEvent(new window.Event('scroll'));
     expect(trigger(window).getAttribute('aria-expanded')).toBe('true');
     expect(window.document.querySelectorAll('#bgmss-person-entry-types')).toHaveLength(1);
   });
 
-  it('retains 1.1.4 when the legacy script runs later', () => {
+  it('retains 1.1.5 when the legacy script runs later', () => {
     const window = mount();
     const item = entry(window);
     window.eval(legacy);
@@ -307,7 +309,7 @@ describe('Bangumi person userscript', () => {
     const oldLayer = window.document.getElementById('bgmss-person-entry-layer')!;
     const removedWindow = vi.spyOn(window, 'removeEventListener');
     const removedDocument = vi.spyOn(window.document, 'removeEventListener');
-    window.eval(source().replaceAll('1.1.4', '1.1.5'));
+    window.eval(source().replaceAll('1.1.5', '1.1.6'));
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
     expect(oldItem.isConnected).toBe(false);
     expect(oldLayer.isConnected).toBe(false);
@@ -319,7 +321,7 @@ describe('Bangumi person userscript', () => {
     window.eval(source());
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
     expect(entry(window)).toBe(current);
-    expect(current!.dataset.bgmssVersion).toBe('1.1.5');
+    expect(current!.dataset.bgmssVersion).toBe('1.1.6');
     expect(window.document.querySelectorAll('style')).toHaveLength(1);
   });
 
@@ -373,8 +375,8 @@ describe('Bangumi person userscript', () => {
   it('ships standards metadata for person and user pages without privileged grants', () => {
     expect(source()).toContain('// ==UserScript==');
     expect(source()).toContain('// @grant        none');
-    expect(source()).toContain('// @version      1.1.4');
-    expect(source()).toContain("const VERSION = '1.1.4'");
+    expect(source()).toContain('// @version      1.1.5');
+    expect(source()).toContain("const VERSION = '1.1.5'");
     expect(source()).not.toMatch(/@connect|document\.cookie|localStorage|GM_xmlhttpRequest/);
   });
 });
