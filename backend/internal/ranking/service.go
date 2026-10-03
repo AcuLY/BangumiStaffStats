@@ -143,6 +143,7 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 		return Projection{}, notReady()
 	}
 
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	catalogAuthority, err := loadCatalogContext(ctx, store)
 	querytiming.ObserveSQLiteFromContext(ctx, time.Since(sqliteStarted), err)
@@ -270,6 +271,7 @@ func (service *Service) Execute(ctx context.Context, request Request) (Projectio
 			identity.DataVersion,
 		)
 	}
+	querytiming.Report(ctx, "projection", "正在排序并整理查询结果")
 	projectionStarted := time.Now()
 	defer func() {
 		querytiming.AddFromContext(
@@ -295,6 +297,7 @@ func computeCore(
 	if archiveStore == nil {
 		return core{}, errors.New("ranking: invalid Archive store")
 	}
+	querytiming.Report(ctx, "sqlite", "正在读取作品、人物和职位资料")
 	sqliteStarted := time.Now()
 	facts, err := query.LoadFactSet(
 		ctx,

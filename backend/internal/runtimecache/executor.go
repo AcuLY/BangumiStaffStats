@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync/atomic"
 	"time"
+
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 const (
@@ -82,6 +84,7 @@ func (executor *Executor) Do(
 
 	select {
 	case executor.queue <- struct{}{}:
+		querytiming.Report(ctx, "waiting", "正在等待分析资源")
 		executor.queued.Add(1)
 	default:
 		executor.rejected.Add(1)

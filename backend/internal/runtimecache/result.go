@@ -421,8 +421,10 @@ func (store *ResultStore[V]) GetOrCompute(
 		compute == nil {
 		return zero, outcome(CodeInvalidInput)
 	}
+	querytiming.Report(ctx, "cache", "正在检查分析结果缓存")
 	cacheStarted := time.Now()
 	if value, found := resultPoolGet[V](store.pool, key, store.valueType); found {
+		querytiming.Report(ctx, "cache", "已命中分析结果缓存")
 		if trace := querytiming.FromContext(ctx); trace != nil {
 			_ = trace.ObserveResultCache(
 				querytiming.CacheHit,
@@ -443,12 +445,14 @@ func (store *ResultStore[V]) GetOrCompute(
 		key,
 		func(workerContext context.Context) (resultExecution[V], error) {
 			if cached, found := resultPoolGet[V](store.pool, key, store.valueType); found {
+				querytiming.Report(workerContext, "cache", "已命中分析结果缓存")
 				return resultExecution[V]{value: cached}, nil
 			}
 			workerTrace := querytiming.New()
 			workerContext = querytiming.WithContext(workerContext, workerTrace)
 			var computed V
 			runErr := store.executor.Do(workerContext, func(runContext context.Context) error {
+				querytiming.Report(runContext, "compute", "正在分析查询数据")
 				computeStarted := time.Now()
 				sqliteBefore, _ := workerTrace.CurrentPhase(querytiming.PhaseSQLite)
 				defer func() {

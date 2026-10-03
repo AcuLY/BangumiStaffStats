@@ -139,3 +139,9 @@ by Naive UI (xicons), rendered directly with the library Vue SVG components. App
 InfoIcon owns the shared information glyph; QueryIcon and CoStarIcon delegate
 to that shared layer. Explicit static imports permit unused-icon elimination.
 BGMSS brand assets, chart SVGs and Naive UI internal glyphs are separate owners.
+
+Query progress remains presentation-only. The sole API client negotiates optional
+POST SSE, parses progress and terminal envelopes, and feeds final JSON through
+the existing decoders. Request identities own transient progress; completion,
+abort and failure retire it without altering coordinator result admission.
+The transport contract is `contracts/openapi/query-progress.md`.

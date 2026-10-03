@@ -120,7 +120,7 @@ const advancedOptionGroups: readonly (readonly AdvancedOption[])[] = [
   [
     {
       key: 'showNSFW',
-      title: '显示 NSFW 条目',
+      title: '显示不适宜公开浏览的条目',
       help: '',
     },
     {
@@ -666,7 +666,7 @@ defineExpose({ focusFirstInvalidField });
               :class="{ 'is-error': Boolean(error('uid')) }"
             >
               <div class="field-label-row">
-                <label for="query-user-id">用户 UID</label>
+                <label for="query-user-id">用户标识</label>
                 <n-tooltip
                   :show="uidHelpVisible"
                   placement="top-end"
@@ -680,7 +680,7 @@ defineExpose({ focusFirstInvalidField });
                       class="field-help-trigger info-trigger"
                       type="button"
                       :aria-expanded="uidHelpVisible"
-                      aria-label="什么是 UID？进入 Bangumi 个人主页，取网址 /user/ 后的一段"
+                      aria-label="什么是用户标识？进入 Bangumi 个人主页，取网址 /user/ 后的一段"
                       @mouseenter="uidHelpVisible = true"
                       @mouseleave="uidHelpVisible = false"
                       @focus="uidHelpVisible = true"
@@ -692,7 +692,7 @@ defineExpose({ focusFirstInvalidField });
                     </button>
                   </template>
                   进入 Bangumi 个人主页，取网址 /user/
-                  后的一段；例如 bgm.tv/user/lucay126 的 UID 是 lucay126
+                  后的一段；例如 bgm.tv/user/lucay126 的用户标识是 lucay126
                 </n-tooltip>
               </div>
               <n-input
@@ -716,7 +716,7 @@ defineExpose({ focusFirstInvalidField });
                 }"
               />
               <small id="query-user-id-help" class="sr-only">
-                UID 是 Bangumi 个人主页地址中 /user/ 后的标识，不是昵称
+                用户标识是 Bangumi 个人主页地址中 /user/ 后的标识，不是昵称
               </small>
               <small
                 v-if="error('uid')"

@@ -230,3 +230,14 @@ folding and `github.com/gowebpki/jcs` at `v1.0.1` for RFC 8785. The check gate
 verifies both versions and licenses, the generated Unicode 15.1 assigned-range
 table against its protected authority, every shared query/Unicode/RFC/digest
 vector, the query-domain corpus, and a reviewed query-test binary-size budget.
+
+The five POST query routes additionally accept `Accept: text/event-stream` for
+live, request-scoped progress. The existing JSON representation remains the
+default. Collection page acquisition, validation, filtering, statistics,
+projection and cache hits are reported as real stages; unknown totals remain
+indeterminate. A final `result` event contains the original status and JSON
+response. The transport contract is [query-progress.md](../contracts/openapi/query-progress.md).
+Detached same-key computations broadcast to current waiters and retain only the
+latest stage for late subscribers. Disconnect removes a waiter; bounded shared
+work can still finish for the cache and other waiters. There is no persistent job
+or automatic replay. Explicit retry starts a fresh request.

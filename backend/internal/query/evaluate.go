@@ -7,6 +7,8 @@ import (
 	"math"
 	"slices"
 	"sort"
+
+	"github.com/AcuLY/BangumiStaffStats/backend/internal/querytiming"
 )
 
 // Evaluate applies one normalized query to immutable facts. It returns nil on
@@ -37,6 +39,7 @@ func evaluate(
 		return nil, err
 	}
 
+	querytiming.Report(ctx, "filter", "正在整理作品和收藏条件")
 	effective := cloneEffectiveQuery(normalized.Effective)
 	subjects, err := indexSubjects(ctx, facts.Subjects, hooks)
 	if err != nil {
@@ -75,6 +78,7 @@ func evaluate(
 		return nil, fmt.Errorf("query: unsupported scope %q", effective.Scope)
 	}
 
+	querytiming.Report(ctx, "filter", "正在筛选符合条件的作品")
 	eligible, err := eligibleSubjects(ctx, effective, subjects, entries)
 	if err != nil {
 		return nil, err
@@ -84,6 +88,7 @@ func evaluate(
 		eligibleSet[subjectID] = struct{}{}
 	}
 
+	querytiming.Report(ctx, "filter", "正在关联人物、职位与作品")
 	engine, err := newContributionEngine(ctx, facts, plans, eligibleSet)
 	if err != nil {
 		return nil, err
@@ -96,7 +101,8 @@ func evaluate(
 		}
 	}
 	positionResults := make([]PositionResult, 0, len(keys))
-	for _, key := range keys {
+	for index, key := range keys {
+		querytiming.ReportCount(ctx, "filter", "正在匹配人物职位", index, len(keys))
 		if err := contextCause(ctx); err != nil {
 			return nil, err
 		}
@@ -107,6 +113,7 @@ func evaluate(
 		positionResults = append(positionResults, positionResult)
 	}
 
+	querytiming.Report(ctx, "filter", "正在合并人物及共同参与作品")
 	var people []PersonSubjects
 	if effective.PositionScope == "all" || normalized.Projection.PositionScope == "all" {
 		people, err = unionRankingPeople(ctx, positionResults)

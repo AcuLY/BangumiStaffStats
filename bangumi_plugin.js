@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bangumi Staff Stats · 人物收藏参与作品
 // @namespace    https://github.com/AcuLY/BangumiStaffStats
-// @version      1.1.1
+// @version      1.1.2
 // @description  在用户主页查看 Staff 数据统计；在人物页导航行查看当前登录用户收藏中的参与作品。
 // @match        https://bgm.tv/person/*
 // @match        https://bangumi.tv/person/*
@@ -112,6 +112,7 @@
 
     const panel = document.createElement('ul');
     panel.id = MENU_ID;
+    panel.hidden = true;
     panel.setAttribute('aria-label', '作品类型');
 
     const notice = document.createElement('li');
@@ -146,10 +147,27 @@
       return Boolean(uid);
     }
 
+    function positionPanel() {
+      if (!opened) return;
+      // Fixed coordinates escape the horizontally scrolling native tab row.
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight;
+      const anchor = trigger.getBoundingClientRect();
+      panel.style.maxHeight = `${Math.max(0, viewportHeight - 16)}px`;
+      const bounds = panel.getBoundingClientRect();
+      panel.style.left = `${Math.max(8, Math.min(anchor.right - bounds.width, viewportWidth - bounds.width - 8))}px`;
+      const top = anchor.bottom + bounds.height <= viewportHeight - 8
+        ? anchor.bottom
+        : Math.max(8, anchor.top - bounds.height);
+      panel.style.top = `${Math.min(top, Math.max(8, viewportHeight - bounds.height - 8))}px`;
+    }
+
     function setOpen(next, restoreFocus = false) {
       opened = next;
+      panel.hidden = !opened;
       item.classList.toggle('bgmss-open', opened);
       trigger.setAttribute('aria-expanded', String(opened));
+      positionPanel();
       if (!opened && restoreFocus) trigger.focus();
     }
 
@@ -220,14 +238,26 @@
       if (!item.contains(event.target)) setOpen(false);
     });
 
+    window.addEventListener('resize', positionPanel);
+    document.addEventListener('scroll', positionPanel, { capture: true, passive: true });
+
     const style = document.createElement('style');
     style.textContent = `
+/* Keep the panel readable independently of native hover-only child styles.
+   Opaque surfaces also avoid mobile backdrop-filter/compositing dependencies. */
+#headerSubject .navTabs > li.bgmss-person-entry > ul { box-sizing: border-box; min-width: 140px; max-width: calc(100vw - 16px); max-height: 70vh; overflow-y: auto; right: auto; padding: 8px; border-radius: 15px; background: #fefefe; color: #555; transform: none; filter: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul[hidden] { display: none; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li { float: none; opacity: 1; transform: none; visibility: inherit; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a { display: block; padding: 10px 14px; min-height: 24px; line-height: 24px; color: inherit; opacity: 1; visibility: inherit; white-space: nowrap; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a:is(:hover, :focus-visible) { color: #1673b8; background: #edf5fc; border-radius: 8px; }
+html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul { background: #333; color: #eee; }
+html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul > li > a:is(:hover, :focus-visible) { color: #8dccff; background: #454545; }
 /* The .bgmss-open rule must stay after the :hover rule: both have the same
    specificity, so source order is what keeps a clicked-open menu open. */
 #headerSubject .navTabs > li.bgmss-person-entry:hover > ul { visibility: hidden; opacity: 0; z-index: -1; }
-#headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { position: absolute; visibility: visible; opacity: 1; display: block; z-index: 99; }
-@media (max-width: 640px) { #headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { position: fixed; } }
-#headerSubject .navTabs > li.bgmss-person-entry > ul > li.bgmss-entry-notice { padding: 8px 14px; color: #888; font-size: 13px; line-height: 1.4; max-width: 200px; white-space: normal; }
+#headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { position: fixed; visibility: visible; opacity: 1; display: block; z-index: 99; }
+@media (max-width: 640px) { #headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { width: min(240px, calc(100vw - 16px)); } }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li.bgmss-entry-notice { padding: 8px 14px; color: #666; font-size: 13px; line-height: 1.4; max-width: 200px; white-space: normal; }
 html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul > li.bgmss-entry-notice { color: #bbbbbb; }
 #headerSubject .navTabs > li.bgmss-person-entry > ul > li > a[aria-disabled="true"] { cursor: help; }
 `;

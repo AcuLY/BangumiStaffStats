@@ -460,7 +460,7 @@ export function validateDraft(
       : null;
 
   if (draft.scope === 'personal' && uid === null) {
-    errors.uid = 'UID 不能为空';
+    errors.uid = '用户标识不能为空';
   }
   if (draft.scope === 'personal' && collectionStatuses === null) {
     errors.collectionStatuses = '至少选择一种有效收藏类型';
@@ -877,7 +877,7 @@ export function summarizeQuery(
     );
   }
   if (query.includeNSFW) {
-    parts.push('含 NSFW');
+    parts.push('含不适宜公开浏览的条目');
   }
   if (query.mergeSeries) {
     parts.push('合并续作');

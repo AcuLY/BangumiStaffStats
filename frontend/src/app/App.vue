@@ -30,6 +30,8 @@ import type { RankingPayload } from '../api/adapters/rankings';
 import { createCandidatesDriver } from '../api/candidates';
 import { createCatalogApi, type CatalogApi } from '../api/catalog';
 import { createApiClient } from '../api/client';
+import { createQueryProgressOwner } from '../features/query/progress';
+import QueryProgress from '../features/query/components/QueryProgress.vue';
 import { createCoStarDriver } from '../api/coStar';
 import { createPartnersDriver } from '../api/partners';
 import { createPersonDetailDriver, PersonDetailApiError } from '../api/personDetail';
@@ -336,7 +338,8 @@ const fetchImplementation =
   (async () => {
     throw new TypeError('Fetch is unavailable');
   });
-const apiClient = createApiClient(fetchImplementation);
+const queryProgress = createQueryProgressOwner();
+const apiClient = createApiClient(fetchImplementation, queryProgress.observe);
 const catalogApi =
   props.services?.catalogApi ??
   createCatalogApi(apiClient);
@@ -2073,6 +2076,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  queryProgress.clear();
   cancelRankingHandoff();
   personLinks.close();
   coordinator.clearPersonDetail();
@@ -2115,6 +2119,8 @@ onBeforeUnmount(() => {
             :target-window="targetWindow"
             @editing-change="queryEditing = $event"
           />
+
+          <query-progress :active="queryProgress.active.value" />
 
           <p
             v-if="operationFeedback"

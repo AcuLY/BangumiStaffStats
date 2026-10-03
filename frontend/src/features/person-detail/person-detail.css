@@ -2421,6 +2421,11 @@
   border-radius: 5px;
 }
 
+/* Character artwork is often full-body: retain the head in the stable 3:4 box. */
+.character-role-card__avatar img {
+  object-position: center top;
+}
+
 .character-role-card__content,
 .character-role-card__names,
 .character-role-card__appearances,
