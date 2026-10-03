@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bangumi Staff Stats · 人物收藏参与作品
 // @namespace    https://github.com/AcuLY/BangumiStaffStats
-// @version      1.1.2
+// @version      1.1.3
 // @description  在用户主页查看 Staff 数据统计；在人物页导航行查看当前登录用户收藏中的参与作品。
 // @match        https://bgm.tv/person/*
 // @match        https://bangumi.tv/person/*
@@ -60,10 +60,51 @@
 
   const ENTRY_ID = 'bgmss-person-entry';
   const MENU_ID = 'bgmss-person-entry-types';
+  const LAYER_ID = 'bgmss-person-entry-layer';
+  const VERSION = '1.1.3';
+  const OWNER = 'bangumi-staff-stats/person-entry';
+  const INSTANCE = Symbol.for(OWNER);
   const ENTRY_LABEL = '在 Bangumi Staff Stats 中查看';
   const LOGIN_NOTICE = '登录 Bangumi 后可查看收藏参与作品';
   // 动画 stays first; the four remaining types keep the previous menu's order.
   const subjectTypes = [['anime', '动画'], ['book', '书籍'], ['music', '音乐'], ['game', '游戏'], ['real', '三次元']];
+
+  function replacePrevious(existing) {
+    const previous = existing[INSTANCE];
+    if (existing.dataset.bgmssOwner === OWNER && previous?.dispose) {
+      if (!/^\d+\.\d+\.\d+$/.test(previous.version)) return false;
+      const before = previous.version.split('.').map(Number);
+      const after = VERSION.split('.').map(Number);
+      const different = before.findIndex((value, index) => value !== after[index]);
+      if (different === -1 || before[different] > after[different]) return false;
+      previous.dispose();
+      return true;
+    }
+    // Pre-1.1.3 had no disposer. Recognize our exact old structure, never an
+    // arbitrary ID collision. Close it before detaching so its anonymous global
+    // listeners only retain an inert, closed node; do not intercept host events.
+    const oldTrigger = existing.firstElementChild;
+    const oldMenu = existing.querySelector(`ul#${MENU_ID}`);
+    const oldLinks = oldMenu?.querySelectorAll('a[data-subject-type]');
+    if (existing.tagName !== 'LI' || !existing.classList.contains('bgmss-person-entry') ||
+        oldTrigger?.tagName !== 'A' || oldTrigger.textContent !== ENTRY_LABEL ||
+        oldTrigger.getAttribute('aria-controls') !== MENU_ID || oldLinks?.length !== subjectTypes.length ||
+        !subjectTypes.every(([type, label], index) => oldLinks[index].dataset.subjectType === type && oldLinks[index].textContent === label)) return false;
+    if (oldTrigger.getAttribute('aria-expanded') === 'true') oldTrigger.click();
+    existing.remove();
+    for (const style of document.querySelectorAll('style')) {
+      const text = style.textContent.trim();
+      if (!text.startsWith('/* Keep the panel readable independently of native hover-only child styles.') &&
+          !text.startsWith('/* The .bgmss-open rule must stay after the :hover rule:')) continue;
+      const ownedRules = rules => rules.length > 0 && [...rules].every(rule =>
+        rule.selectorText ? rule.selectorText.replace(/:is\([^)]*\)/g, '').split(',').every(selector => {
+          const local = selector.trim().replace(/^html\[data-theme=["']?dark["']?\]\s+/, '');
+          return /^#headerSubject \.navTabs > li\.bgmss-person-entry(?=[\s.:#\[>]|$)/.test(local);
+        }) : rule.cssRules ? ownedRules(rule.cssRules) : false);
+      if (style.sheet && ownedRules(style.sheet.cssRules)) style.remove();
+    }
+    return true;
+  }
 
   function loggedInUID() {
     // Only Bangumi's authenticated navigation landmarks are identity sources.
@@ -94,12 +135,22 @@
     // The entry lives inside Bangumi's own tab row; without that row there is
     // no place for it and no partial structure is injected.
     const tabs = document.querySelector('#headerSubject ul.navTabs');
-    if (!tabs || document.getElementById(ENTRY_ID)) return;
+    if (!tabs) return;
+    const previous = document.getElementById(ENTRY_ID);
+    if (previous && !replacePrevious(previous)) return;
+    // A conflicting mount not owned by the replaced instance is not ours to remove.
+    if (document.getElementById(LAYER_ID) || document.getElementById(MENU_ID)) return;
+    const cleanups = [];
+    const listen = (target, type, handler, options) => {
+      target.addEventListener(type, handler, options);
+      cleanups.push(() => target.removeEventListener(type, handler, options));
+    };
 
     const item = document.createElement('li');
     item.id = ENTRY_ID;
-    // Native Bangumi classes give the tab and its panel the existing look:
-    // .navTabs > li > a for the trigger and .dropdown ul for the menu.
+    item.dataset.bgmssOwner = OWNER;
+    item.dataset.bgmssVersion = VERSION;
+    // Keep the native tab; its menu is mounted outside clipping ancestors.
     item.className = 'dropdown bgmss-person-entry';
 
     const trigger = document.createElement('a');
@@ -109,6 +160,17 @@
     trigger.setAttribute('aria-expanded', 'false');
     trigger.setAttribute('aria-controls', MENU_ID);
     trigger.textContent = ENTRY_LABEL;
+    trigger.setAttribute('aria-label', `${ENTRY_LABEL}（脚本 ${VERSION}）`);
+    const version = document.createElement('small');
+    version.className = 'bgmss-entry-version';
+    version.textContent = `v${VERSION}`;
+    version.setAttribute('aria-hidden', 'true');
+    trigger.append(' ', version);
+
+    const layer = document.createElement('div');
+    layer.id = LAYER_ID;
+    layer.dataset.bgmssOwner = OWNER;
+    layer.hidden = true;
 
     const panel = document.createElement('ul');
     panel.id = MENU_ID;
@@ -125,6 +187,7 @@
 
     const links = [];
     let opened = false;
+    const contains = target => target instanceof Node && (item.contains(target) || layer.contains(target));
 
     function refreshLinks() {
       const uid = loggedInUID();
@@ -150,20 +213,27 @@
     function positionPanel() {
       if (!opened) return;
       // Fixed coordinates escape the horizontally scrolling native tab row.
-      const viewportWidth = document.documentElement.clientWidth;
-      const viewportHeight = window.innerHeight;
+      const viewport = window.visualViewport;
+      const viewportWidth = viewport?.width ?? document.documentElement.clientWidth;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const leftEdge = (viewport?.offsetLeft ?? 0) + 8;
+      const topEdge = (viewport?.offsetTop ?? 0) + 8;
       const anchor = trigger.getBoundingClientRect();
       panel.style.maxHeight = `${Math.max(0, viewportHeight - 16)}px`;
+      panel.style.maxWidth = `${Math.max(0, viewportWidth - 16)}px`;
       const bounds = panel.getBoundingClientRect();
-      panel.style.left = `${Math.max(8, Math.min(anchor.right - bounds.width, viewportWidth - bounds.width - 8))}px`;
-      const top = anchor.bottom + bounds.height <= viewportHeight - 8
+      const rightLimit = leftEdge + viewportWidth - 16 - bounds.width;
+      const bottomLimit = topEdge + viewportHeight - 16 - bounds.height;
+      panel.style.left = `${Math.max(leftEdge, Math.min(anchor.right - bounds.width, rightLimit))}px`;
+      const top = anchor.bottom <= bottomLimit
         ? anchor.bottom
-        : Math.max(8, anchor.top - bounds.height);
-      panel.style.top = `${Math.min(top, Math.max(8, viewportHeight - bounds.height - 8))}px`;
+        : anchor.top - bounds.height;
+      panel.style.top = `${Math.max(topEdge, Math.min(top, bottomLimit))}px`;
     }
 
     function setOpen(next, restoreFocus = false) {
       opened = next;
+      layer.hidden = !opened;
       panel.hidden = !opened;
       item.classList.toggle('bgmss-open', opened);
       trigger.setAttribute('aria-expanded', String(opened));
@@ -184,10 +254,10 @@
         if (!known) event.preventDefault();
         setOpen(false, !known);
       }
-      link.addEventListener('click', activate);
-      link.addEventListener('auxclick', activate);
-      link.addEventListener('contextmenu', () => refreshLinks());
-      link.addEventListener('keydown', event => {
+      listen(link, 'click', activate);
+      listen(link, 'auxclick', activate);
+      listen(link, 'contextmenu', () => refreshLinks());
+      listen(link, 'keydown', event => {
         // An anchor without href stays keyboard-reachable to explain login.
         if (event.key === 'Enter' && !link.hasAttribute('href')) {
           event.preventDefault();
@@ -199,70 +269,94 @@
     }
 
     for (const [type, label] of subjectTypes) {
-      // Bangumi's .dropdown panel styles its options as ul > li > a; without the
-      // list item the anchors lay out inline instead of one row per work type.
       const option = document.createElement('li');
       option.append(makeLink(type, label));
       panel.append(option);
     }
-    item.append(trigger, panel);
+    item.append(trigger);
+    layer.append(panel);
 
-    trigger.addEventListener('click', event => {
+    listen(trigger, 'click', event => {
       event.preventDefault();
       refreshLinks();
       setOpen(!opened);
     });
-    trigger.addEventListener('keydown', event => {
+    listen(trigger, 'keydown', event => {
       if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
         event.preventDefault();
         refreshLinks();
         setOpen(!opened);
-      } else if (event.key === 'ArrowDown') {
+      } else if (event.key === 'ArrowDown' || (event.key === 'Tab' && opened && !event.shiftKey)) {
         event.preventDefault();
         refreshLinks();
         setOpen(true);
         panel.querySelector('a')?.focus();
       }
     });
-    item.addEventListener('keydown', event => {
+    const escape = event => {
       if (event.key === 'Escape' && opened) {
         event.preventDefault();
         event.stopPropagation();
         setOpen(false, true);
       }
+    };
+    listen(item, 'keydown', escape);
+    listen(layer, 'keydown', escape);
+    listen(layer, 'keydown', event => {
+      if (event.key === 'Tab' && event.shiftKey && event.target === links[0]) {
+        event.preventDefault();
+        trigger.focus();
+      }
     });
-    item.addEventListener('focusout', event => {
-      if (!item.contains(event.relatedTarget)) setOpen(false);
-    });
-    document.addEventListener('click', event => {
-      if (!item.contains(event.target)) setOpen(false);
-    });
+    const dismissOutside = event => { if (opened && !contains(event.target)) setOpen(false); };
+    listen(document, 'pointerdown', dismissOutside);
+    listen(document, 'click', dismissOutside);
+    // Observe the destination, not focusout.relatedTarget=null during a touch.
+    // This also treats the portaled links as part of the same keyboard surface.
+    listen(document, 'focusin', dismissOutside);
+    listen(window, 'blur', () => setOpen(false));
 
-    window.addEventListener('resize', positionPanel);
-    document.addEventListener('scroll', positionPanel, { capture: true, passive: true });
+    listen(window, 'resize', positionPanel);
+    listen(document, 'scroll', positionPanel, { capture: true, passive: true });
+    if (window.visualViewport) {
+      listen(window.visualViewport, 'resize', positionPanel);
+      listen(window.visualViewport, 'scroll', positionPanel);
+    }
 
     const style = document.createElement('style');
+    style.dataset.bgmssOwner = OWNER;
     style.textContent = `
-/* Keep the panel readable independently of native hover-only child styles.
-   Opaque surfaces also avoid mobile backdrop-filter/compositing dependencies. */
-#headerSubject .navTabs > li.bgmss-person-entry > ul { box-sizing: border-box; min-width: 140px; max-width: calc(100vw - 16px); max-height: 70vh; overflow-y: auto; right: auto; padding: 8px; border-radius: 15px; background: #fefefe; color: #555; transform: none; filter: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-#headerSubject .navTabs > li.bgmss-person-entry > ul[hidden] { display: none; }
-#headerSubject .navTabs > li.bgmss-person-entry > ul > li { float: none; opacity: 1; transform: none; visibility: inherit; }
-#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a { display: block; padding: 10px 14px; min-height: 24px; line-height: 24px; color: inherit; opacity: 1; visibility: inherit; white-space: nowrap; }
-#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a:is(:hover, :focus-visible) { color: #1673b8; background: #edf5fc; border-radius: 8px; }
-html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul { background: #333; color: #eee; }
-html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul > li > a:is(:hover, :focus-visible) { color: #8dccff; background: #454545; }
-/* The .bgmss-open rule must stay after the :hover rule: both have the same
-   specificity, so source order is what keeps a clicked-open menu open. */
-#headerSubject .navTabs > li.bgmss-person-entry:hover > ul { visibility: hidden; opacity: 0; z-index: -1; }
-#headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { position: fixed; visibility: visible; opacity: 1; display: block; z-index: 99; }
-@media (max-width: 640px) { #headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { width: min(240px, calc(100vw - 16px)); } }
-#headerSubject .navTabs > li.bgmss-person-entry > ul > li.bgmss-entry-notice { padding: 8px 14px; color: #666; font-size: 13px; line-height: 1.4; max-width: 200px; white-space: normal; }
-html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul > li.bgmss-entry-notice { color: #bbbbbb; }
-#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a[aria-disabled="true"] { cursor: help; }
+/* Only the native trigger stays in the tab row. The owned layer is independent
+   of its overflow, transforms and backdrop compositing. */
+#bgmss-person-entry > a > .bgmss-entry-version { font-size: 10px; font-weight: normal; margin-left: 3px; -webkit-text-fill-color: currentColor; }
+#bgmss-person-entry-layer { all: initial; position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; isolation: isolate; }
+#bgmss-person-entry-layer, #bgmss-person-entry-layer * { box-sizing: border-box; opacity: 1 !important; visibility: visible !important; -webkit-text-fill-color: currentColor !important; text-shadow: none; }
+#bgmss-person-entry-layer[hidden], #bgmss-person-entry-layer [hidden] { display: none !important; }
+#bgmss-person-entry-layer > ul { all: initial; box-sizing: border-box; position: fixed; display: block; pointer-events: auto; width: max-content; min-width: 140px; max-width: calc(100vw - 16px); overflow: auto; overscroll-behavior: contain; margin: 0; padding: 8px; border: 1px solid #ddd; border-radius: 15px; box-shadow: 0 5px 20px #0002; background: #fefefe; color: #555 !important; font: 14px/1.5 system-ui, sans-serif; }
+#bgmss-person-entry-layer > ul > li { all: unset; display: block; }
+#bgmss-person-entry-layer > ul > li > a { all: unset; box-sizing: border-box; display: block; min-height: 44px; padding: 10px 14px; line-height: 24px; color: inherit !important; white-space: nowrap; cursor: pointer; border-radius: 8px; }
+#bgmss-person-entry-layer > ul > li > a:is(:hover, :focus-visible) { color: #1673b8 !important; background: #edf5fc; }
+#bgmss-person-entry-layer > ul > li > a:focus-visible { outline: 2px solid #1673b8; outline-offset: -2px; }
+#bgmss-person-entry-layer > ul > li.bgmss-entry-notice { display: block; padding: 8px 14px; font-size: 13px; line-height: 1.4; max-width: 224px; white-space: normal; }
+#bgmss-person-entry-layer > ul > li > a[aria-disabled="true"] { cursor: help; }
+html[data-theme="dark"] #bgmss-person-entry-layer > ul { background: #333; color: #eee !important; border-color: #555; }
+html[data-theme="dark"] #bgmss-person-entry-layer > ul > li > a:is(:hover, :focus-visible) { color: #8dccff !important; background: #454545; }
+html[data-theme="dark"] #bgmss-person-entry-layer > ul > li > a:focus-visible { outline-color: #8dccff; }
+@media (max-width: 640px) { #bgmss-person-entry-layer > ul { width: min(240px, calc(100vw - 16px)); } }
 `;
+    item[INSTANCE] = {
+      version: VERSION,
+      dispose() {
+        setOpen(false);
+        for (const cleanup of cleanups.splice(0)) cleanup();
+        item.remove();
+        layer.remove();
+        style.remove();
+      },
+    };
     document.head.append(style);
     tabs.append(item);
+    document.body.append(layer);
     refreshLinks();
   }
 

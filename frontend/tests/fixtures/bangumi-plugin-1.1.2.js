@@ -1,0 +1,271 @@
+// ==UserScript==
+// @name         Bangumi Staff Stats · 人物收藏参与作品
+// @namespace    https://github.com/AcuLY/BangumiStaffStats
+// @version      1.1.2
+// @description  在用户主页查看 Staff 数据统计；在人物页导航行查看当前登录用户收藏中的参与作品。
+// @match        https://bgm.tv/person/*
+// @match        https://bangumi.tv/person/*
+// @match        https://chii.in/person/*
+// @match        https://bgm.tv/user/*
+// @match        https://bangumi.tv/user/*
+// @match        https://chii.in/user/*
+// @run-at       document-end
+// @grant        none
+// @noframes
+// ==/UserScript==
+
+(() => {
+  'use strict';
+
+  // Extend Bangumi's own person header navigation row, not its visual identity:
+  // one right-aligned item grouped with 加入收藏 opens the work-type menu. No
+  // separate injected block, no credentials, statistics or saved filters.
+  const hosts = new Set(['bgm.tv', 'bangumi.tv', 'chii.in']);
+  if (location.protocol !== 'https:' || !hosts.has(location.hostname) || window.top !== window.self) return;
+
+  // Preserve the original profile service link: this is the viewed user's ID,
+  // independent of login. The ordinary user parameter only prefills the app.
+  const profile = /^\/user\/([^/]+)\/?$/.exec(location.pathname);
+  if (profile) {
+    let uid;
+    try { uid = decodeURIComponent(profile[1]); } catch { return; }
+    if (!uid || /\p{Cc}/u.test(uid) || [...uid].length > 256 || new Blob([uid]).size > 256) return;
+    function installProfile() {
+      const services = document.querySelector('ul.network_service');
+      if (!services || document.getElementById('bgmss-user-entry')) return;
+      const item = document.createElement('li');
+      item.id = 'bgmss-user-entry';
+      const badge = document.createElement('span');
+      badge.className = 'service';
+      badge.style.backgroundColor = '#FF4573';
+      badge.textContent = 'BangumiStaffStats';
+      const link = document.createElement('a');
+      const url = new URL('https://search.bgmss.fun/');
+      url.searchParams.set('user', uid);
+      link.href = url.href;
+      link.target = '_blank';
+      link.className = 'l';
+      link.rel = 'me noopener noreferrer';
+      link.textContent = 'Staff 数据统计';
+      item.append(badge, ' ', link);
+      services.append(item);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installProfile, { once: true });
+    else installProfile();
+    return;
+  }
+  const person = /^\/person\/([1-9][0-9]*)\/?$/.exec(location.pathname)?.[1];
+  if (location.protocol !== 'https:' || !hosts.has(location.hostname) ||
+      !person || !Number.isSafeInteger(Number(person)) || window.top !== window.self) return;
+
+  const ENTRY_ID = 'bgmss-person-entry';
+  const MENU_ID = 'bgmss-person-entry-types';
+  const ENTRY_LABEL = '在 Bangumi Staff Stats 中查看';
+  const LOGIN_NOTICE = '登录 Bangumi 后可查看收藏参与作品';
+  // 动画 stays first; the four remaining types keep the previous menu's order.
+  const subjectTypes = [['anime', '动画'], ['book', '书籍'], ['music', '音乐'], ['game', '游戏'], ['real', '三次元']];
+
+  function loggedInUID() {
+    // Only Bangumi's authenticated navigation landmarks are identity sources.
+    // Never scan profile headings, comments, collection lists or arbitrary links.
+    const roots = document.querySelectorAll('#headerNeue2 .idBadgerNeue, #dock');
+    const ids = new Set();
+    let guest = false;
+    for (const root of roots) {
+      for (const anchor of root.querySelectorAll('a[href]')) {
+        try {
+          const url = new URL(anchor.getAttribute('href'), location.origin);
+          if (url.protocol !== 'https:' || !hosts.has(url.hostname) || url.username || url.password || url.port) continue;
+          if (/^\/login\/?$/.test(url.pathname)) guest = true;
+          const match = /^\/user\/([^/]+)\/?$/.exec(url.pathname);
+          if (!match || url.search || url.hash) continue;
+          const uid = decodeURIComponent(match[1]);
+          if (!uid || /\p{Cc}/u.test(uid) || [...uid].length > 256 || new Blob([uid]).size > 256) continue;
+          ids.add(uid);
+        } catch {
+          // Invalid navigation URLs are not evidence of a logged-in identity.
+        }
+      }
+    }
+    return !guest && ids.size === 1 ? [...ids][0] : null;
+  }
+
+  function install() {
+    // The entry lives inside Bangumi's own tab row; without that row there is
+    // no place for it and no partial structure is injected.
+    const tabs = document.querySelector('#headerSubject ul.navTabs');
+    if (!tabs || document.getElementById(ENTRY_ID)) return;
+
+    const item = document.createElement('li');
+    item.id = ENTRY_ID;
+    // Native Bangumi classes give the tab and its panel the existing look:
+    // .navTabs > li > a for the trigger and .dropdown ul for the menu.
+    item.className = 'dropdown bgmss-person-entry';
+
+    const trigger = document.createElement('a');
+    trigger.setAttribute('role', 'button');
+    trigger.tabIndex = 0;
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-controls', MENU_ID);
+    trigger.textContent = ENTRY_LABEL;
+
+    const panel = document.createElement('ul');
+    panel.id = MENU_ID;
+    panel.hidden = true;
+    panel.setAttribute('aria-label', '作品类型');
+
+    const notice = document.createElement('li');
+    notice.className = 'bgmss-entry-notice';
+    notice.dataset.bgmssStatus = '';
+    notice.setAttribute('role', 'status');
+    notice.setAttribute('aria-live', 'polite');
+    notice.hidden = true;
+    panel.append(notice);
+
+    const links = [];
+    let opened = false;
+
+    function refreshLinks() {
+      const uid = loggedInUID();
+      for (const link of links) {
+        if (uid) {
+          const url = new URL('https://search.bgmss.fun/ranking');
+          url.searchParams.set('entry', 'bangumi-person');
+          url.searchParams.set('user', uid);
+          url.searchParams.set('person', person);
+          url.searchParams.set('type', link.dataset.subjectType);
+          link.href = url.href;
+          link.removeAttribute('aria-disabled');
+        } else {
+          link.removeAttribute('href');
+          link.setAttribute('aria-disabled', 'true');
+        }
+      }
+      notice.textContent = uid ? '' : LOGIN_NOTICE;
+      notice.hidden = Boolean(uid);
+      return Boolean(uid);
+    }
+
+    function positionPanel() {
+      if (!opened) return;
+      // Fixed coordinates escape the horizontally scrolling native tab row.
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight;
+      const anchor = trigger.getBoundingClientRect();
+      panel.style.maxHeight = `${Math.max(0, viewportHeight - 16)}px`;
+      const bounds = panel.getBoundingClientRect();
+      panel.style.left = `${Math.max(8, Math.min(anchor.right - bounds.width, viewportWidth - bounds.width - 8))}px`;
+      const top = anchor.bottom + bounds.height <= viewportHeight - 8
+        ? anchor.bottom
+        : Math.max(8, anchor.top - bounds.height);
+      panel.style.top = `${Math.min(top, Math.max(8, viewportHeight - bounds.height - 8))}px`;
+    }
+
+    function setOpen(next, restoreFocus = false) {
+      opened = next;
+      panel.hidden = !opened;
+      item.classList.toggle('bgmss-open', opened);
+      trigger.setAttribute('aria-expanded', String(opened));
+      positionPanel();
+      if (!opened && restoreFocus) trigger.focus();
+    }
+
+    function makeLink(type, label) {
+      const link = document.createElement('a');
+      link.dataset.subjectType = type;
+      link.textContent = label;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.tabIndex = 0;
+      function activate(event) {
+        // Identity is re-checked at activation so a stale menu never launches.
+        const known = refreshLinks();
+        if (!known) event.preventDefault();
+        setOpen(false, !known);
+      }
+      link.addEventListener('click', activate);
+      link.addEventListener('auxclick', activate);
+      link.addEventListener('contextmenu', () => refreshLinks());
+      link.addEventListener('keydown', event => {
+        // An anchor without href stays keyboard-reachable to explain login.
+        if (event.key === 'Enter' && !link.hasAttribute('href')) {
+          event.preventDefault();
+          link.click();
+        }
+      });
+      links.push(link);
+      return link;
+    }
+
+    for (const [type, label] of subjectTypes) {
+      // Bangumi's .dropdown panel styles its options as ul > li > a; without the
+      // list item the anchors lay out inline instead of one row per work type.
+      const option = document.createElement('li');
+      option.append(makeLink(type, label));
+      panel.append(option);
+    }
+    item.append(trigger, panel);
+
+    trigger.addEventListener('click', event => {
+      event.preventDefault();
+      refreshLinks();
+      setOpen(!opened);
+    });
+    trigger.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+        event.preventDefault();
+        refreshLinks();
+        setOpen(!opened);
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        refreshLinks();
+        setOpen(true);
+        panel.querySelector('a')?.focus();
+      }
+    });
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && opened) {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false, true);
+      }
+    });
+    item.addEventListener('focusout', event => {
+      if (!item.contains(event.relatedTarget)) setOpen(false);
+    });
+    document.addEventListener('click', event => {
+      if (!item.contains(event.target)) setOpen(false);
+    });
+
+    window.addEventListener('resize', positionPanel);
+    document.addEventListener('scroll', positionPanel, { capture: true, passive: true });
+
+    const style = document.createElement('style');
+    style.textContent = `
+/* Keep the panel readable independently of native hover-only child styles.
+   Opaque surfaces also avoid mobile backdrop-filter/compositing dependencies. */
+#headerSubject .navTabs > li.bgmss-person-entry > ul { box-sizing: border-box; min-width: 140px; max-width: calc(100vw - 16px); max-height: 70vh; overflow-y: auto; right: auto; padding: 8px; border-radius: 15px; background: #fefefe; color: #555; transform: none; filter: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul[hidden] { display: none; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li { float: none; opacity: 1; transform: none; visibility: inherit; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a { display: block; padding: 10px 14px; min-height: 24px; line-height: 24px; color: inherit; opacity: 1; visibility: inherit; white-space: nowrap; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a:is(:hover, :focus-visible) { color: #1673b8; background: #edf5fc; border-radius: 8px; }
+html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul { background: #333; color: #eee; }
+html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul > li > a:is(:hover, :focus-visible) { color: #8dccff; background: #454545; }
+/* The .bgmss-open rule must stay after the :hover rule: both have the same
+   specificity, so source order is what keeps a clicked-open menu open. */
+#headerSubject .navTabs > li.bgmss-person-entry:hover > ul { visibility: hidden; opacity: 0; z-index: -1; }
+#headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { position: fixed; visibility: visible; opacity: 1; display: block; z-index: 99; }
+@media (max-width: 640px) { #headerSubject .navTabs > li.bgmss-person-entry.bgmss-open > ul { width: min(240px, calc(100vw - 16px)); } }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li.bgmss-entry-notice { padding: 8px 14px; color: #666; font-size: 13px; line-height: 1.4; max-width: 200px; white-space: normal; }
+html[data-theme="dark"] #headerSubject .navTabs > li.bgmss-person-entry > ul > li.bgmss-entry-notice { color: #bbbbbb; }
+#headerSubject .navTabs > li.bgmss-person-entry > ul > li > a[aria-disabled="true"] { cursor: help; }
+`;
+    document.head.append(style);
+    tabs.append(item);
+    refreshLinks();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
+  else install();
+})();

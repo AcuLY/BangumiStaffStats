@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const path = resolve(process.cwd(), '../bangumi_plugin.js');
 // jsdom is already the pinned test runtime; keep its small untyped module
@@ -13,6 +13,9 @@ const { JSDOM } = createRequire(resolve(process.cwd(), 'package.json'))('jsdom')
 };
 const windows: InstanceType<typeof JSDOM>[] = [];
 const source = () => existsSync(path) ? readFileSync(path, 'utf8') : '';
+// Frozen published predecessor: exercises migration against its real anonymous
+// listeners, structure and styles, rather than a mock of the new implementation.
+const legacy = readFileSync(resolve(process.cwd(), 'tests/fixtures/bangumi-plugin-1.1.2.js'), 'utf8');
 
 // Mirrors the real https://bgm.tv/person/<id> header: one subjectNav holding
 // ul.navTabs with the five page tabs followed by the right-aligned 加入收藏,
@@ -36,10 +39,11 @@ function mount(
   nav = '<div id="headerNeue2"><div class="idBadgerNeue"><a class="avatar" href="/user/current-user">Me</a></div></div>',
   url = 'https://bgm.tv/person/6447',
   navTabs = true,
+  script = source(),
 ) {
   const dom = new JSDOM(`<!doctype html><html><head></head><body>${nav}${headerHtml(navTabs)}<main><a href="/user/not-current">评论用户</a></main></body></html>`, { url, runScripts: 'outside-only' });
   windows.push(dom);
-  dom.window.eval(source());
+  dom.window.eval(script);
   dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
   return dom.window;
 }
@@ -55,7 +59,7 @@ function trigger(window: Mounted) {
 }
 
 function typeLink(window: Mounted, type = 'anime') {
-  return window.document.querySelector<HTMLAnchorElement>(`#bgmss-person-entry a[data-subject-type="${type}"]`);
+  return window.document.querySelector<HTMLAnchorElement>(`#bgmss-person-entry-types a[data-subject-type="${type}"]`);
 }
 
 afterEach(() => windows.splice(0).forEach(dom => dom.window.close()));
@@ -69,7 +73,8 @@ describe('Bangumi person userscript', () => {
     expect(item!.tagName).toBe('LI');
     expect(item!.parentElement).toBe(tabs);
     expect(tabs.lastElementChild).toBe(item);
-    expect(trigger(window).textContent).toBe('在 Bangumi Staff Stats 中查看');
+    expect(trigger(window).textContent).toBe('在 Bangumi Staff Stats 中查看 v1.1.3');
+    expect(item!.dataset.bgmssVersion).toBe('1.1.3');
     // The removed block, its own action row and the standalone status row are gone.
     expect(window.document.querySelector('#headerSubject > #bgmss-person-entry')).toBeNull();
     expect(window.document.querySelector('.bgmss-entry-actions')).toBeNull();
@@ -79,11 +84,11 @@ describe('Bangumi person userscript', () => {
   it('keeps every work type in one merged menu with anime first', () => {
     const window = mount();
     const menu = window.document.getElementById(trigger(window).getAttribute('aria-controls')!)!;
-    expect(menu).toBe(window.document.querySelector('#bgmss-person-entry > ul'));
+    expect(menu.parentElement?.id).toBe('bgmss-person-entry-layer');
+    expect(menu.parentElement?.parentElement).toBe(window.document.body);
     expect([...menu.querySelectorAll<HTMLAnchorElement>('a[data-subject-type]')].map(link => link.dataset.subjectType)).toEqual(['anime', 'book', 'music', 'game', 'real']);
     expect([...menu.querySelectorAll<HTMLAnchorElement>('a[data-subject-type]')].map(link => link.textContent)).toEqual(['动画', '书籍', '音乐', '游戏', '三次元']);
-    // Bangumi's .dropdown panel styles ul > li > a; the anchors must not be
-    // direct children of the list or they render inline next to each other.
+    // Keep an accessible list with one full-width link per work type.
     for (const link of menu.querySelectorAll<HTMLAnchorElement>('a[data-subject-type]')) {
       expect(link.parentElement?.tagName).toBe('LI');
       expect(link.parentElement?.parentElement).toBe(menu);
@@ -233,6 +238,109 @@ describe('Bangumi person userscript', () => {
     expect(withoutTabs.document.querySelectorAll('style')).toHaveLength(0);
   });
 
+  it('takes over an open 1.1.2 entry, without removing another component or stylesheet', () => {
+    const window = mount(undefined, undefined, true, legacy);
+    const oldItem = entry(window)!;
+    const oldTrigger = trigger(window);
+    const oldStyle = window.document.querySelector('style')!;
+    const other = window.document.createElement('li');
+    other.id = 'another-component';
+    oldItem.parentElement!.append(other);
+    const otherStyle = window.document.createElement('style');
+    otherStyle.textContent = '#another-component { color: red; }';
+    window.document.head.append(otherStyle);
+    oldTrigger.click();
+    window.eval(source());
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    expect(oldItem.isConnected).toBe(false);
+    expect(oldTrigger.getAttribute('aria-expanded')).toBe('false');
+    expect(oldStyle.isConnected).toBe(false);
+    expect(other.isConnected).toBe(true);
+    expect(otherStyle.isConnected).toBe(true);
+    expect(entry(window)!.dataset.bgmssVersion).toBe('1.1.3');
+    trigger(window).click();
+    window.document.dispatchEvent(new window.Event('scroll'));
+    expect(trigger(window).getAttribute('aria-expanded')).toBe('true');
+    expect(window.document.querySelectorAll('#bgmss-person-entry-types')).toHaveLength(1);
+  });
+
+  it('retains 1.1.3 when the legacy script runs later', () => {
+    const window = mount();
+    const item = entry(window);
+    window.eval(legacy);
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    expect(entry(window)).toBe(item);
+    expect(window.document.querySelectorAll('#bgmss-person-entry-layer')).toHaveLength(1);
+    expect(window.document.querySelectorAll('style')).toHaveLength(1);
+    trigger(window).click();
+    expect(typeLink(window)!.getAttribute('href')).toContain('type=anime');
+  });
+
+  it('disposes registered listeners during an upgrade and never downgrades it', () => {
+    const window = mount();
+    const oldItem = entry(window)!;
+    const oldTrigger = trigger(window);
+    const oldLayer = window.document.getElementById('bgmss-person-entry-layer')!;
+    const removedWindow = vi.spyOn(window, 'removeEventListener');
+    const removedDocument = vi.spyOn(window.document, 'removeEventListener');
+    window.eval(source().replaceAll('1.1.3', '1.1.4'));
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    expect(oldItem.isConnected).toBe(false);
+    expect(oldLayer.isConnected).toBe(false);
+    oldTrigger.click();
+    expect(oldTrigger.getAttribute('aria-expanded')).toBe('false');
+    expect(removedWindow.mock.calls.map(call => call[0])).toEqual(expect.arrayContaining(['resize', 'blur']));
+    expect(removedDocument.mock.calls.map(call => call[0])).toEqual(expect.arrayContaining(['scroll', 'click', 'pointerdown', 'focusin']));
+    const current = entry(window);
+    window.eval(source());
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    expect(entry(window)).toBe(current);
+    expect(current!.dataset.bgmssVersion).toBe('1.1.4');
+    expect(window.document.querySelectorAll('style')).toHaveLength(1);
+  });
+
+  it('does not remove an unrelated component with a colliding ID', () => {
+    const window = mount(undefined, undefined, true, '');
+    const collision = window.document.createElement('li');
+    collision.id = 'bgmss-person-entry';
+    collision.textContent = 'Other component';
+    window.document.querySelector('.navTabs')!.append(collision);
+    window.eval(source());
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    expect(entry(window)).toBe(collision);
+    expect(window.document.getElementById('bgmss-person-entry-layer')).toBeNull();
+  });
+
+  it('preserves Tab and Shift+Tab between the trigger and portaled menu', () => {
+    const window = mount();
+    const button = trigger(window);
+    button.focus();
+    button.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    button.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(window.document.activeElement).toBe(typeLink(window));
+    typeLink(window)!.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+    expect(window.document.activeElement).toBe(button);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('keeps focus inside the separate menu and ignores transient null focusout', () => {
+    const window = mount();
+    const button = trigger(window);
+    button.focus();
+    button.click();
+    button.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    typeLink(window, 'book')!.focus();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    typeLink(window, 'music')!.focus();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    window.document.querySelector<HTMLAnchorElement>('main a')!.focus();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    button.click();
+    window.document.querySelector('main')!.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it.each(['0', '01', '-1', '9007199254740992', '6447/works', '6447x'])('does not activate malformed or non-overview person path %s', id => {
     const window = mount(undefined, `https://bgm.tv/person/${id}`);
     expect(window.document.querySelector('#bgmss-person-entry')).toBeNull();
@@ -241,8 +349,8 @@ describe('Bangumi person userscript', () => {
   it('ships standards metadata for person and user pages without privileged grants', () => {
     expect(source()).toContain('// ==UserScript==');
     expect(source()).toContain('// @grant        none');
-    // Bangumi's own .dropdown opens on hover; this entry must stay click-driven.
-    expect(source()).toMatch(/li\.bgmss-person-entry:hover\s*>\s*ul/);
+    expect(source()).toContain('// @version      1.1.3');
+    expect(source()).toContain("const VERSION = '1.1.3'");
     expect(source()).not.toMatch(/@connect|document\.cookie|localStorage|GM_xmlhttpRequest/);
   });
 });

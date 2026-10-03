@@ -176,6 +176,7 @@ const expectedInventory = [
   'tests/app/app.mount.test.ts',
   'tests/app/locale.test.ts',
   'tests/app/bangumi-plugin.test.ts',
+  'tests/fixtures/bangumi-plugin-1.1.2.js',
   'tests/shared/search-sort-toolbar.test.ts',
   'tests/app/co-star.integration.test.ts',
   'tests/app/person-entry-parser.test.ts',
