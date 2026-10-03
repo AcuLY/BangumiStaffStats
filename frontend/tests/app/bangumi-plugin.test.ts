@@ -73,12 +73,36 @@ describe('Bangumi person userscript', () => {
     expect(item!.tagName).toBe('LI');
     expect(item!.parentElement).toBe(tabs);
     expect(tabs.lastElementChild).toBe(item);
-    expect(trigger(window).textContent).toBe('在 Bangumi Staff Stats 中查看 v1.1.3');
-    expect(item!.dataset.bgmssVersion).toBe('1.1.3');
+    expect(trigger(window).textContent).toBe('在 Bangumi Staff Stats 中查看 v1.1.4');
+    expect(item!.dataset.bgmssVersion).toBe('1.1.4');
     // The removed block, its own action row and the standalone status row are gone.
     expect(window.document.querySelector('#headerSubject > #bgmss-person-entry')).toBeNull();
     expect(window.document.querySelector('.bgmss-entry-actions')).toBeNull();
     expect(window.document.querySelector('#bgmss-person-entry button')).toBeNull();
+  });
+
+  it.each(['light', 'dark'])('keeps menu text opaque despite transparent host list colors in %s mode', theme => {
+    const window = mount(undefined, undefined, true, '');
+    window.document.documentElement.dataset.theme = theme;
+    const hostStyle = window.document.createElement('style');
+    hostStyle.textContent = 'li { color: transparent !important; -webkit-text-fill-color: transparent !important; }';
+    window.document.head.prepend(hostStyle);
+    window.eval(source());
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    trigger(window).click();
+    const expected = theme === 'dark' ? 'rgb(238, 238, 238)' : 'rgb(85, 85, 85)';
+    for (const link of window.document.querySelectorAll('#bgmss-person-entry-types a')) {
+      expect(window.getComputedStyle(link).color).toBe(expected);
+    }
+    const guest = mount('<div id="dock"><a href="/login">登录</a></div>', undefined, true, '');
+    guest.document.documentElement.dataset.theme = theme;
+    const guestHostStyle = guest.document.createElement('style');
+    guestHostStyle.textContent = hostStyle.textContent;
+    guest.document.head.prepend(guestHostStyle);
+    guest.eval(source());
+    guest.document.dispatchEvent(new guest.Event('DOMContentLoaded'));
+    trigger(guest).click();
+    expect(guest.getComputedStyle(guest.document.querySelector('.bgmss-entry-notice')!).color).toBe(expected);
   });
 
   it('keeps every work type in one merged menu with anime first', () => {
@@ -257,14 +281,14 @@ describe('Bangumi person userscript', () => {
     expect(oldStyle.isConnected).toBe(false);
     expect(other.isConnected).toBe(true);
     expect(otherStyle.isConnected).toBe(true);
-    expect(entry(window)!.dataset.bgmssVersion).toBe('1.1.3');
+    expect(entry(window)!.dataset.bgmssVersion).toBe('1.1.4');
     trigger(window).click();
     window.document.dispatchEvent(new window.Event('scroll'));
     expect(trigger(window).getAttribute('aria-expanded')).toBe('true');
     expect(window.document.querySelectorAll('#bgmss-person-entry-types')).toHaveLength(1);
   });
 
-  it('retains 1.1.3 when the legacy script runs later', () => {
+  it('retains 1.1.4 when the legacy script runs later', () => {
     const window = mount();
     const item = entry(window);
     window.eval(legacy);
@@ -283,7 +307,7 @@ describe('Bangumi person userscript', () => {
     const oldLayer = window.document.getElementById('bgmss-person-entry-layer')!;
     const removedWindow = vi.spyOn(window, 'removeEventListener');
     const removedDocument = vi.spyOn(window.document, 'removeEventListener');
-    window.eval(source().replaceAll('1.1.3', '1.1.4'));
+    window.eval(source().replaceAll('1.1.4', '1.1.5'));
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
     expect(oldItem.isConnected).toBe(false);
     expect(oldLayer.isConnected).toBe(false);
@@ -295,7 +319,7 @@ describe('Bangumi person userscript', () => {
     window.eval(source());
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
     expect(entry(window)).toBe(current);
-    expect(current!.dataset.bgmssVersion).toBe('1.1.4');
+    expect(current!.dataset.bgmssVersion).toBe('1.1.5');
     expect(window.document.querySelectorAll('style')).toHaveLength(1);
   });
 
@@ -349,8 +373,8 @@ describe('Bangumi person userscript', () => {
   it('ships standards metadata for person and user pages without privileged grants', () => {
     expect(source()).toContain('// ==UserScript==');
     expect(source()).toContain('// @grant        none');
-    expect(source()).toContain('// @version      1.1.3');
-    expect(source()).toContain("const VERSION = '1.1.3'");
+    expect(source()).toContain('// @version      1.1.4');
+    expect(source()).toContain("const VERSION = '1.1.4'");
     expect(source()).not.toMatch(/@connect|document\.cookie|localStorage|GM_xmlhttpRequest/);
   });
 });

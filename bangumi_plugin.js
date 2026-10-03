@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bangumi Staff Stats · 人物收藏参与作品
 // @namespace    https://github.com/AcuLY/BangumiStaffStats
-// @version      1.1.3
+// @version      1.1.4
 // @description  在用户主页查看 Staff 数据统计；在人物页导航行查看当前登录用户收藏中的参与作品。
 // @match        https://bgm.tv/person/*
 // @match        https://bangumi.tv/person/*
@@ -61,7 +61,7 @@
   const ENTRY_ID = 'bgmss-person-entry';
   const MENU_ID = 'bgmss-person-entry-types';
   const LAYER_ID = 'bgmss-person-entry-layer';
-  const VERSION = '1.1.3';
+  const VERSION = '1.1.4';
   const OWNER = 'bangumi-staff-stats/person-entry';
   const INSTANCE = Symbol.for(OWNER);
   const ENTRY_LABEL = '在 Bangumi Staff Stats 中查看';
@@ -326,20 +326,22 @@
     const style = document.createElement('style');
     style.dataset.bgmssOwner = OWNER;
     style.textContent = `
-/* Only the native trigger stays in the tab row. The owned layer is independent
+/* Menu rows and links own their colors; host list colors must not leak in.
+   Only the native trigger stays in the tab row. The owned layer is independent
    of its overflow, transforms and backdrop compositing. */
 #bgmss-person-entry > a > .bgmss-entry-version { font-size: 10px; font-weight: normal; margin-left: 3px; -webkit-text-fill-color: currentColor; }
 #bgmss-person-entry-layer { all: initial; position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; isolation: isolate; }
 #bgmss-person-entry-layer, #bgmss-person-entry-layer * { box-sizing: border-box; opacity: 1 !important; visibility: visible !important; -webkit-text-fill-color: currentColor !important; text-shadow: none; }
 #bgmss-person-entry-layer[hidden], #bgmss-person-entry-layer [hidden] { display: none !important; }
 #bgmss-person-entry-layer > ul { all: initial; box-sizing: border-box; position: fixed; display: block; pointer-events: auto; width: max-content; min-width: 140px; max-width: calc(100vw - 16px); overflow: auto; overscroll-behavior: contain; margin: 0; padding: 8px; border: 1px solid #ddd; border-radius: 15px; box-shadow: 0 5px 20px #0002; background: #fefefe; color: #555 !important; font: 14px/1.5 system-ui, sans-serif; }
-#bgmss-person-entry-layer > ul > li { all: unset; display: block; }
-#bgmss-person-entry-layer > ul > li > a { all: unset; box-sizing: border-box; display: block; min-height: 44px; padding: 10px 14px; line-height: 24px; color: inherit !important; white-space: nowrap; cursor: pointer; border-radius: 8px; }
+#bgmss-person-entry-layer > ul > li { all: unset; display: block; color: #555 !important; }
+#bgmss-person-entry-layer > ul > li > a { all: unset; box-sizing: border-box; display: block; min-height: 44px; padding: 10px 14px; line-height: 24px; color: #555 !important; white-space: nowrap; cursor: pointer; border-radius: 8px; }
 #bgmss-person-entry-layer > ul > li > a:is(:hover, :focus-visible) { color: #1673b8 !important; background: #edf5fc; }
 #bgmss-person-entry-layer > ul > li > a:focus-visible { outline: 2px solid #1673b8; outline-offset: -2px; }
 #bgmss-person-entry-layer > ul > li.bgmss-entry-notice { display: block; padding: 8px 14px; font-size: 13px; line-height: 1.4; max-width: 224px; white-space: normal; }
 #bgmss-person-entry-layer > ul > li > a[aria-disabled="true"] { cursor: help; }
 html[data-theme="dark"] #bgmss-person-entry-layer > ul { background: #333; color: #eee !important; border-color: #555; }
+html[data-theme="dark"] #bgmss-person-entry-layer > ul > li, html[data-theme="dark"] #bgmss-person-entry-layer > ul > li > a { color: #eee !important; }
 html[data-theme="dark"] #bgmss-person-entry-layer > ul > li > a:is(:hover, :focus-visible) { color: #8dccff !important; background: #454545; }
 html[data-theme="dark"] #bgmss-person-entry-layer > ul > li > a:focus-visible { outline-color: #8dccff; }
 @media (max-width: 640px) { #bgmss-person-entry-layer > ul { width: min(240px, calc(100vw - 16px)); } }
